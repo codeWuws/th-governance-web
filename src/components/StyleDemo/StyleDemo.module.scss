@@ -1,0 +1,320 @@
+@use 'sass:color';
+@use '../../styles/variables' as *;
+@use '../../styles/mixins' as *;
+
+// CSS Modules 样式演示文件
+.container {
+  @include card($spacing-xl, $border-radius-lg);
+  max-width: 800px;
+  margin: $spacing-xl auto;
+  
+  .title {
+    font-size: $font-size-xl;
+    font-weight: $font-weight-semibold;
+    color: $primary-color;
+    margin-bottom: $spacing-lg;
+    text-align: center;
+    
+    &::after {
+      content: '';
+      display: block;
+      width: 60px;
+      height: 3px;
+      background: linear-gradient(90deg, $primary-color, $primary-color-hover);
+      margin: $spacing-sm auto 0;
+      border-radius: $border-radius-sm;
+    }
+  }
+  
+  .section {
+    margin-bottom: $spacing-xl;
+    
+    .sectionTitle {
+      font-size: $font-size-lg;
+      font-weight: $font-weight-medium;
+      color: $text-color;
+      margin-bottom: $spacing-md;
+      padding-bottom: $spacing-xs;
+      border-bottom: 1px solid $border-color-split;
+    }
+  }
+}
+
+// 按钮演示
+.buttonGroup {
+  @include flex(row, flex-start, center, wrap);
+  gap: $spacing-md;
+  
+  .button {
+    @include button-variant($gray-1, $primary-color, $primary-color);
+    padding: $spacing-sm $spacing-lg;
+    border-radius: $border-radius-base;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+    transition: all $animation-duration-base $ease-out;
+    cursor: pointer;
+    
+    &.secondary {
+      @include button-variant($primary-color, transparent, $primary-color);
+    }
+    
+    &.success {
+      @include button-variant($gray-1, $success-color, $success-color);
+    }
+    
+    &.warning {
+      @include button-variant($gray-1, $warning-color, $warning-color);
+    }
+    
+    &.danger {
+      @include button-variant($gray-1, $error-color, $error-color);
+    }
+    
+    &.large {
+      padding: $spacing-md $spacing-xl;
+      font-size: $font-size-base;
+    }
+    
+    &.small {
+      padding: $spacing-xs $spacing-sm;
+      font-size: $font-size-xs;
+    }
+  }
+}
+
+// 卡片演示
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: $spacing-lg;
+  
+  .card {
+    @include card($spacing-lg, $border-radius-lg);
+    transition: all $animation-duration-base $ease-out;
+    
+    &:hover {
+      transform: translateY(-4px);
+      @include box-shadow-variant(3);
+    }
+    
+    .cardHeader {
+      @include flex(row, space-between, center);
+      margin-bottom: $spacing-md;
+      
+      .cardTitle {
+        font-size: $font-size-base;
+        font-weight: $font-weight-medium;
+        color: $text-color;
+        margin: 0;
+      }
+      
+      .cardIcon {
+        width: 24px;
+        height: 24px;
+        color: $primary-color;
+      }
+    }
+    
+    .cardContent {
+      color: $text-color-secondary;
+      font-size: $font-size-sm;
+      line-height: $line-height-base;
+      @include text-ellipsis(3);
+    }
+    
+    .cardFooter {
+      margin-top: $spacing-md;
+      padding-top: $spacing-md;
+      border-top: 1px solid $border-color-split;
+      
+      .cardAction {
+        color: $primary-color;
+        font-size: $font-size-sm;
+        cursor: pointer;
+        transition: color $animation-duration-base $ease-out;
+        
+        &:hover {
+          color: $primary-color-hover;
+        }
+      }
+    }
+  }
+}
+
+// 输入框演示
+.formGroup {
+  margin-bottom: $spacing-lg;
+  
+  .label {
+    display: block;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+    color: $text-color;
+    margin-bottom: $spacing-xs;
+  }
+  
+  .input {
+    @include input-variant();
+    width: 100%;
+    font-size: $font-size-sm;
+    
+    &.error {
+      @include input-variant($error-color, $error-color);
+    }
+    
+    &.success {
+      @include input-variant($success-color, $success-color);
+    }
+  }
+  
+  .textarea {
+    @extend .input;
+    min-height: 80px;
+    resize: vertical;
+  }
+  
+  .helpText {
+    font-size: $font-size-xs;
+    color: $text-color-tertiary;
+    margin-top: $spacing-xs;
+    
+    &.error {
+      color: $error-color;
+    }
+    
+    &.success {
+      color: $success-color;
+    }
+  }
+}
+
+// 标签演示
+.tagGroup {
+  @include flex(row, flex-start, center, wrap);
+  gap: $spacing-sm;
+  
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    padding: $spacing-xs $spacing-sm;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-medium;
+    border-radius: $border-radius-sm;
+    background-color: $gray-3;
+    color: $text-color-secondary;
+    transition: all $animation-duration-base $ease-out;
+    
+    &.primary {
+      background-color: rgba($primary-color, 0.1);
+      color: $primary-color;
+    }
+    
+    &.success {
+      background-color: rgba($success-color, 0.1);
+      color: $success-color;
+    }
+    
+    &.warning {
+      background-color: rgba($warning-color, 0.1);
+      color: $warning-color;
+    }
+    
+    &.danger {
+      background-color: rgba($error-color, 0.1);
+      color: $error-color;
+    }
+    
+    &:hover {
+      transform: scale(1.05);
+    }
+  }
+}
+
+// 进度条演示
+.progressGroup {
+  .progressItem {
+    margin-bottom: $spacing-lg;
+    
+    .progressLabel {
+      @include flex(row, space-between, center);
+      margin-bottom: $spacing-xs;
+      
+      .progressText {
+        font-size: $font-size-sm;
+        color: $text-color;
+      }
+      
+      .progressPercent {
+        font-size: $font-size-xs;
+        color: $text-color-secondary;
+      }
+    }
+    
+    .progressBar {
+      width: 100%;
+      height: 8px;
+      background-color: $gray-3;
+      border-radius: $border-radius-sm;
+      overflow: hidden;
+      
+      .progressFill {
+        height: 100%;
+        background: linear-gradient(90deg, $primary-color, $primary-color-hover);
+        border-radius: $border-radius-sm;
+        transition: width $animation-duration-slow $ease-out;
+        
+        &.success {
+          background: linear-gradient(90deg, $success-color, color.adjust($success-color, $lightness: 10%));
+        }
+        
+        &.warning {
+          background: linear-gradient(90deg, $warning-color, color.adjust($warning-color, $lightness: 10%));
+        }
+        
+        &.danger {
+          background: linear-gradient(90deg, $error-color, color.adjust($error-color, $lightness: 10%));
+        }
+      }
+    }
+  }
+}
+
+// 响应式设计
+@include respond-to(md) {
+  .container {
+    margin: $spacing-lg;
+    padding: $spacing-lg;
+  }
+  
+  .cardGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .buttonGroup {
+    justify-content: center;
+  }
+}
+
+@include respond-to(sm) {
+  .container {
+    margin: $spacing-md;
+    padding: $spacing-md;
+  }
+  
+  .title {
+    font-size: $font-size-lg;
+  }
+}
+
+// 动画效果
+.fadeIn {
+  @include fade-in();
+}
+
+.slideInLeft {
+  @include slide-in(left);
+}
+
+.slideInRight {
+  @include slide-in(right);
+}

@@ -1,0 +1,66 @@
+@use '../../styles/variables.scss' as *;
+
+.breadcrumbWrapper {
+    padding: 0;
+    background: transparent;
+    border-bottom: none;
+    width: 100%;
+    
+    .breadcrumb {
+        margin: 0;
+        
+        :global(.ant-breadcrumb-link) {
+            color: $text-color-secondary;
+            transition: color 0.2s ease;
+            font-size: 14px;
+            
+            &:hover {
+                color: $primary-color;
+            }
+        }
+        
+        :global(.ant-breadcrumb-separator) {
+            color: $text-color-quaternary;
+            margin: 0 6px;
+            font-size: 12px;
+        }
+        
+        :global(.ant-breadcrumb ol) {
+            margin: 0;
+            padding: 0;
+        }
+        
+        :global(.ant-breadcrumb li) {
+            margin: 0;
+            line-height: 1.5;
+        }
+    }
+}
+
+.breadcrumbLink {
+    display: inline-flex;
+    align-items: center;
+    color: $text-color-secondary;
+    text-decoration: none;
+    transition: color 0.2s ease;
+    font-size: 14px;
+    
+    &:hover {
+        color: $primary-color;
+    }
+}
+
+.breadcrumbCurrent {
+    display: inline-flex;
+    align-items: center;
+    color: $text-color;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.breadcrumbIcon {
+    margin-right: 6px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 12px;
+}

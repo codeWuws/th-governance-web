@@ -1,0 +1,18 @@
+# 生产环境浏览器支持
+> 1%
+last 2 versions
+not dead
+not ie 11
+
+# 开发环境
+[development]
+last 1 chrome version
+last 1 firefox version
+last 1 safari version
+
+# 现代浏览器
+[modern]
+last 1 chrome version
+last 1 firefox version
+last 1 safari version
+last 1 edge version

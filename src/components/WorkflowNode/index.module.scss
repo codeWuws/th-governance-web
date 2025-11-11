@@ -1,0 +1,200 @@
+@use '@/styles/variables' as *;
+@use '@/styles/mixins' as *;
+
+.workflowNode {
+    position: relative;
+    width: 280px;
+    min-height: 120px;
+    background: #fff;
+    border: 2px solid #e8e8e8;
+    border-radius: 12px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+
+    &:hover {
+        border-color: #1890ff;
+        box-shadow: 0 4px 16px rgba(24, 144, 255, 0.15);
+        transform: translateY(-2px);
+    }
+
+    &.active {
+        border-color: #1890ff;
+        box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+    }
+
+    // 状态样式
+    &.idle {
+        border-color: #d9d9d9;
+        
+        .nodeIcon {
+            color: #8c8c8c;
+        }
+    }
+
+    &.running {
+        border-color: #1890ff;
+        background: linear-gradient(135deg, #fff 0%, #f0f8ff 100%);
+        
+        .nodeIcon {
+            color: #1890ff;
+        }
+
+        &::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            border-radius: 12px;
+            background: linear-gradient(45deg, #1890ff, #40a9ff, #1890ff);
+            background-size: 200% 200%;
+            animation: borderFlow 2s linear infinite;
+            z-index: -1;
+        }
+    }
+
+    &.completed {
+        border-color: #52c41a;
+        background: linear-gradient(135deg, #fff 0%, #f6ffed 100%);
+        
+        .nodeIcon {
+            color: #52c41a;
+        }
+    }
+
+    &.error {
+        border-color: #ff4d4f;
+        background: linear-gradient(135deg, #fff 0%, #fff2f0 100%);
+        
+        .nodeIcon {
+            color: #ff4d4f;
+        }
+    }
+
+    &.paused {
+        border-color: #faad14;
+        background: linear-gradient(135deg, #fff 0%, #fffbe6 100%);
+        
+        .nodeIcon {
+            color: #faad14;
+        }
+    }
+}
+
+.nodeHeader {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.nodeIcon {
+    font-size: 20px;
+    margin-right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.nodeTitle {
+    flex: 1;
+}
+
+.nodeName {
+    font-size: 16px;
+    font-weight: 600;
+    color: #262626;
+    line-height: 1.4;
+    margin-bottom: 2px;
+}
+
+.nodeStatus {
+    font-size: 12px;
+    color: #8c8c8c;
+    line-height: 1.2;
+}
+
+.nodeContent {
+    margin-bottom: 8px;
+}
+
+.nodeDescription {
+    font-size: 13px;
+    color: #595959;
+    line-height: 1.5;
+    margin-bottom: 12px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.progressSection {
+    margin-bottom: 8px;
+}
+
+.progressText {
+    font-size: 12px;
+    color: #8c8c8c;
+    text-align: right;
+    margin-top: 4px;
+}
+
+.errorMessage {
+    font-size: 12px;
+    color: #ff4d4f;
+    background: #fff2f0;
+    border: 1px solid #ffccc7;
+    border-radius: 4px;
+    padding: 6px 8px;
+    margin-top: 8px;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.nodeNumber {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 24px;
+    height: 24px;
+    background: #1890ff;
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+// 边框流动动画
+@keyframes borderFlow {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+    .workflowNode {
+        width: 100%;
+        min-width: 260px;
+    }
+}

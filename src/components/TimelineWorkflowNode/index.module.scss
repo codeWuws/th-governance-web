@@ -1,0 +1,447 @@
+@use '@/styles/variables' as *;
+@use '@/styles/mixins' as *;
+
+.timelineNode {
+    display: flex;
+    position: relative;
+    margin-bottom: 24px;
+    
+    &:last-child {
+        margin-bottom: 0;
+    }
+}
+
+.timelineLeft {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-right: 24px;
+    position: relative;
+}
+
+.nodeIconWrapper {
+    position: relative;
+    z-index: 2;
+}
+
+.nodeIcon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    border: 3px solid;
+    background: #fff;
+    transition: all 0.3s ease;
+    position: relative;
+
+    // 状态样式
+    &.idle {
+        border-color: #d9d9d9;
+        color: #8c8c8c;
+        background: #fafafa;
+    }
+
+    &.running {
+        border-color: #1890ff;
+        color: #1890ff;
+        background: #fff;
+        box-shadow: 0 0 0 4px rgba(24, 144, 255, 0.2);
+        
+        &::before {
+            content: '';
+            position: absolute;
+            top: -6px;
+            left: -6px;
+            right: -6px;
+            bottom: -6px;
+            border-radius: 50%;
+            border: 2px solid #1890ff;
+            animation: pulse 2s infinite;
+        }
+    }
+
+    &.completed {
+        border-color: #52c41a;
+        color: #52c41a;
+        background: #f6ffed;
+    }
+
+    &.error {
+        border-color: #ff4d4f;
+        color: #ff4d4f;
+        background: #fff2f0;
+    }
+
+    &.paused {
+        border-color: #faad14;
+        color: #faad14;
+        background: #fffbe6;
+    }
+}
+
+.nodeNumber {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 20px;
+    height: 20px;
+    background: #1890ff;
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 2px solid #fff;
+}
+
+.timelineLine {
+    width: 3px;
+    flex: 1;
+    min-height: 60px;
+    margin-top: 8px;
+    border-radius: 2px;
+    transition: all 0.3s ease;
+
+    &.idle {
+        background: #f0f0f0;
+    }
+
+    &.running {
+        background: linear-gradient(to bottom, #1890ff, #40a9ff);
+        animation: lineFlow 2s linear infinite;
+    }
+
+    &.completed {
+        background: #52c41a;
+    }
+
+    &.error {
+        background: #ff4d4f;
+    }
+
+    &.paused {
+        background: #faad14;
+    }
+}
+
+.timelineRight {
+    flex: 1;
+    min-width: 0;
+}
+
+.nodeCard {
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: 2px solid transparent;
+    animation: cardSlideIn 0.6s ease-out;
+
+    &:hover {
+        transform: translateX(8px) translateY(-2px);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+    }
+
+    &.active {
+        border-color: #1890ff;
+        box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.2);
+        animation: progressGlow 2s ease-in-out infinite;
+    }
+
+    &.idle {
+        border-color: #f0f0f0;
+        
+        &:hover {
+            border-color: #d9d9d9;
+        }
+    }
+
+    &.running {
+        border-color: #1890ff;
+        background: linear-gradient(135deg, #fff 0%, #f0f8ff 100%);
+        
+        &::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            border-radius: 12px;
+            background: linear-gradient(45deg, #1890ff, #40a9ff, #69c0ff, #40a9ff, #1890ff);
+            background-size: 300% 300%;
+            animation: borderGlow 3s linear infinite;
+            z-index: -1;
+        }
+    }
+
+    &.completed {
+        border-color: #52c41a;
+        background: linear-gradient(135deg, #fff 0%, #f6ffed 100%);
+        
+        &:hover {
+            border-color: #389e0d;
+        }
+    }
+
+    &.error {
+        border-color: #ff4d4f;
+        background: linear-gradient(135deg, #fff 0%, #fff2f0 100%);
+        
+        &:hover {
+            border-color: #cf1322;
+        }
+    }
+
+    &.paused {
+        border-color: #faad14;
+        background: linear-gradient(135deg, #fff 0%, #fffbe6 100%);
+        
+        &:hover {
+            border-color: #d48806;
+        }
+    }
+}
+
+.nodeHeader {
+    margin-bottom: 12px;
+}
+
+.nodeTitle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.nodeName {
+    font-size: 16px;
+    font-weight: 600;
+    color: #262626;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.statusTag {
+    font-size: 12px;
+    border-radius: 12px;
+    margin: 0;
+}
+
+.nodeDescription {
+    font-size: 14px;
+    color: #595959;
+    line-height: 1.6;
+    margin-bottom: 16px;
+}
+
+.progressSection {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    transition: all 0.3s ease;
+
+    &:hover {
+        background: rgba(0, 0, 0, 0.04);
+        border-color: rgba(0, 0, 0, 0.1);
+    }
+}
+
+.progressHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.progressLabel {
+    font-size: 13px;
+    color: #8c8c8c;
+    font-weight: 500;
+}
+
+.progressPercent {
+    font-size: 13px;
+    color: #262626;
+    font-weight: 600;
+}
+
+.recordsInfo {
+    font-size: 12px;
+    color: #8c8c8c;
+    text-align: right;
+    margin-top: 6px;
+}
+
+.timeInfo {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    transition: all 0.3s ease;
+
+    &:hover {
+        background: rgba(0, 0, 0, 0.04);
+        border-color: rgba(0, 0, 0, 0.1);
+    }
+}
+
+.timeItem {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.timeLabel {
+    font-size: 11px;
+    color: #8c8c8c;
+    font-weight: 500;
+}
+
+.timeValue {
+    font-size: 13px;
+    color: #262626;
+    font-weight: 600;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.errorSection {
+    margin-top: 12px;
+}
+
+.errorMessage {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 13px;
+    color: #ff4d4f;
+    background: #fff2f0;
+    border: 1px solid #ffccc7;
+    border-radius: 6px;
+    padding: 8px 12px;
+    line-height: 1.5;
+}
+
+.errorIcon {
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+// 动画效果
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes lineFlow {
+    0% {
+        background: linear-gradient(to bottom, #1890ff 0%, #40a9ff 50%, #1890ff 100%);
+        background-size: 100% 200%;
+        background-position: 0% 0%;
+    }
+    50% {
+        background: linear-gradient(to bottom, #40a9ff 0%, #69c0ff 50%, #40a9ff 100%);
+        background-size: 100% 200%;
+        background-position: 0% 50%;
+    }
+    100% {
+        background: linear-gradient(to bottom, #1890ff 0%, #40a9ff 50%, #1890ff 100%);
+        background-size: 100% 200%;
+        background-position: 0% 100%;
+    }
+}
+
+@keyframes cardSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes progressGlow {
+    0%, 100% {
+        box-shadow: 0 0 5px rgba(24, 144, 255, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 15px rgba(24, 144, 255, 0.6);
+    }
+}
+
+@keyframes borderGlow {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+    .timelineNode {
+        margin-bottom: 16px;
+    }
+    
+    .timelineLeft {
+        margin-right: 16px;
+    }
+    
+    .nodeIcon {
+        width: 40px;
+        height: 40px;
+        font-size: 16px;
+    }
+    
+    .nodeNumber {
+        width: 18px;
+        height: 18px;
+        font-size: 10px;
+        top: -6px;
+        right: -6px;
+    }
+    
+    .timelineLine {
+        min-height: 40px;
+    }
+    
+    .nodeName {
+        font-size: 15px;
+    }
+    
+    .nodeDescription {
+        font-size: 13px;
+    }
+    
+    .timeInfo {
+        .timeItem {
+            flex-direction: row;
+            gap: 8px;
+            align-items: center;
+        }
+    }
+}

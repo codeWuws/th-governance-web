@@ -1,0 +1,160 @@
+.advanced-search-container {
+    padding: 24px;
+    background-color: #f5f5f5;
+    min-height: calc(100vh - 120px);
+
+    .filter-conditions-card {
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        height: calc(100vh - 180px);
+        overflow-y: auto;
+
+        .ant-card-head {
+            background-color: #fafafa;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .ant-card-body {
+            padding: 16px;
+        }
+    }
+
+    .search-results-card {
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        height: calc(100vh - 180px);
+
+        .ant-card-head {
+            background-color: #fafafa;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .ant-table {
+            height: calc(100vh - 260px);
+            overflow-y: auto;
+
+            .ant-table-thead > tr > th {
+                background-color: #fafafa;
+                font-weight: 600;
+                color: #333;
+                border-bottom: 2px solid #f0f0f0;
+                position: sticky;
+                top: 0;
+                z-index: 1;
+            }
+
+            .ant-table-tbody > tr:hover {
+                background-color: #f6ffed;
+            }
+
+            .ant-table-tbody > tr > td {
+                padding: 12px 8px;
+                border-bottom: 1px solid #f0f0f0;
+            }
+        }
+
+        .ant-pagination {
+            margin-top: 16px;
+            text-align: right;
+        }
+    }
+
+    .filter-conditions {
+        .filter-condition {
+            background-color: #f9f9f9;
+            border: 1px solid #e8e8e8;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 12px;
+
+            &:last-child {
+                margin-bottom: 0;
+            }
+
+            .condition-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 12px;
+                padding-bottom: 8px;
+                border-bottom: 1px solid #e8e8e8;
+
+                .condition-number {
+                    font-weight: 600;
+                    color: #1890ff;
+                }
+            }
+
+            .condition-content {
+                .ant-form-item {
+                    margin-bottom: 12px;
+
+                    &:last-child {
+                        margin-bottom: 0;
+                    }
+
+                    .ant-form-item-label {
+                        padding-bottom: 4px;
+                        font-weight: 500;
+                    }
+                }
+            }
+        }
+    }
+
+    .search-actions {
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid #e8e8e8;
+    }
+}
+
+// 响应式设计
+@media (max-width: 1200px) {
+    .advanced-search-container {
+        .ant-row {
+            flex-direction: column;
+        }
+
+        .ant-col {
+            width: 100% !important;
+            margin-bottom: 16px;
+        }
+
+        .filter-conditions-card,
+        .search-results-card {
+            height: auto;
+            max-height: 500px;
+        }
+
+        .search-results-card .ant-table {
+            height: auto;
+            max-height: 400px;
+        }
+    }
+}
+
+@media (max-width: 768px) {
+    .advanced-search-container {
+        padding: 16px;
+
+        .filter-conditions-card,
+        .search-results-card {
+            max-height: 400px;
+        }
+
+        .search-results-card .ant-table {
+            max-height: 300px;
+        }
+
+        .filter-condition {
+            .condition-content {
+                .ant-form-item {
+                    .ant-form-item-control {
+                        width: 100%;
+                    }
+                }
+            }
+        }
+    }
+}

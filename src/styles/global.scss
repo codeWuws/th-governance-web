@@ -1,0 +1,378 @@
+@use 'sass:color';
+@use './variables' as *;
+@use './mixins' as *;
+
+// 全局样式重置和基础样式
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif, 'Apple Color Emoji',
+    'Segoe UI Emoji', 'Segoe UI Symbol';
+  font-size: $font-size-base;
+  line-height: $line-height-base;
+  color: $text-color;
+  background-color: $background-color-light;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  height: 100%;
+}
+
+// 链接样式
+a {
+  color: $primary-color;
+  text-decoration: none;
+  transition: color $animation-duration-base $ease-out;
+
+  &:hover {
+    color: $primary-color-hover;
+  }
+
+  &:active {
+    color: $primary-color-active;
+  }
+}
+
+// 标题样式
+h1, h2, h3, h4, h5, h6 {
+  margin: 0 0 $spacing-lg 0;
+  font-weight: $font-weight-medium;
+  color: $text-color;
+}
+
+h1 {
+  font-size: $font-size-xxl;
+  line-height: $line-height-lg;
+}
+
+h2 {
+  font-size: $font-size-xl;
+  line-height: $line-height-lg;
+}
+
+h3 {
+  font-size: $font-size-lg;
+  line-height: $line-height-base;
+}
+
+h4 {
+  font-size: $font-size-base;
+  line-height: $line-height-base;
+}
+
+h5 {
+  font-size: $font-size-sm;
+  line-height: $line-height-base;
+}
+
+h6 {
+  font-size: $font-size-xs;
+  line-height: $line-height-base;
+}
+
+// 段落样式
+p {
+  margin: 0 0 $spacing-lg 0;
+  color: $text-color;
+}
+
+// 列表样式
+ul, ol {
+  margin: 0 0 $spacing-lg 0;
+  padding-left: $spacing-xl;
+}
+
+li {
+  margin-bottom: $spacing-xs;
+}
+
+// 表格样式
+table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+th, td {
+  padding: $spacing-sm $spacing-md;
+  text-align: left;
+  border-bottom: 1px solid $border-color-split;
+}
+
+th {
+  font-weight: $font-weight-medium;
+  background-color: $gray-2;
+}
+
+// 表单元素样式
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  background: none;
+}
+
+// 滚动条样式
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.3);
+  }
+}
+
+// 选择文本样式
+::selection {
+  background-color: rgba($primary-color, 0.2);
+  color: $text-color;
+}
+
+::-moz-selection {
+  background-color: rgba($primary-color, 0.2);
+  color: $text-color;
+}
+
+// 工具类
+.text-center {
+  text-align: center;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-ellipsis {
+  @include text-ellipsis();
+}
+
+.text-ellipsis-2 {
+  @include text-ellipsis(2);
+}
+
+.text-ellipsis-3 {
+  @include text-ellipsis(3);
+}
+
+// Flex 工具类
+.flex {
+  display: flex;
+}
+
+.flex-center {
+  @include flex(row, center, center);
+}
+
+.flex-between {
+  @include flex(row, space-between, center);
+}
+
+.flex-around {
+  @include flex(row, space-around, center);
+}
+
+.flex-column {
+  @include flex(column);
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+// 间距工具类
+@each $size in (xs, sm, md, lg, xl, xxl, xxxl) {
+  .m-#{$size} {
+    margin: var(--spacing-#{$size});
+  }
+  
+  .mt-#{$size} {
+    margin-top: var(--spacing-#{$size});
+  }
+  
+  .mr-#{$size} {
+    margin-right: var(--spacing-#{$size});
+  }
+  
+  .mb-#{$size} {
+    margin-bottom: var(--spacing-#{$size});
+  }
+  
+  .ml-#{$size} {
+    margin-left: var(--spacing-#{$size});
+  }
+  
+  .p-#{$size} {
+    padding: var(--spacing-#{$size});
+  }
+  
+  .pt-#{$size} {
+    padding-top: var(--spacing-#{$size});
+  }
+  
+  .pr-#{$size} {
+    padding-right: var(--spacing-#{$size});
+  }
+  
+  .pb-#{$size} {
+    padding-bottom: var(--spacing-#{$size});
+  }
+  
+  .pl-#{$size} {
+    padding-left: var(--spacing-#{$size});
+  }
+}
+
+// 显示/隐藏工具类
+.hidden {
+  display: none !important;
+}
+
+.invisible {
+  visibility: hidden !important;
+}
+
+.visible {
+  visibility: visible !important;
+}
+
+// 响应式显示/隐藏
+@include respond-to(xs) {
+  .hidden-xs {
+    display: none !important;
+  }
+}
+
+@include respond-to(sm) {
+  .hidden-sm {
+    display: none !important;
+  }
+}
+
+@include respond-to(md) {
+  .hidden-md {
+    display: none !important;
+  }
+}
+
+@include respond-to(lg) {
+  .hidden-lg {
+    display: none !important;
+  }
+}
+
+@include respond-to(xl) {
+  .hidden-xl {
+    display: none !important;
+  }
+}
+
+// 动画类
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn $animation-duration-base $ease-out;
+}
+
+.slide-in-left {
+  animation: slideInLeft $animation-duration-base $ease-out;
+}
+
+.slide-in-right {
+  animation: slideInRight $animation-duration-base $ease-out;
+}
+
+.slide-in-up {
+  animation: slideInUp $animation-duration-base $ease-out;
+}
+
+.slide-in-down {
+  animation: slideInDown $animation-duration-base $ease-out;
+}

@@ -1,0 +1,151 @@
+.search-analysis-container {
+    padding: 16px;
+    background-color: #f5f5f5;
+    min-height: 100vh;
+
+    .filter-card {
+        margin-bottom: 16px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .analysis-tabs {
+        .ant-tabs-tab {
+            font-weight: 500;
+        }
+    }
+
+    .overview-section {
+        .ant-card {
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 16px;
+
+            .ant-statistic-title {
+                color: #666;
+                font-size: 14px;
+            }
+
+            .ant-statistic-content {
+                font-size: 24px;
+                font-weight: 600;
+            }
+        }
+    }
+
+    .quality-metrics {
+        .metric-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+
+            span {
+                width: 80px;
+                margin-right: 16px;
+                font-weight: 500;
+            }
+
+            .ant-progress {
+                flex: 1;
+            }
+        }
+    }
+
+    .ant-table {
+        .ant-table-thead > tr > th {
+            background-color: #fafafa;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .ant-table-tbody > tr:hover {
+            background-color: #f5f5f5;
+        }
+    }
+
+    .ant-tag {
+        margin-bottom: 4px;
+    }
+
+    .ant-progress {
+        margin-bottom: 8px;
+    }
+
+    .ant-empty {
+        padding: 40px 0;
+    }
+
+    .ant-divider {
+        margin: 16px 0;
+    }
+
+    @media (max-width: 768px) {
+        padding: 8px;
+
+        .filter-card {
+            .ant-row {
+                .ant-col {
+                    margin-bottom: 8px;
+                }
+            }
+        }
+
+        .overview-section {
+            .ant-row {
+                .ant-col {
+                    margin-bottom: 8px;
+                }
+            }
+        }
+
+        .quality-metrics {
+            .metric-item {
+                flex-direction: column;
+                align-items: flex-start;
+
+                span {
+                    margin-bottom: 8px;
+                    margin-right: 0;
+                }
+            }
+        }
+
+        .ant-table {
+            font-size: 12px;
+
+            .ant-table-thead > tr > th {
+                padding: 8px;
+            }
+
+            .ant-table-tbody > tr > td {
+                padding: 8px;
+            }
+        }
+
+        .ant-card {
+            .ant-card-head {
+                padding: 0 12px;
+            }
+
+            .ant-card-body {
+                padding: 12px;
+            }
+        }
+    }
+
+    @media (max-width: 480px) {
+        .ant-statistic-content {
+            font-size: 18px !important;
+        }
+
+        .ant-card {
+            .ant-card-head-title {
+                font-size: 14px;
+            }
+        }
+
+        .recharts-responsive-container {
+            height: 200px !important;
+        }
+    }
+}
