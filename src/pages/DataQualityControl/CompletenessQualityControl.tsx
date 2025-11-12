@@ -13,6 +13,7 @@ import {
     Col,
     Form,
     Input,
+    Modal,
     Progress,
     Row,
     Select,
@@ -62,6 +63,7 @@ const CompletenessQualityControl: React.FC = () => {
     const [tableCompleteness, setTableCompleteness] = useState<TableCompleteness[]>([])
     const [fieldCompleteness, setFieldCompleteness] = useState<FieldCompleteness[]>([])
     const [selectedTable, setSelectedTable] = useState<string>('')
+    const [showRequiredOnly, setShowRequiredOnly] = useState(false)
     const [overallStats, setOverallStats] = useState({
         totalTables: 0,
         avgCompleteness: 0,
@@ -144,7 +146,21 @@ const CompletenessQualityControl: React.FC = () => {
                 },
             ]
 
-            setTableCompleteness(mockTableData)
+            let filtered = mockTableData
+            if (_values.tableFilter) {
+                const q = _values.tableFilter.toLowerCase()
+                filtered = filtered.filter(
+                    item =>
+                        item.tableName.toLowerCase().includes(q) ||
+                        item.tableComment.toLowerCase().includes(q)
+                )
+            }
+            if (_values.tableType && _values.tableType !== 'all') {
+                const t = _values.tableType
+                filtered = filtered.filter(item => item.tableName.includes(t))
+            }
+
+            setTableCompleteness(filtered)
 
             // 计算整体统计
             const totalTables = mockTableData.length
@@ -235,8 +251,64 @@ const CompletenessQualityControl: React.FC = () => {
                 isRequired: false,
             },
         ]
-
         setFieldCompleteness(mockFieldData)
+    }
+
+    const exportCsv = (rows: Record<string, unknown>[], filename: string) => {
+        try {
+            if (!rows || rows.length === 0) {
+                uiMessage.warning('暂无可导出的数据')
+                return
+            }
+            const headers = Object.keys(rows[0])
+            const escape = (val: unknown) => {
+                const s = String(val ?? '')
+                const needQuote = /[",\n]/.test(s)
+                const escaped = s.replace(/"/g, '""')
+                return needQuote ? `"${escaped}"` : escaped
+            }
+            const csv = [
+                headers.join(','),
+                ...rows.map(r => headers.map(h => escape(r[h])).join(',')),
+            ].join('\n')
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+            const url = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = filename
+            a.click()
+            window.URL.revokeObjectURL(url)
+            uiMessage.success('导出成功')
+        } catch (e) {
+            logger.error('导出失败', e instanceof Error ? e : new Error(String(e)))
+            uiMessage.error('导出失败，请重试')
+        }
+    }
+
+    const handleExportTables = () => {
+        const rows = tableCompleteness.map(t => ({
+            tableName: t.tableName,
+            tableComment: t.tableComment,
+            totalRecords: t.totalRecords,
+            completenessRate: t.completenessRate,
+            incompleteRecords: t.incompleteRecords,
+            status: t.status,
+        }))
+        exportCsv(rows, '完整性质控_表级.csv')
+    }
+
+    const handleExportFields = () => {
+        const rows = fieldCompleteness.map(f => ({
+            fieldName: f.fieldName,
+            fieldComment: f.fieldComment,
+            dataType: f.dataType,
+            totalRecords: f.totalRecords,
+            filledRecords: f.filledRecords,
+            emptyRecords: f.emptyRecords,
+            fillRate: f.fillRate,
+            isRequired: f.isRequired ? '是' : '否',
+        }))
+        exportCsv(rows, `完整性质控_字段_${selectedTable || '未选择'}.csv`)
     }
 
     // 表级完整性表格列配置
@@ -544,6 +616,13 @@ const CompletenessQualityControl: React.FC = () => {
                                 表级完整性
                             </>
                         }
+                        extra={
+                            tableCompleteness.length > 0 ? (
+                                <Button type='link' onClick={handleExportTables}>
+                                    导出CSV
+                                </Button>
+                            ) : undefined
+                        }
                         style={{ marginBottom: 16 }}
                     >
                         {tableCompleteness.length > 0 ? (
@@ -572,10 +651,29 @@ const CompletenessQualityControl: React.FC = () => {
                                     字段级完整性 - {selectedTable}
                                 </>
                             }
+                            extra={
+                                fieldCompleteness.length > 0 ? (
+                                    <Space>
+                                        <Button
+                                            type='link'
+                                            onClick={() => setShowRequiredOnly(s => !s)}
+                                        >
+                                            {showRequiredOnly ? '显示全部字段' : '仅显示必填字段'}
+                                        </Button>
+                                        <Button type='link' onClick={handleExportFields}>
+                                            导出CSV
+                                        </Button>
+                                    </Space>
+                                ) : undefined
+                            }
                         >
                             <Table
                                 columns={fieldColumns}
-                                dataSource={fieldCompleteness}
+                                dataSource={
+                                    showRequiredOnly
+                                        ? fieldCompleteness.filter(f => f.isRequired)
+                                        : fieldCompleteness
+                                }
                                 pagination={false}
                                 size='middle'
                                 scroll={{ x: 800 }}

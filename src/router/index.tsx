@@ -25,6 +25,12 @@ import IndexMergeRules from '../pages/DataManagement/IndexMergeRules'
 import IndexProcessingManagement from '../pages/DataManagement/IndexProcessingManagement'
 import DataQualityControlManagement from '../pages/DataManagement/DataQualityControl'
 import DataQualityAssessment from '../pages/DataManagement/DataQualityAssessment'
+import BusinessDatasetManagement from '../pages/DataManagement/BusinessDatasetManagement'
+import MedicalDictionaryManagement from '../pages/DataManagement/MedicalDictionaryManagement'
+import StateDictionaryManagement from '../pages/DataManagement/StateDictionaryManagement'
+import AutoDiscoveryManagement from '../pages/DataManagement/AutoDiscoveryManagement'
+import VisualizationManagement from '../pages/DataManagement/VisualizationManagement'
+import ImpactAnalysisManagement from '../pages/DataManagement/ImpactAnalysisManagement'
 import DataParsing, { DataAnnotation, MedicalRecordParsing } from '../pages/DataParsing'
 import FullTextSearch from '../pages/DataRetrieval/FullTextSearch'
 import AdvancedSearch from '../pages/DataRetrieval/AdvancedSearch'
@@ -114,38 +120,64 @@ export const router = createBrowserRouter([
             {
                 path: 'data-management',
                 element: <DataManagement />,
-            },
-            {
-                path: 'data-management/metadata',
-                element: <MetadataManagement />,
-            },
-            {
-                path: 'data-management/standards',
-                element: <DataStandardManagement />,
-            },
-            {
-                path: 'data-management/relationships',
-                element: <TableRelationshipManagement />,
-            },
-            {
-                path: 'data-management/index-rules',
-                element: <IndexGenerationRules />,
-            },
-            {
-                path: 'data-management/merge-rules',
-                element: <IndexMergeRules />,
-            },
-            {
-                path: 'data-management/index-processing',
-                element: <IndexProcessingManagement />,
-            },
-            {
-                path: 'data-management/quality-control',
-                element: <DataQualityControlManagement />,
-            },
-            {
-                path: 'data-management/quality-assessment',
-                element: <DataQualityAssessment />,
+                children: [
+                    {
+                        path: 'metadata',
+                        element: <MetadataManagement />,
+                    },
+                    {
+                        path: 'standards',
+                        element: <DataStandardManagement />,
+                    },
+                    {
+                        path: 'business-datasets',
+                        element: <BusinessDatasetManagement />,
+                    },
+                    {
+                        path: 'medical-dictionaries',
+                        element: <MedicalDictionaryManagement />,
+                    },
+                    {
+                        path: 'state-dictionaries',
+                        element: <StateDictionaryManagement />,
+                    },
+                    {
+                        path: 'relationships',
+                        element: <TableRelationshipManagement />,
+                    },
+                    {
+                        path: 'auto-discovery',
+                        element: <AutoDiscoveryManagement />,
+                    },
+                    {
+                        path: 'visualization',
+                        element: <VisualizationManagement />,
+                    },
+                    {
+                        path: 'impact-analysis',
+                        element: <ImpactAnalysisManagement />,
+                    },
+                    {
+                        path: 'index-rules',
+                        element: <IndexGenerationRules />,
+                    },
+                    {
+                        path: 'merge-rules',
+                        element: <IndexMergeRules />,
+                    },
+                    {
+                        path: 'index-processing',
+                        element: <IndexProcessingManagement />,
+                    },
+                    {
+                        path: 'quality-control',
+                        element: <DataQualityControlManagement />,
+                    },
+                    {
+                        path: 'quality-assessment',
+                        element: <DataQualityAssessment />,
+                    },
+                ],
             },
             {
                 path: 'data-parsing',

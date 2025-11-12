@@ -14,6 +14,7 @@ import {
     Col,
     DatePicker,
     Form,
+    Modal,
     Progress,
     Row,
     Select,
@@ -71,6 +72,11 @@ const CoreDataQualityControl: React.FC = () => {
         poorCount: 0,
         benchmarkMeetRate: 0,
     })
+    const [detailModalVisible, setDetailModalVisible] = useState(false)
+    const [detailModalContent, setDetailModalContent] = useState<{
+        title: string
+        content: string
+    } | null>(null)
 
     // 数据类型选项
     const dataTypeOptions = [
@@ -258,6 +264,63 @@ const CoreDataQualityControl: React.FC = () => {
         }
     }
 
+    const exportCsv = (rows: Record<string, unknown>[], filename: string) => {
+        try {
+            if (!rows || rows.length === 0) {
+                uiMessage.warning('暂无可导出的数据')
+                return
+            }
+            const headers = Object.keys(rows[0])
+            const escape = (val: unknown) => {
+                const s = String(val ?? '')
+                const needQuote = /[",\n]/.test(s)
+                const escaped = s.replace(/"/g, '""')
+                return needQuote ? `"${escaped}"` : escaped
+            }
+            const csv = [
+                headers.join(','),
+                ...rows.map(r => headers.map(h => escape(r[h])).join(',')),
+            ].join('\n')
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+            const url = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = filename
+            a.click()
+            window.URL.revokeObjectURL(url)
+            uiMessage.success('导出成功')
+        } catch (e) {
+            logger.error('导出失败', e instanceof Error ? e : new Error(String(e)))
+            uiMessage.error('导出失败，请重试')
+        }
+    }
+
+    const handleExportMetrics = () => {
+        const rows = coreMetrics.map(m => ({
+            dataType: m.dataType,
+            totalRecords: m.totalRecords,
+            qualifiedRecords: m.qualifiedRecords,
+            qualityScore: m.qualityScore,
+            trend: m.trend,
+            status: m.status,
+            issues: m.issues.join(' | '),
+        }))
+        exportCsv(rows, '核心数据质控_质量指标.csv')
+    }
+
+    const handleExportComparisons = () => {
+        const rows = comparisonResults.map(c => ({
+            metric: c.metric,
+            currentPeriod: c.currentPeriod,
+            previousPeriod: c.previousPeriod,
+            changeRate: c.changeRate,
+            changeType: c.changeType,
+            benchmark: c.benchmark,
+            meetsBenchmark: c.meetsBenchmark ? '是' : '否',
+        }))
+        exportCsv(rows, '核心数据质控_对比分析.csv')
+    }
+
     // 核心数据指标表格列配置
     const metricsColumns: ColumnsType<CoreDataMetric> = [
         {
@@ -338,18 +401,26 @@ const CoreDataQualityControl: React.FC = () => {
             title: '主要问题',
             dataIndex: 'issues',
             key: 'issues',
-            render: (issues: string[]) => (
+            render: (issues: string[], record) => (
                 <div>
                     {issues.slice(0, 2).map((issue, index) => (
                         <div key={index} style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>
                             • {issue}
                         </div>
                     ))}
-                    {issues.length > 2 && (
-                        <Text type='secondary' style={{ fontSize: 11 }}>
-                            ...还有 {issues.length - 2} 个问题
-                        </Text>
-                    )}
+                    <Button
+                        type='link'
+                        size='small'
+                        onClick={() => {
+                            setDetailModalContent({
+                                title: record.dataType,
+                                content: issues.join('\n'),
+                            })
+                            setDetailModalVisible(true)
+                        }}
+                    >
+                        查看全部
+                    </Button>
                 </div>
             ),
         },
@@ -580,6 +651,13 @@ const CoreDataQualityControl: React.FC = () => {
                                 核心数据质量指标
                             </>
                         }
+                        extra={
+                            coreMetrics.length > 0 ? (
+                                <Button type='link' onClick={handleExportMetrics}>
+                                    导出CSV
+                                </Button>
+                            ) : undefined
+                        }
                         style={{ marginBottom: 16 }}
                     >
                         {coreMetrics.length > 0 ? (
@@ -610,6 +688,13 @@ const CoreDataQualityControl: React.FC = () => {
                                     对比分析结果
                                 </>
                             }
+                            extra={
+                                comparisonResults.length > 0 ? (
+                                    <Button type='link' onClick={handleExportComparisons}>
+                                        导出CSV
+                                    </Button>
+                                ) : undefined
+                            }
                         >
                             <Table
                                 columns={comparisonColumns}
@@ -622,6 +707,15 @@ const CoreDataQualityControl: React.FC = () => {
                     )}
                 </Col>
             </Row>
+            <Modal
+                title={detailModalContent?.title}
+                open={detailModalVisible}
+                onOk={() => setDetailModalVisible(false)}
+                onCancel={() => setDetailModalVisible(false)}
+                width={700}
+            >
+                <pre style={{ whiteSpace: 'pre-wrap' }}>{detailModalContent?.content}</pre>
+            </Modal>
         </div>
     )
 }

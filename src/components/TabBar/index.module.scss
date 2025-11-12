@@ -3,17 +3,17 @@
 .tabBarWrapper {
     background: $background-color;
     border-bottom: 1px solid $border-color-split;
-    
+
     .tabBar {
         :global(.ant-tabs-nav) {
             margin: 0;
             padding: 0 16px;
-            
+
             &::before {
                 border: none;
             }
         }
-        
+
         :global(.ant-tabs-tab) {
             border: 1px solid $border-color-split;
             border-radius: 6px 6px 0 0;
@@ -21,17 +21,17 @@
             margin-right: 4px;
             padding: 4px 12px;
             transition: all 0.2s ease;
-            
+
             &:hover {
                 background: $gray-3;
                 border-color: $border-color;
             }
-            
+
             &.ant-tabs-tab-active {
                 background: $background-color;
                 border-color: $border-color;
                 border-bottom-color: $background-color;
-                
+
                 &::before {
                     content: '';
                     position: absolute;
@@ -43,27 +43,27 @@
                 }
             }
         }
-        
+
         :global(.ant-tabs-tab-btn) {
             color: $text-color-secondary;
             font-size: $font-size-sm;
-            
+
             .ant-tabs-tab-active & {
                 color: $text-color;
                 font-weight: 500;
             }
         }
-        
+
         :global(.ant-tabs-tab-remove) {
             margin-left: 8px;
             color: $text-color-quaternary;
             transition: color 0.2s ease;
-            
+
             &:hover {
                 color: $error-color;
             }
         }
-        
+
         :global(.ant-tabs-content-holder) {
             display: none;
         }
@@ -89,7 +89,7 @@
 
 .closeIcon {
     font-size: 10px;
-    
+
     &:hover {
         background: rgba($error-color, 0.1);
         border-radius: 2px;

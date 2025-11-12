@@ -13,6 +13,7 @@ import {
     Card,
     Col,
     Form,
+    Modal,
     Progress,
     Row,
     Select,
@@ -23,6 +24,7 @@ import {
 import type { ColumnsType } from 'antd/es/table'
 import React, { useState } from 'react'
 import uiMessage from '@/utils/uiMessage'
+import { logger } from '@/utils/logger'
 
 const { Title, Text } = Typography
 
@@ -53,7 +55,7 @@ interface LogicCheckResult {
 }
 
 interface LogicFormValues {
-    targetDatabase: string
+    module: string
     checkType: string
 }
 
@@ -69,6 +71,11 @@ const BasicMedicalLogicQualityControl: React.FC = () => {
         errorRelations: 0,
         avgMatchRate: 0,
     })
+    const [detailModalVisible, setDetailModalVisible] = useState(false)
+    const [detailModalContent, setDetailModalContent] = useState<{
+        title: string
+        content: string
+    } | null>(null)
 
     // 业务模块选项
     const moduleOptions = [
@@ -245,11 +252,73 @@ const BasicMedicalLogicQualityControl: React.FC = () => {
 
             uiMessage.success('医疗逻辑检查完成！')
         } catch (error) {
-            logger.error('医疗逻辑检查失败:', error)
+            logger.error(
+                '医疗逻辑检查失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
             uiMessage.error('医疗逻辑检查失败，请重试')
         } finally {
             setLoading(false)
         }
+    }
+
+    const exportCsv = (rows: Record<string, unknown>[], filename: string) => {
+        try {
+            if (!rows || rows.length === 0) {
+                uiMessage.warning('暂无可导出的数据')
+                return
+            }
+            const headers = Object.keys(rows[0])
+            const escape = (val: unknown) => {
+                const s = String(val ?? '')
+                const needQuote = /[",\n]/.test(s)
+                const escaped = s.replace(/"/g, '""')
+                return needQuote ? `"${escaped}"` : escaped
+            }
+            const csv = [
+                headers.join(','),
+                ...rows.map(r => headers.map(h => escape(r[h])).join(',')),
+            ].join('\n')
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+            const url = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = filename
+            a.click()
+            window.URL.revokeObjectURL(url)
+            uiMessage.success('导出成功')
+        } catch (e) {
+            logger.error('导出失败', e instanceof Error ? e : new Error(String(e)))
+            uiMessage.error('导出失败，请重试')
+        }
+    }
+
+    const handleExportRelations = () => {
+        const rows = tableRelations.map(r => ({
+            mainTable: r.mainTable,
+            subTable: r.subTable,
+            relationField: r.relationField,
+            mainCount: r.mainCount,
+            subCount: r.subCount,
+            matchedCount: r.matchedCount,
+            unmatchedCount: r.unmatchedCount,
+            matchRate: r.matchRate,
+            status: r.status,
+        }))
+        exportCsv(rows, '医疗逻辑质控_主附表关联.csv')
+    }
+
+    const handleExportLogic = () => {
+        const rows = logicResults.map(l => ({
+            checkType: l.checkType,
+            description: l.description,
+            totalChecked: l.totalChecked,
+            passedCount: l.passedCount,
+            failedCount: l.failedCount,
+            passRate: l.passRate,
+            errorDetails: l.errorDetails.join(' | '),
+        }))
+        exportCsv(rows, '医疗逻辑质控_业务逻辑.csv')
     }
 
     // 主附表关联表格列配置
@@ -421,18 +490,26 @@ const BasicMedicalLogicQualityControl: React.FC = () => {
             title: '错误示例',
             dataIndex: 'errorDetails',
             key: 'errorDetails',
-            render: (details: string[]) => (
+            render: (details: string[], record) => (
                 <div>
                     {details.slice(0, 2).map((detail, index) => (
                         <div key={index} style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>
                             {detail}
                         </div>
                     ))}
-                    {details.length > 2 && (
-                        <Text type='secondary' style={{ fontSize: 11 }}>
-                            ...还有 {details.length - 2} 个错误
-                        </Text>
-                    )}
+                    <Button
+                        type='link'
+                        size='small'
+                        onClick={() => {
+                            setDetailModalContent({
+                                title: record.checkType,
+                                content: details.join('\n'),
+                            })
+                            setDetailModalVisible(true)
+                        }}
+                    >
+                        查看全部
+                    </Button>
                 </div>
             ),
         },
@@ -582,6 +659,13 @@ const BasicMedicalLogicQualityControl: React.FC = () => {
                                 主附表关联检查
                             </>
                         }
+                        extra={
+                            tableRelations.length > 0 ? (
+                                <Button type='link' onClick={handleExportRelations}>
+                                    导出CSV
+                                </Button>
+                            ) : undefined
+                        }
                         style={{ marginBottom: 16 }}
                     >
                         {tableRelations.length > 0 ? (
@@ -612,6 +696,13 @@ const BasicMedicalLogicQualityControl: React.FC = () => {
                                     业务逻辑检查
                                 </>
                             }
+                            extra={
+                                logicResults.length > 0 ? (
+                                    <Button type='link' onClick={handleExportLogic}>
+                                        导出CSV
+                                    </Button>
+                                ) : undefined
+                            }
                         >
                             <Table
                                 columns={logicColumns}
@@ -624,6 +715,15 @@ const BasicMedicalLogicQualityControl: React.FC = () => {
                     )}
                 </Col>
             </Row>
+            <Modal
+                title={detailModalContent?.title}
+                open={detailModalVisible}
+                onOk={() => setDetailModalVisible(false)}
+                onCancel={() => setDetailModalVisible(false)}
+                width={700}
+            >
+                <pre style={{ whiteSpace: 'pre-wrap' }}>{detailModalContent?.content}</pre>
+            </Modal>
         </div>
     )
 }

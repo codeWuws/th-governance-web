@@ -112,7 +112,7 @@ const VisualizationView: React.FC = () => {
                 startDate: string
                 endDate: string
                 eventTypes: string[]
-            }
+            },
         ]
     >(dataRetrievalService.getPatientTimeSeriesData, { immediate: false })
 

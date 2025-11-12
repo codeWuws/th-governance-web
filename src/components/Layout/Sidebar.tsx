@@ -108,49 +108,102 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
             label: '数据管理',
             children: [
                 {
-                    key: '/data-management',
-                    icon: <DatabaseOutlined />,
-                    label: '数据管理首页',
-                },
-                {
                     key: '/data-management/metadata',
                     icon: <FileTextOutlined />,
                     label: '元数据管理',
                 },
                 {
-                    key: '/data-management/standards',
+                    key: 'data-standards',
                     icon: <CheckCircleOutlined />,
-                    label: '数据标准管理',
+                    label: '标准数据集管理',
+                    children: [
+                        {
+                            key: '/data-management/standards',
+                            icon: <CheckCircleOutlined />,
+                            label: '数据标准管理',
+                        },
+                        {
+                            key: '/data-management/business-datasets',
+                            icon: <FileTextOutlined />,
+                            label: '业务数据集管理',
+                        },
+                        {
+                            key: '/data-management/medical-dictionaries',
+                            icon: <HeartOutlined />,
+                            label: '医疗字典数据集',
+                        },
+                        {
+                            key: '/data-management/state-dictionaries',
+                            icon: <TagOutlined />,
+                            label: '状态字典管理',
+                        },
+                    ],
                 },
                 {
-                    key: '/data-management/relationships',
+                    key: 'table-relationships',
                     icon: <LinkOutlined />,
-                    label: '表关联关系管理',
+                    label: '关联关系管理',
+                    children: [
+                        {
+                            key: '/data-management/relationships',
+                            icon: <LinkOutlined />,
+                            label: '表关联关系管理',
+                        },
+                        {
+                            key: '/data-management/auto-discovery',
+                            icon: <SearchOutlined />,
+                            label: '自动关联发现',
+                        },
+                        {
+                            key: '/data-management/visualization',
+                            icon: <EyeOutlined />,
+                            label: '可视化血缘图',
+                        },
+                        {
+                            key: '/data-management/impact-analysis',
+                            icon: <LineChartOutlined />,
+                            label: '影响分析',
+                        },
+                    ],
                 },
                 {
-                    key: '/data-management/index-rules',
+                    key: 'master-index',
                     icon: <KeyOutlined />,
-                    label: '主索引生成规则',
+                    label: '主索引管理',
+                    children: [
+                        {
+                            key: '/data-management/index-rules',
+                            icon: <KeyOutlined />,
+                            label: '主索引生成规则',
+                        },
+                        {
+                            key: '/data-management/merge-rules',
+                            icon: <MergeCellsOutlined />,
+                            label: '主索引合并规则',
+                        },
+                        {
+                            key: '/data-management/index-processing',
+                            icon: <ToolOutlined />,
+                            label: '主索引处理管理',
+                        },
+                    ],
                 },
                 {
-                    key: '/data-management/merge-rules',
-                    icon: <MergeCellsOutlined />,
-                    label: '主索引合并规则',
-                },
-                {
-                    key: '/data-management/index-processing',
-                    icon: <ToolOutlined />,
-                    label: '主索引处理管理',
-                },
-                {
-                    key: '/data-management/quality-control',
+                    key: 'data-quality',
                     icon: <SafetyCertificateOutlined />,
-                    label: '数据质控',
-                },
-                {
-                    key: '/data-management/quality-assessment',
-                    icon: <StarOutlined />,
-                    label: '数据质量评估',
+                    label: '数据质量管理',
+                    children: [
+                        {
+                            key: '/data-management/quality-control',
+                            icon: <SafetyCertificateOutlined />,
+                            label: '数据质控',
+                        },
+                        {
+                            key: '/data-management/quality-assessment',
+                            icon: <StarOutlined />,
+                            label: '数据质量评估',
+                        },
+                    ],
                 },
             ],
         },

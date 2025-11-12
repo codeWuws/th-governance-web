@@ -1,1 +1,1 @@
-export { StyleDemo } from './StyleDemo';
+export { StyleDemo } from './StyleDemo'

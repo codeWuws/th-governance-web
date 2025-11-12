@@ -12,9 +12,11 @@ import {
     Card,
     Col,
     Form,
+    Modal,
     Progress,
     Row,
     Select,
+    Space,
     Statistic,
     Table,
     Typography,
@@ -44,6 +46,8 @@ interface QualityReport {
     passedItems: number
     failedItems: number
     passRate: number
+    status?: 'success' | 'warning' | 'error'
+    details?: string
 }
 
 interface ComprehensiveFormValues {
@@ -56,6 +60,11 @@ const ComprehensiveQualityControl: React.FC = () => {
     const [qualityMetrics, setQualityMetrics] = useState<QualityMetric[]>([])
     const [qualityReports, setQualityReports] = useState<QualityReport[]>([])
     const [overallScore, setOverallScore] = useState(0)
+    const [detailModalVisible, setDetailModalVisible] = useState(false)
+    const [detailModalContent, setDetailModalContent] = useState<{
+        title: string
+        content: string
+    } | null>(null)
 
     // 数据源选项
     const dataSourceOptions = [
@@ -149,6 +158,60 @@ const ComprehensiveQualityControl: React.FC = () => {
                 uiMessage.error(`${info.file.name} 文件上传失败`)
             }
         },
+    }
+
+    const exportCsv = (rows: Record<string, unknown>[], filename: string) => {
+        try {
+            if (!rows || rows.length === 0) {
+                uiMessage.warning('暂无可导出的数据')
+                return
+            }
+            const headers = Object.keys(rows[0])
+            const escape = (val: unknown) => {
+                const s = String(val ?? '')
+                const needQuote = /[",\n]/.test(s)
+                const escaped = s.replace(/"/g, '""')
+                return needQuote ? `"${escaped}"` : escaped
+            }
+            const csv = [
+                headers.join(','),
+                ...rows.map(r => headers.map(h => escape(r[h])).join(',')),
+            ].join('\n')
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+            const url = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = filename
+            a.click()
+            window.URL.revokeObjectURL(url)
+            uiMessage.success('导出成功')
+        } catch (e) {
+            logger.error('导出失败', e instanceof Error ? e : new Error(String(e)))
+            uiMessage.error('导出失败，请重试')
+        }
+    }
+
+    const handleExportMetrics = () => {
+        const rows = qualityMetrics.map(m => ({
+            metric: m.metric,
+            score: m.score,
+            status: m.status,
+            description: m.description,
+        }))
+        exportCsv(rows, '综合质控_指标.csv')
+    }
+
+    const handleExportReports = () => {
+        const rows = qualityReports.map(r => ({
+            category: r.category,
+            totalItems: r.totalItems,
+            passedItems: r.passedItems,
+            failedItems: r.failedItems,
+            passRate: r.passRate,
+            status: r.status ?? '',
+            details: r.details ?? '',
+        }))
+        exportCsv(rows, '综合质控_Excel解析结果.csv')
     }
 
     // 执行综合质控
@@ -256,6 +319,24 @@ const ComprehensiveQualityControl: React.FC = () => {
             title: '描述',
             dataIndex: 'description',
             key: 'description',
+            render: (text: string, record) => (
+                <Space>
+                    <span>{text}</span>
+                    <Button
+                        type='link'
+                        size='small'
+                        onClick={() => {
+                            setDetailModalContent({
+                                title: record.metric,
+                                content: record.description,
+                            })
+                            setDetailModalVisible(true)
+                        }}
+                    >
+                        详情
+                    </Button>
+                </Space>
+            ),
         },
     ]
 
@@ -303,6 +384,25 @@ const ComprehensiveQualityControl: React.FC = () => {
                     size='small'
                     status={rate >= 90 ? 'success' : rate >= 70 ? 'active' : 'exception'}
                 />
+            ),
+        },
+        {
+            title: '详情',
+            key: 'details',
+            render: (_, record) => (
+                <Button
+                    type='link'
+                    size='small'
+                    onClick={() => {
+                        setDetailModalContent({
+                            title: record.category,
+                            content: record.details || '无详情',
+                        })
+                        setDetailModalVisible(true)
+                    }}
+                >
+                    查看
+                </Button>
             ),
         },
     ]
@@ -450,6 +550,13 @@ const ComprehensiveQualityControl: React.FC = () => {
                                 质控指标
                             </>
                         }
+                        extra={
+                            qualityMetrics.length > 0 ? (
+                                <Button type='link' onClick={handleExportMetrics}>
+                                    导出CSV
+                                </Button>
+                            ) : undefined
+                        }
                         style={{ marginBottom: 16 }}
                     >
                         {qualityMetrics.length > 0 ? (
@@ -479,6 +586,13 @@ const ComprehensiveQualityControl: React.FC = () => {
                                     Excel解析结果
                                 </>
                             }
+                            extra={
+                                qualityReports.length > 0 ? (
+                                    <Button type='link' onClick={handleExportReports}>
+                                        导出CSV
+                                    </Button>
+                                ) : undefined
+                            }
                         >
                             <Table
                                 columns={reportsColumns}
@@ -490,6 +604,14 @@ const ComprehensiveQualityControl: React.FC = () => {
                     )}
                 </Col>
             </Row>
+            <Modal
+                title={detailModalContent?.title}
+                open={detailModalVisible}
+                onOk={() => setDetailModalVisible(false)}
+                onCancel={() => setDetailModalVisible(false)}
+            >
+                <div>{detailModalContent?.content}</div>
+            </Modal>
         </div>
     )
 }

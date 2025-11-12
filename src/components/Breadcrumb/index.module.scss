@@ -5,31 +5,31 @@
     background: transparent;
     border-bottom: none;
     width: 100%;
-    
+
     .breadcrumb {
         margin: 0;
-        
+
         :global(.ant-breadcrumb-link) {
             color: $text-color-secondary;
             transition: color 0.2s ease;
             font-size: 14px;
-            
+
             &:hover {
                 color: $primary-color;
             }
         }
-        
+
         :global(.ant-breadcrumb-separator) {
             color: $text-color-quaternary;
             margin: 0 6px;
             font-size: 12px;
         }
-        
+
         :global(.ant-breadcrumb ol) {
             margin: 0;
             padding: 0;
         }
-        
+
         :global(.ant-breadcrumb li) {
             margin: 0;
             line-height: 1.5;
@@ -44,7 +44,7 @@
     text-decoration: none;
     transition: color 0.2s ease;
     font-size: 14px;
-    
+
     &:hover {
         color: $primary-color;
     }
