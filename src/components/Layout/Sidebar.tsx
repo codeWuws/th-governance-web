@@ -188,23 +188,6 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
                         },
                     ],
                 },
-                {
-                    key: 'data-quality',
-                    icon: <SafetyCertificateOutlined />,
-                    label: '数据质量管理',
-                    children: [
-                        {
-                            key: '/data-management/quality-control',
-                            icon: <SafetyCertificateOutlined />,
-                            label: '数据质控',
-                        },
-                        {
-                            key: '/data-management/quality-assessment',
-                            icon: <StarOutlined />,
-                            label: '数据质量评估',
-                        },
-                    ],
-                },
             ],
         },
         {

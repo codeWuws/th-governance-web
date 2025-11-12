@@ -23,8 +23,7 @@ import TableRelationshipManagement from '../pages/DataManagement/TableRelationsh
 import IndexGenerationRules from '../pages/DataManagement/IndexGenerationRules'
 import IndexMergeRules from '../pages/DataManagement/IndexMergeRules'
 import IndexProcessingManagement from '../pages/DataManagement/IndexProcessingManagement'
-import DataQualityControlManagement from '../pages/DataManagement/DataQualityControl'
-import DataQualityAssessment from '../pages/DataManagement/DataQualityAssessment'
+
 import BusinessDatasetManagement from '../pages/DataManagement/BusinessDatasetManagement'
 import MedicalDictionaryManagement from '../pages/DataManagement/MedicalDictionaryManagement'
 import StateDictionaryManagement from '../pages/DataManagement/StateDictionaryManagement'
@@ -169,14 +168,7 @@ export const router = createBrowserRouter([
                         path: 'index-processing',
                         element: <IndexProcessingManagement />,
                     },
-                    {
-                        path: 'quality-control',
-                        element: <DataQualityControlManagement />,
-                    },
-                    {
-                        path: 'quality-assessment',
-                        element: <DataQualityAssessment />,
-                    },
+
                 ],
             },
             {
