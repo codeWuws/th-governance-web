@@ -73,10 +73,6 @@ const TabBar: React.FC<TabBarProps> = ({ className, maxTabs = 10, onTabChange, o
                 label: '角色设置',
                 closable: true,
             },
-            '/system-settings/permissions': {
-                label: '权限设置',
-                closable: true,
-            },
         }),
         []
     )

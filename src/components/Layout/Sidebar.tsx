@@ -10,10 +10,7 @@ import {
     MenuFoldOutlined,
     MenuUnfoldOutlined,
     SafetyCertificateOutlined,
-    SafetyOutlined,
     SettingOutlined,
-    TeamOutlined,
-    UserOutlined,
     MergeCellsOutlined,
     KeyOutlined,
     ToolOutlined,
@@ -23,6 +20,9 @@ import {
     SearchOutlined,
     LineChartOutlined,
     EyeOutlined,
+    UserOutlined,
+    TeamOutlined,
+    SafetyOutlined,
 } from '@ant-design/icons'
 import { Button, Layout, Menu, MenuProps } from 'antd'
 import React, { useState } from 'react'
@@ -37,12 +37,7 @@ interface SidebarProps {
 
 type MenuItem = Required<MenuProps>['items'][number]
 
-const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
-    const navigate = useNavigate()
-    const location = useLocation()
-
-    // 菜单项配置
-    const menuItems: MenuItem[] = [
+export const menuItems: MenuItem[] = [
         {
             key: 'data-governance',
             icon: <DatabaseOutlined />,
@@ -245,6 +240,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
                 },
             ],
         },
+        // 系统设置模块
         {
             key: 'system-settings',
             icon: <SettingOutlined />,
@@ -253,26 +249,31 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
                 {
                     key: '/system-settings/users',
                     icon: <UserOutlined />,
-                    label: '用户设置',
+                    label: '用户管理',
                 },
                 {
                     key: '/system-settings/roles',
                     icon: <TeamOutlined />,
-                    label: '角色设置',
+                    label: '角色管理',
                 },
                 {
                     key: '/system-settings/permissions',
                     icon: <SafetyOutlined />,
-                    label: '权限设置',
+                    label: '权限管理',
                 },
             ],
         },
+
         // {
         //     key: '/style-demo',
         //     icon: <BgColorsOutlined />,
         //     label: '样式演示',
         // },
     ]
+
+const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
+    const navigate = useNavigate()
+    const location = useLocation()
 
     // 获取当前选中的菜单项
     const getSelectedKeys = () => {

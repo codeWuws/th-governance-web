@@ -12,10 +12,7 @@ import CompletenessQualityControl from '../pages/DataQualityControl/Completeness
 import ComprehensiveQualityControl from '../pages/DataQualityControl/ComprehensiveQualityControl'
 import CoreDataQualityControl from '../pages/DataQualityControl/CoreDataQualityControl'
 import TextQualityControl from '../pages/DataQualityControl/TextQualityControl'
-import SystemSettings from '../pages/SystemSettings'
-import UserSettings from '../pages/SystemSettings/UserSettings'
-import RoleSettings from '../pages/SystemSettings/RoleSettings'
-import PermissionSettings from '../pages/SystemSettings/PermissionSettings'
+
 import DataManagement from '../pages/DataManagement'
 import MetadataManagement from '../pages/DataManagement/MetadataManagement'
 import DataStandardManagement from '../pages/DataManagement/DataStandardManagement'
@@ -36,6 +33,10 @@ import AdvancedSearch from '../pages/DataRetrieval/AdvancedSearch'
 import ConditionTreeSearch from '../pages/DataRetrieval/ConditionTreeSearch'
 import SearchAnalysis from '../pages/DataRetrieval/SearchAnalysis'
 import VisualizationView from '../pages/DataRetrieval/VisualizationView'
+import SystemSettings from '../pages/SystemSettings'
+import UserSettings from '../pages/SystemSettings/UserSettings'
+import RoleSettings from '../pages/SystemSettings/RoleSettings'
+import PermissionSettings from '../pages/SystemSettings/PermissionSettings'
 
 export const router = createBrowserRouter([
     {
@@ -94,28 +95,7 @@ export const router = createBrowserRouter([
                 path: 'data-quality-control/core-data',
                 element: <CoreDataQualityControl />,
             },
-            {
-                path: 'system-settings',
-                element: <SystemSettings />,
-                children: [
-                    {
-                        index: true,
-                        element: <UserSettings />,
-                    },
-                    {
-                        path: 'users',
-                        element: <UserSettings />,
-                    },
-                    {
-                        path: 'roles',
-                        element: <RoleSettings />,
-                    },
-                    {
-                        path: 'permissions',
-                        element: <PermissionSettings />,
-                    },
-                ],
-            },
+
             {
                 path: 'data-management',
                 element: <DataManagement />,
@@ -168,7 +148,6 @@ export const router = createBrowserRouter([
                         path: 'index-processing',
                         element: <IndexProcessingManagement />,
                     },
-
                 ],
             },
             {
@@ -215,6 +194,29 @@ export const router = createBrowserRouter([
                     {
                         path: 'visualization/:id',
                         element: <VisualizationView />,
+                    },
+                ],
+            },
+            // 系统设置模块
+            {
+                path: 'system-settings',
+                element: <SystemSettings />,
+                children: [
+                    {
+                        index: true,
+                        element: <UserSettings />,
+                    },
+                    {
+                        path: 'users',
+                        element: <UserSettings />,
+                    },
+                    {
+                        path: 'roles',
+                        element: <RoleSettings />,
+                    },
+                    {
+                        path: 'permissions',
+                        element: <PermissionSettings />,
                     },
                 ],
             },

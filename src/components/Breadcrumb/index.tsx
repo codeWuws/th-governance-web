@@ -39,7 +39,6 @@ const Breadcrumb: React.FC<BreadcrumbProps> = ({ items, className }) => {
         '/system-settings': { title: '系统设置' },
         '/system-settings/users': { title: '用户设置' },
         '/system-settings/roles': { title: '角色设置' },
-        '/system-settings/permissions': { title: '权限设置' },
     }
 
     /**
