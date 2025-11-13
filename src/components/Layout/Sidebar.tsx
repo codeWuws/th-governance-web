@@ -179,7 +179,7 @@ export const menuItems: MenuItem[] = [
                         {
                             key: '/data-management/index-processing',
                             icon: <ToolOutlined />,
-                            label: '主索引处理管理',
+                            label: '患者索引处理',
                         },
                     ],
                 },

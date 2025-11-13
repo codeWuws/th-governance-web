@@ -747,7 +747,7 @@ const IndexProcessingManagement: React.FC = () => {
                     <Row gutter={16} align='middle'>
                         <Col flex='auto'>
                             <Title level={3} style={{ margin: 0 }}>
-                                主索引处理管理
+                                患者索引处理
                             </Title>
                         </Col>
                         <Col>
