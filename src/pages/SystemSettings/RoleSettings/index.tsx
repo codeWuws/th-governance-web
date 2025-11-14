@@ -102,7 +102,6 @@ const RoleSettings: React.FC = () => {
         }
     }
 
-
     /**
      * 加载统计信息
      */
@@ -113,7 +112,6 @@ const RoleSettings: React.FC = () => {
             setStats({
                 totalRoles: roles.length,
                 activeRoles: activeCount,
-
             })
         } catch (error) {
             console.error('Load stats error:', error)
@@ -125,7 +123,6 @@ const RoleSettings: React.FC = () => {
      */
     useEffect(() => {
         loadRoles()
-
     }, [queryParams])
 
     useEffect(() => {
@@ -180,7 +177,6 @@ const RoleSettings: React.FC = () => {
         setSelectedRole(role)
         setDrawerVisible(true)
     }
-
 
     /**
      * 处理状态切换
@@ -239,7 +235,6 @@ const RoleSettings: React.FC = () => {
             console.error('Submit role error:', error)
         }
     }
-
 
     /**
      * 表格列定义
@@ -362,7 +357,6 @@ const RoleSettings: React.FC = () => {
                         />
                     </Card>
                 </Col>
-
             </Row>
 
             <Card>
@@ -439,7 +433,6 @@ const RoleSettings: React.FC = () => {
                 />
             </Modal>
 
-
             {/* 角色详情抽屉 */}
             <Drawer
                 title='角色详情'
@@ -487,8 +480,6 @@ const RoleSettings: React.FC = () => {
                                 {formatDate(selectedRole.updatedAt)}
                             </Descriptions.Item>
                         </Descriptions>
-
-
                     </>
                 )}
             </Drawer>

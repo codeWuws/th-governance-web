@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import {
+    Alert,
     Card,
     Table,
     Button,
@@ -341,58 +342,63 @@ const MetadataManagement: React.FC = () => {
     ]
 
     return (
-        <div style={{ padding: '24px' }}>
+        <div style={{ padding: 0 }}>
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 24,
+                }}
+            >
+                <Title level={2} style={{ margin: 0 }}>
+                    元数据管理
+                </Title>
+                <Space>
+                    <Button icon={<ReloadOutlined />} onClick={fetchData} loading={loading}>
+                        刷新
+                    </Button>
+                    <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
+                        新增元数据
+                    </Button>
+                </Space>
+            </div>
+            <Alert
+                message='元数据管理'
+                description='维护数据库、表与字段的元数据，支持搜索、筛选、编辑与删除。'
+                type='info'
+                showIcon
+                style={{ marginBottom: 24 }}
+            />
             <Card>
-                <div style={{ marginBottom: '16px' }}>
-                    <Row gutter={16} align='middle'>
-                        <Col flex='auto'>
-                            <Title level={3} style={{ margin: 0 }}>
-                                元数据管理
-                            </Title>
-                        </Col>
-                        <Col>
-                            <Space>
-                                <Search
-                                    placeholder='搜索名称、描述或数据源'
-                                    allowClear
-                                    onSearch={handleSearch}
-                                    style={{ width: 250 }}
-                                    prefix={<SearchOutlined />}
-                                />
-                                <Select
-                                    placeholder='类型筛选'
-                                    style={{ width: 120 }}
-                                    allowClear
-                                    onChange={setTypeFilter}
-                                >
-                                    <Option value='database'>数据库</Option>
-                                    <Option value='table'>表</Option>
-                                    <Option value='field'>字段</Option>
-                                </Select>
-                                <Select
-                                    placeholder='状态筛选'
-                                    style={{ width: 120 }}
-                                    allowClear
-                                    onChange={setStatusFilter}
-                                >
-                                    <Option value='active'>启用</Option>
-                                    <Option value='inactive'>禁用</Option>
-                                </Select>
-                                <Button
-                                    icon={<ReloadOutlined />}
-                                    onClick={fetchData}
-                                    loading={loading}
-                                >
-                                    刷新
-                                </Button>
-                                <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
-                                    新增元数据
-                                </Button>
-                            </Space>
-                        </Col>
-                    </Row>
-                </div>
-
+                <Space style={{ marginBottom: 16 }} wrap>
+                    <Search
+                        placeholder='搜索名称、描述或数据源'
+                        allowClear
+                        onSearch={handleSearch}
+                        style={{ width: 250 }}
+                        prefix={<SearchOutlined />}
+                    />
+                    <Select
+                        placeholder='类型筛选'
+                        style={{ width: 120 }}
+                        allowClear
+                        onChange={setTypeFilter}
+                    >
+                        <Option value='database'>数据库</Option>
+                        <Option value='table'>表</Option>
+                        <Option value='field'>字段</Option>
+                    </Select>
+                    <Select
+                        placeholder='状态筛选'
+                        style={{ width: 120 }}
+                        allowClear
+                        onChange={setStatusFilter}
+                    >
+                        <Option value='active'>启用</Option>
+                        <Option value='inactive'>禁用</Option>
+                    </Select>
+                </Space>
                 <Table
                     columns={columns}
                     dataSource={filteredData}

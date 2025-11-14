@@ -6,8 +6,8 @@ const { Content } = Layout
 
 const DataManagement: React.FC = () => {
     return (
-        <Layout style={{ minHeight: '100%', padding: '24px' }}>
-            <Content>
+        <Layout style={{ minHeight: '100%', background: 'transparent' }}>
+            <Content style={{ background: 'transparent' }}>
                 <Outlet />
             </Content>
         </Layout>

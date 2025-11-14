@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import {
+    Alert,
     Card,
     Table,
     Button,
@@ -550,68 +551,74 @@ const IndexMergeRules: React.FC = () => {
     ]
 
     return (
-        <div style={{ padding: '24px' }}>
+        <div style={{ padding: 0 }}>
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 24,
+                }}
+            >
+                <Title level={2} style={{ margin: 0 }}>
+                    主索引合并规则
+                </Title>
+                <Space>
+                    <Button icon={<ReloadOutlined />} onClick={fetchData} loading={loading}>
+                        刷新
+                    </Button>
+                    <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
+                        新增规则
+                    </Button>
+                </Space>
+            </div>
+            <Alert
+                message='主索引合并规则'
+                description='维护主索引的合并/拆分规则，支持搜索、筛选与执行。'
+                type='info'
+                showIcon
+                style={{ marginBottom: 24 }}
+            />
             <Card>
-                <div style={{ marginBottom: '16px' }}>
-                    <Row gutter={16} align='middle'>
-                        <Col flex='auto'>
-                            <Title level={3} style={{ margin: 0 }}>
-                                主索引合并规则
-                            </Title>
-                        </Col>
-                        <Col>
-                            <Space>
-                                <Search
-                                    placeholder='搜索名称、编码或描述'
-                                    allowClear
-                                    onSearch={handleSearch}
-                                    style={{ width: 250 }}
-                                    prefix={<SearchOutlined />}
-                                />
-                                <Select
-                                    placeholder='规则类型'
-                                    style={{ width: 120 }}
-                                    allowClear
-                                    onChange={setRuleTypeFilter}
-                                >
-                                    <Option value='automatic'>自动</Option>
-                                    <Option value='manual'>手动</Option>
-                                    <Option value='semi-automatic'>半自动</Option>
-                                </Select>
-                                <Select
-                                    placeholder='合并类型'
-                                    style={{ width: 120 }}
-                                    allowClear
-                                    onChange={setMergeTypeFilter}
-                                >
-                                    <Option value='merge'>合并</Option>
-                                    <Option value='split'>拆分</Option>
-                                    <Option value='both'>合并/拆分</Option>
-                                </Select>
-                                <Select
-                                    placeholder='状态'
-                                    style={{ width: 120 }}
-                                    allowClear
-                                    onChange={setStatusFilter}
-                                >
-                                    <Option value='active'>启用</Option>
-                                    <Option value='inactive'>禁用</Option>
-                                    <Option value='testing'>测试中</Option>
-                                </Select>
-                                <Button
-                                    icon={<ReloadOutlined />}
-                                    onClick={fetchData}
-                                    loading={loading}
-                                >
-                                    刷新
-                                </Button>
-                                <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
-                                    新增规则
-                                </Button>
-                            </Space>
-                        </Col>
-                    </Row>
-                </div>
+                <Space style={{ marginBottom: 16 }} wrap>
+                    <Search
+                        placeholder='搜索名称、编码或描述'
+                        allowClear
+                        onSearch={handleSearch}
+                        style={{ width: 250 }}
+                        prefix={<SearchOutlined />}
+                    />
+                    <Select
+                        placeholder='规则类型'
+                        style={{ width: 120 }}
+                        allowClear
+                        onChange={setRuleTypeFilter}
+                    >
+                        <Option value='automatic'>自动</Option>
+                        <Option value='manual'>手动</Option>
+                        <Option value='semi-automatic'>半自动</Option>
+                    </Select>
+                    <Select
+                        placeholder='合并类型'
+                        style={{ width: 120 }}
+                        allowClear
+                        onChange={setMergeTypeFilter}
+                    >
+                        <Option value='merge'>合并</Option>
+                        <Option value='split'>拆分</Option>
+                        <Option value='both'>合并/拆分</Option>
+                    </Select>
+                    <Select
+                        placeholder='状态'
+                        style={{ width: 120 }}
+                        allowClear
+                        onChange={setStatusFilter}
+                    >
+                        <Option value='active'>启用</Option>
+                        <Option value='inactive'>禁用</Option>
+                        <Option value='testing'>测试中</Option>
+                    </Select>
+                </Space>
 
                 <Table
                     columns={columns}

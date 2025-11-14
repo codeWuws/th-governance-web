@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import {
+    Alert,
     Card,
     Table,
     Button,
@@ -11,6 +12,7 @@ import {
     Select,
     message,
     Popconfirm,
+    Typography,
 } from 'antd'
 import {
     PlusOutlined,
@@ -323,25 +325,36 @@ const BusinessDatasetManagement: React.FC = () => {
     ]
 
     return (
-        <div>
-            <Card>
-                <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-                    <div>
-                        <h2>业务数据集管理</h2>
-                        <p style={{ color: '#666' }}>
-                            管理面向业务的专病数据集，支持创建、编辑、导入导出等功能
-                        </p>
-                    </div>
-                    <Space>
-                        <Button type='default' icon={<UploadOutlined />} onClick={handleImport}>
-                            导入模板
-                        </Button>
-                        <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
-                            新建数据集
-                        </Button>
-                    </Space>
-                </div>
+        <div style={{ padding: 0 }}>
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 24,
+                }}
+            >
+                <Typography.Title level={2} style={{ margin: 0 }}>
+                    业务数据集管理
+                </Typography.Title>
+                <Space>
+                    <Button type='default' icon={<UploadOutlined />} onClick={handleImport}>
+                        导入模板
+                    </Button>
+                    <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
+                        新建数据集
+                    </Button>
+                </Space>
+            </div>
+            <Alert
+                message='管理面向业务的专病数据集'
+                description='支持创建、编辑、导入导出与预览，确保数据集规范与完整。'
+                type='info'
+                showIcon
+                style={{ marginBottom: 24 }}
+            />
 
+            <Card>
                 <Table
                     columns={columns}
                     dataSource={data}

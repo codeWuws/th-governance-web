@@ -16,6 +16,7 @@ import {
     Row,
     Col,
     Switch,
+    Typography,
 } from 'antd'
 import {
     PlayCircleOutlined,
@@ -494,7 +495,31 @@ const AutoDiscoveryManagement: React.FC = () => {
     ]
 
     return (
-        <div style={{ padding: '24px' }}>
+        <div style={{ padding: 0 }}>
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 24,
+                }}
+            >
+                <Typography.Title level={2} style={{ margin: 0 }}>
+                    自动关联发现
+                </Typography.Title>
+                <Space>
+                    <Button icon={<ReloadOutlined />} onClick={loadData}>
+                        刷新
+                    </Button>
+                </Space>
+            </div>
+            <Alert
+                message='自动关联发现'
+                description='在指定数据库与规则下进行自动关联发现，支持规则管理与结果审阅。'
+                type='info'
+                showIcon
+                style={{ marginBottom: 24 }}
+            />
             <Card>
                 {discoveryRunning && (
                     <Alert

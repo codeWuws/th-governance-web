@@ -38,238 +38,228 @@ interface SidebarProps {
 type MenuItem = Required<MenuProps>['items'][number]
 
 export const menuItems: MenuItem[] = [
-        {
-            key: 'data-governance',
-            icon: <DatabaseOutlined />,
-            label: '数据治理',
-            children: [
-                {
-                    key: '/dashboard',
-                    icon: <DashboardOutlined />,
-                    label: '仪表盘',
-                },
-                {
-                    key: '/database-connection',
-                    icon: <DatabaseOutlined />,
-                    label: '数据源管理',
-                },
-                {
-                    key: '/data-governance/workflow-config',
-                    icon: <SettingOutlined />,
-                    label: '工作流步骤',
-                },
-                {
-                    key: '/data-governance/execution-history',
-                    icon: <ClockCircleOutlined />,
-                    label: '执行历史',
-                },
-            ],
-        },
-        {
-            key: 'data-quality-control',
-            icon: <SafetyCertificateOutlined />,
-            label: '数据质控',
-            children: [
-                {
-                    key: '/data-quality-control/text',
-                    icon: <FileTextOutlined />,
-                    label: '文本质控',
-                },
-                {
-                    key: '/data-quality-control/comprehensive',
-                    icon: <BarChartOutlined />,
-                    label: '综合质控',
-                },
-                {
-                    key: '/data-quality-control/completeness',
-                    icon: <CheckCircleOutlined />,
-                    label: '完整性质控',
-                },
-                {
-                    key: '/data-quality-control/basic-medical-logic',
-                    icon: <LinkOutlined />,
-                    label: '基础医疗逻辑质控',
-                },
-                {
-                    key: '/data-quality-control/core-data',
-                    icon: <HeartOutlined />,
-                    label: '核心数据质控',
-                },
-            ],
-        },
-        {
-            key: 'data-management',
-            icon: <DatabaseOutlined />,
-            label: '数据管理',
-            children: [
-                {
-                    key: '/data-management/metadata',
-                    icon: <FileTextOutlined />,
-                    label: '元数据管理',
-                },
-                {
-                    key: 'data-standards',
-                    icon: <CheckCircleOutlined />,
-                    label: '标准数据集管理',
-                    children: [
-                        {
-                            key: '/data-management/standards',
-                            icon: <CheckCircleOutlined />,
-                            label: '数据标准管理',
-                        },
-                        {
-                            key: '/data-management/business-datasets',
-                            icon: <FileTextOutlined />,
-                            label: '业务数据集管理',
-                        },
-                        {
-                            key: '/data-management/medical-dictionaries',
-                            icon: <HeartOutlined />,
-                            label: '医疗字典数据集',
-                        },
-                        {
-                            key: '/data-management/state-dictionaries',
-                            icon: <TagOutlined />,
-                            label: '状态字典管理',
-                        },
-                    ],
-                },
-                {
-                    key: 'table-relationships',
-                    icon: <LinkOutlined />,
-                    label: '关联关系管理',
-                    children: [
-                        {
-                            key: '/data-management/relationships',
-                            icon: <LinkOutlined />,
-                            label: '表关联关系管理',
-                        },
-                        {
-                            key: '/data-management/auto-discovery',
-                            icon: <SearchOutlined />,
-                            label: '自动关联发现',
-                        },
-                        {
-                            key: '/data-management/visualization',
-                            icon: <EyeOutlined />,
-                            label: '可视化血缘图',
-                        },
-                        {
-                            key: '/data-management/impact-analysis',
-                            icon: <LineChartOutlined />,
-                            label: '影响分析',
-                        },
-                    ],
-                },
-                {
-                    key: 'master-index',
-                    icon: <KeyOutlined />,
-                    label: '主索引管理',
-                    children: [
-                        {
-                            key: '/data-management/index-rules',
-                            icon: <KeyOutlined />,
-                            label: '主索引生成规则',
-                        },
-                        {
-                            key: '/data-management/merge-rules',
-                            icon: <MergeCellsOutlined />,
-                            label: '主索引合并规则',
-                        },
-                        {
-                            key: '/data-management/index-processing',
-                            icon: <ToolOutlined />,
-                            label: '患者索引处理',
-                        },
-                    ],
-                },
-            ],
-        },
-        {
-            key: 'data-parsing',
-            icon: <ApiOutlined />,
-            label: '数据解析',
-            children: [
-                {
-                    key: '/data-parsing',
-                    icon: <ApiOutlined />,
-                    label: '数据解析首页',
-                },
-                {
-                    key: '/data-parsing/annotation',
-                    icon: <TagOutlined />,
-                    label: '数据标注',
-                },
-                {
-                    key: '/data-parsing/medical-record',
-                    icon: <FileTextOutlined />,
-                    label: '电子病历解析',
-                },
-            ],
-        },
-        // 数据检索模块
-        {
-            key: 'data-retrieval',
-            icon: <SearchOutlined />,
-            label: '数据检索',
-            children: [
-                {
-                    key: '/data-retrieval/fulltext',
-                    icon: <SearchOutlined />,
-                    label: '全文检索',
-                },
-                {
-                    key: '/data-retrieval/advanced',
-                    icon: <FileTextOutlined />,
-                    label: '高级检索',
-                },
-                {
-                    key: '/data-retrieval/condition-tree',
-                    icon: <LinkOutlined />,
-                    label: '条件树检索',
-                },
-                {
-                    key: '/data-retrieval/analysis',
-                    icon: <LineChartOutlined />,
-                    label: '检索分析',
-                },
-                {
-                    key: '/data-retrieval/visualization',
-                    icon: <EyeOutlined />,
-                    label: '可视化查看',
-                },
-            ],
-        },
-        // 系统设置模块
-        {
-            key: 'system-settings',
-            icon: <SettingOutlined />,
-            label: '系统设置',
-            children: [
-                {
-                    key: '/system-settings/users',
-                    icon: <UserOutlined />,
-                    label: '用户管理',
-                },
-                {
-                    key: '/system-settings/roles',
-                    icon: <TeamOutlined />,
-                    label: '角色管理',
-                },
-                {
-                    key: '/system-settings/permissions',
-                    icon: <SafetyOutlined />,
-                    label: '权限管理',
-                },
-            ],
-        },
+    {
+        key: 'data-governance',
+        icon: <DatabaseOutlined />,
+        label: '数据治理',
+        children: [
+            {
+                key: '/dashboard',
+                icon: <DashboardOutlined />,
+                label: '仪表盘',
+            },
+            {
+                key: '/database-connection',
+                icon: <DatabaseOutlined />,
+                label: '数据源管理',
+            },
+            {
+                key: '/data-governance/workflow-config',
+                icon: <SettingOutlined />,
+                label: '工作流步骤',
+            },
+            {
+                key: '/data-governance/execution-history',
+                icon: <ClockCircleOutlined />,
+                label: '执行历史',
+            },
+        ],
+    },
+    {
+        key: 'data-quality-control',
+        icon: <SafetyCertificateOutlined />,
+        label: '数据质控',
+        children: [
+            {
+                key: '/data-quality-control/flow-management',
+                icon: <SafetyCertificateOutlined />,
+                label: '质控流程管理',
+            },
+            {
+                key: '/data-quality-control/execution-history',
+                icon: <ClockCircleOutlined />,
+                label: '质控执行历史',
+            },
+            {
+                key: '/data-quality-control/integrated',
+                icon: <SafetyCertificateOutlined />,
+                label: '综合质控管理',
+            },
+        ],
+    },
+    {
+        key: 'data-management',
+        icon: <DatabaseOutlined />,
+        label: '数据管理',
+        children: [
+            {
+                key: '/data-management/metadata',
+                icon: <FileTextOutlined />,
+                label: '元数据管理',
+            },
+            {
+                key: 'data-standards',
+                icon: <CheckCircleOutlined />,
+                label: '标准数据集管理',
+                children: [
+                    {
+                        key: '/data-management/standards',
+                        icon: <CheckCircleOutlined />,
+                        label: '数据标准管理',
+                    },
+                    {
+                        key: '/data-management/business-datasets',
+                        icon: <FileTextOutlined />,
+                        label: '业务数据集管理',
+                    },
+                    {
+                        key: '/data-management/medical-dictionaries',
+                        icon: <HeartOutlined />,
+                        label: '医疗字典数据集',
+                    },
+                    {
+                        key: '/data-management/state-dictionaries',
+                        icon: <TagOutlined />,
+                        label: '状态字典管理',
+                    },
+                ],
+            },
+            {
+                key: 'table-relationships',
+                icon: <LinkOutlined />,
+                label: '关联关系管理',
+                children: [
+                    {
+                        key: '/data-management/relationships',
+                        icon: <LinkOutlined />,
+                        label: '表关联关系管理',
+                    },
+                    {
+                        key: '/data-management/auto-discovery',
+                        icon: <SearchOutlined />,
+                        label: '自动关联发现',
+                    },
+                    {
+                        key: '/data-management/visualization',
+                        icon: <EyeOutlined />,
+                        label: '可视化血缘图',
+                    },
+                    {
+                        key: '/data-management/impact-analysis',
+                        icon: <LineChartOutlined />,
+                        label: '影响分析',
+                    },
+                ],
+            },
+            {
+                key: 'master-index',
+                icon: <KeyOutlined />,
+                label: '主索引管理',
+                children: [
+                    {
+                        key: '/data-management/index-rules',
+                        icon: <KeyOutlined />,
+                        label: '主索引生成规则',
+                    },
+                    {
+                        key: '/data-management/merge-rules',
+                        icon: <MergeCellsOutlined />,
+                        label: '主索引合并规则',
+                    },
+                    {
+                        key: '/data-management/index-processing',
+                        icon: <ToolOutlined />,
+                        label: '患者索引处理',
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        key: 'data-parsing',
+        icon: <ApiOutlined />,
+        label: '数据解析',
+        children: [
+            {
+                key: '/data-parsing',
+                icon: <ApiOutlined />,
+                label: '数据解析首页',
+            },
+            {
+                key: '/data-parsing/annotation',
+                icon: <TagOutlined />,
+                label: '数据标注',
+            },
+            {
+                key: '/data-parsing/medical-record',
+                icon: <FileTextOutlined />,
+                label: '电子病历解析',
+            },
+        ],
+    },
+    // 数据检索模块
+    {
+        key: 'data-retrieval',
+        icon: <SearchOutlined />,
+        label: '数据检索',
+        children: [
+            {
+                key: '/data-retrieval/fulltext',
+                icon: <SearchOutlined />,
+                label: '全文检索',
+            },
+            {
+                key: '/data-retrieval/advanced',
+                icon: <FileTextOutlined />,
+                label: '高级检索',
+            },
+            {
+                key: '/data-retrieval/condition-tree',
+                icon: <LinkOutlined />,
+                label: '条件树检索',
+            },
+            {
+                key: '/data-retrieval/analysis',
+                icon: <LineChartOutlined />,
+                label: '检索分析',
+            },
+            {
+                key: '/data-retrieval/visualization',
+                icon: <EyeOutlined />,
+                label: '可视化查看',
+            },
+        ],
+    },
+    // 系统设置模块
+    {
+        key: 'system-settings',
+        icon: <SettingOutlined />,
+        label: '系统设置',
+        children: [
+            {
+                key: '/system-settings/users',
+                icon: <UserOutlined />,
+                label: '用户管理',
+            },
+            {
+                key: '/system-settings/roles',
+                icon: <TeamOutlined />,
+                label: '角色管理',
+            },
+            {
+                key: '/system-settings/permissions',
+                icon: <SafetyOutlined />,
+                label: '权限管理',
+            },
+        ],
+    },
 
-        // {
-        //     key: '/style-demo',
-        //     icon: <BgColorsOutlined />,
-        //     label: '样式演示',
-        // },
-    ]
+    // {
+    //     key: '/style-demo',
+    //     icon: <BgColorsOutlined />,
+    //     label: '样式演示',
+    // },
+]
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
     const navigate = useNavigate()

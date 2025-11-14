@@ -1,7 +1,7 @@
 import { useDispatch, useSelector, type TypedUseSelectorHook } from 'react-redux'
 import { useCallback } from 'react'
 import type { AppDispatch, RootState } from './index'
-import { 
+import {
     setUsers as setUsersAction,
     setUserRoleAssignments as setUserRoleAssignmentsAction,
     setUserRoles as setUserRolesAction,
@@ -21,31 +21,47 @@ export const useSystemSettings = () => {
     const systemSettings = useAppSelector(state => state.systemSettings)
 
     // 用户管理相关的方法
-    const setUsers = useCallback((users: any[]) => {
-        dispatch(setUsersAction(users))
-    }, [dispatch])
+    const setUsers = useCallback(
+        (users: any[]) => {
+            dispatch(setUsersAction(users))
+        },
+        [dispatch]
+    )
 
-    const setRoles = useCallback((roles: any[]) => {
-        dispatch(setRolesAction(roles))
-    }, [dispatch])
+    const setRoles = useCallback(
+        (roles: any[]) => {
+            dispatch(setRolesAction(roles))
+        },
+        [dispatch]
+    )
 
-    const setUserLoading = useCallback((loading: boolean) => {
-        dispatch(setUserLoadingAction(loading))
-    }, [dispatch])
+    const setUserLoading = useCallback(
+        (loading: boolean) => {
+            dispatch(setUserLoadingAction(loading))
+        },
+        [dispatch]
+    )
 
-    const setUserRoleAssignments = useCallback((assignments: Record<string, string[]>) => {
-        dispatch(setUserRoleAssignmentsAction(assignments))
-    }, [dispatch])
+    const setUserRoleAssignments = useCallback(
+        (assignments: Record<string, string[]>) => {
+            dispatch(setUserRoleAssignmentsAction(assignments))
+        },
+        [dispatch]
+    )
 
-    const setUserRoles = useCallback((userId: string, roleIds: string[]) => {
-        dispatch(setUserRolesAction({ userId, roleIds }))
-    }, [dispatch])
+    const setUserRoles = useCallback(
+        (userId: string, roleIds: string[]) => {
+            dispatch(setUserRolesAction({ userId, roleIds }))
+        },
+        [dispatch]
+    )
 
-    const getUserRoles = useCallback((userId: string): string[] => {
-        return systemSettings.userRoleAssignments[userId] || []
-    }, [systemSettings.userRoleAssignments])
-
-
+    const getUserRoles = useCallback(
+        (userId: string): string[] => {
+            return systemSettings.userRoleAssignments[userId] || []
+        },
+        [systemSettings.userRoleAssignments]
+    )
 
     return {
         // 状态

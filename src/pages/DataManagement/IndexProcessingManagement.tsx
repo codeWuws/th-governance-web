@@ -741,9 +741,28 @@ const IndexProcessingManagement: React.FC = () => {
     ]
 
     return (
-        <div style={{ padding: '24px' }}>
+        <div style={{ padding: 0 }}>
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 24,
+                }}
+            >
+                <Title level={2} style={{ margin: 0 }}>
+                    患者索引处理
+                </Title>
+            </div>
+            <Alert
+                message='患者索引处理'
+                description='支持合并、拆分、校验与纠错流程，查看执行步骤与状态，进行审批与审计。'
+                type='info'
+                showIcon
+                style={{ marginBottom: 24 }}
+            />
             <Card>
-                <div style={{ marginBottom: '16px' }}>
+                <div style={{ marginBottom: 24 }}>
                     <Row gutter={16} align='middle'>
                         <Col flex='auto'>
                             <Title level={3} style={{ margin: 0 }}>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import {
+    Alert,
     Card,
     Table,
     Button,
@@ -421,61 +422,66 @@ const DataStandardManagement: React.FC = () => {
     ]
 
     return (
-        <div style={{ padding: '24px' }}>
+        <div style={{ padding: 0 }}>
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 24,
+                }}
+            >
+                <Title level={2} style={{ margin: 0 }}>
+                    数据标准管理
+                </Title>
+                <Space>
+                    <Button icon={<ReloadOutlined />} onClick={fetchData} loading={loading}>
+                        刷新
+                    </Button>
+                    <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
+                        新增标准
+                    </Button>
+                </Space>
+            </div>
+            <Alert
+                message='数据标准管理'
+                description='维护标准项的编码、定义、分类与状态，支持搜索与筛选。'
+                type='info'
+                showIcon
+                style={{ marginBottom: 24 }}
+            />
             <Card>
-                <div style={{ marginBottom: '16px' }}>
-                    <Row gutter={16} align='middle'>
-                        <Col flex='auto'>
-                            <Title level={3} style={{ margin: 0 }}>
-                                数据标准管理
-                            </Title>
-                        </Col>
-                        <Col>
-                            <Space>
-                                <Search
-                                    placeholder='搜索名称、编码或描述'
-                                    allowClear
-                                    onSearch={handleSearch}
-                                    style={{ width: 250 }}
-                                    prefix={<SearchOutlined />}
-                                />
-                                <Select
-                                    placeholder='分类筛选'
-                                    style={{ width: 120 }}
-                                    allowClear
-                                    onChange={setCategoryFilter}
-                                >
-                                    {categories.map(category => (
-                                        <Option key={category} value={category}>
-                                            {category}
-                                        </Option>
-                                    ))}
-                                </Select>
-                                <Select
-                                    placeholder='状态筛选'
-                                    style={{ width: 120 }}
-                                    allowClear
-                                    onChange={setStatusFilter}
-                                >
-                                    <Option value='draft'>草稿</Option>
-                                    <Option value='published'>已发布</Option>
-                                    <Option value='deprecated'>已废弃</Option>
-                                </Select>
-                                <Button
-                                    icon={<ReloadOutlined />}
-                                    onClick={fetchData}
-                                    loading={loading}
-                                >
-                                    刷新
-                                </Button>
-                                <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
-                                    新增标准
-                                </Button>
-                            </Space>
-                        </Col>
-                    </Row>
-                </div>
-
+                <Space style={{ marginBottom: 16 }} wrap>
+                    <Search
+                        placeholder='搜索名称、编码或描述'
+                        allowClear
+                        onSearch={handleSearch}
+                        style={{ width: 250 }}
+                        prefix={<SearchOutlined />}
+                    />
+                    <Select
+                        placeholder='分类筛选'
+                        style={{ width: 120 }}
+                        allowClear
+                        onChange={setCategoryFilter}
+                    >
+                        {categories.map(category => (
+                            <Option key={category} value={category}>
+                                {category}
+                            </Option>
+                        ))}
+                    </Select>
+                    <Select
+                        placeholder='状态筛选'
+                        style={{ width: 120 }}
+                        allowClear
+                        onChange={setStatusFilter}
+                    >
+                        <Option value='draft'>草稿</Option>
+                        <Option value='published'>已发布</Option>
+                        <Option value='deprecated'>已废弃</Option>
+                    </Select>
+                </Space>
                 <Table
                     columns={columns}
                     dataSource={filteredData}

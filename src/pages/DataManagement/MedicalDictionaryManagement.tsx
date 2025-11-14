@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import {
+    Alert,
     Card,
     Table,
     Button,
@@ -11,6 +12,7 @@ import {
     Select,
     message,
     Popconfirm,
+    Typography,
 } from 'antd'
 import {
     PlusOutlined,
@@ -265,25 +267,35 @@ const MedicalDictionaryManagement: React.FC = () => {
     ]
 
     return (
-        <div>
+        <div style={{ padding: 0 }}>
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 24,
+                }}
+            >
+                <Typography.Title level={2} style={{ margin: 0 }}>
+                    医疗字典数据集管理
+                </Typography.Title>
+                <Space>
+                    <Button type='default' icon={<SyncOutlined />} onClick={handleAutoMapping}>
+                        自动映射
+                    </Button>
+                    <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
+                        新建字典
+                    </Button>
+                </Space>
+            </div>
+            <Alert
+                message='医疗字典管理'
+                description='维护ICD/LOINC等标准字典的映射与版本管理，支持搜索与导入。'
+                type='info'
+                showIcon
+                style={{ marginBottom: 24 }}
+            />
             <Card>
-                <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-                    <div>
-                        <h2>医疗字典数据集管理</h2>
-                        <p style={{ color: '#666' }}>
-                            管理医疗术语字典，包括ICD、LOINC等标准字典的映射和版本管理
-                        </p>
-                    </div>
-                    <Space>
-                        <Button type='default' icon={<SyncOutlined />} onClick={handleAutoMapping}>
-                            自动映射
-                        </Button>
-                        <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
-                            新建字典
-                        </Button>
-                    </Space>
-                </div>
-
                 <Table
                     columns={columns}
                     dataSource={data}

@@ -1,34 +1,145 @@
-.container { display: flex; flex-direction: column; gap: 12px; height: calc(100vh - 100px); }
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: calc(100vh - 100px);
+}
 
-.headerCard { border-radius: 12px; overflow: hidden; }
-.header { display: flex; align-items: center; justify-content: space-between; padding: 16px; background: linear-gradient(90deg, #f0f7ff 0%, #ffffff 100%); }
-.title { font-size: 18px; font-weight: 600; color: #0c63e4; }
-.subtitle { color: #6b7280; }
+.headerCard {
+    border-radius: 12px;
+    overflow: hidden;
+}
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    background: linear-gradient(90deg, #f0f7ff 0%, #ffffff 100%);
+}
+.title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #0c63e4;
+}
+.subtitle {
+    color: #6b7280;
+}
 
-.layout { display: grid; grid-template-columns: 1fr; gap: 12px; flex: 1; min-height: 0; }
+.layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+}
 
-.leftPanel { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
-.roleCard { border-radius: 12px; }
-.roleHeader { display: flex; align-items: center; justify-content: space-between; }
-.roleMeta { display: flex; gap: 8px; align-items: center; }
+.leftPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+}
+.roleCard {
+    border-radius: 12px;
+}
+.roleHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.roleMeta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
 
-.rightPanel { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
-.toolbar { display: flex; align-items: center; justify-content: space-between; }
-.filters { display: flex; gap: 12px; align-items: center; }
-.stats { display: flex; gap: 16px; align-items: center; }
+.rightPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+}
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.filters {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+.stats {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
 
-.treeCard { border-radius: 12px; }
-.treeWrap { height: 100%; overflow: auto; border: 1px solid #f0f0f0; border-radius: 8px; padding: 12px; background: #fff; }
+.treeCard {
+    border-radius: 12px;
+}
+.treeWrap {
+    height: 100%;
+    overflow: auto;
+    border: 1px solid #f0f0f0;
+    border-radius: 8px;
+    padding: 12px;
+    background: #fff;
+}
 
-.actions { display: flex; gap: 8px; }
+.actions {
+    display: flex;
+    gap: 8px;
+}
 
-.templateBar { display: flex; gap: 8px; flex-wrap: wrap; }
-.metricsGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-.metricCard { border: 1px solid #f0f0f0; border-radius: 12px; padding: 12px; background: #fff; display: flex; align-items: center; gap: 12px; }
-.metricTitle { font-weight: 600; }
-.metricValue { color: #6b7280; }
+.templateBar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.metricsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+.metricCard {
+    border: 1px solid #f0f0f0;
+    border-radius: 12px;
+    padding: 12px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.metricTitle {
+    font-weight: 600;
+}
+.metricValue {
+    color: #6b7280;
+}
 
-.tabsWrap { background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.detailList { padding: 12px; height: 100%; overflow: auto; }
-.tagsGroup { display: flex; gap: 8px; flex-wrap: wrap; }
-.roleTags { display: flex; gap: 8px; flex-wrap: wrap; padding: 8px 0; }
+.tabsWrap {
+    background: #fff;
+    border: 1px solid #f0f0f0;
+    border-radius: 12px;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+.detailList {
+    padding: 12px;
+    height: 100%;
+    overflow: auto;
+}
+.tagsGroup {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.roleTags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 8px 0;
+}

@@ -528,14 +528,14 @@ const BasicMedicalLogicQualityControl: React.FC = () => {
             >
                 <Title level={2} style={{ margin: 0 }}>
                     <LinkOutlined style={{ marginRight: 8 }} />
-                    基础医疗逻辑质控
+                    一致性质控
                 </Title>
             </div>
 
             {/* 信息提示 */}
             <Alert
-                message='基础医疗逻辑质控功能'
-                description='检查主附表数据关联关系，验证医疗业务逻辑的正确性，包括时间逻辑、年龄逻辑、性别逻辑等基础医疗规则。'
+                message='一致性质控功能'
+                description='检查主附表数据关联关系与规则一致性，包含时间、年龄、性别等基础逻辑校验，识别不一致与异常。'
                 type='info'
                 showIcon
                 style={{ marginBottom: 24 }}

@@ -37,8 +37,6 @@ describe('RBAC Association Functionality', () => {
         expect(assignResponse.data.data.roleIds).toEqual(roleIds)
     })
 
-
-
     it('should test complete RBAC flow', async () => {
         const { mockApi } = await import('@/mock/rbac')
 

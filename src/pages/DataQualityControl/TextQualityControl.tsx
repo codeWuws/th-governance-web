@@ -176,14 +176,14 @@ const TextQualityControl: React.FC = () => {
             >
                 <Title level={2} style={{ margin: 0 }}>
                     <FileTextOutlined style={{ marginRight: 8 }} />
-                    文本质控
+                    可靠性质控
                 </Title>
             </div>
 
             {/* 信息提示 */}
             <Alert
-                message='文本质控功能'
-                description='上传文本文件并选择对应的数据表，系统将自动检查文本数据的质量问题，包括格式规范、内容完整性、字符合规性等。'
+                message='可靠性质控功能'
+                description='针对文本数据进行可靠性评估，包括格式规范、内容完整性与字符合规性，保障数据可信与稳定。'
                 type='info'
                 showIcon
                 style={{ marginBottom: 24 }}

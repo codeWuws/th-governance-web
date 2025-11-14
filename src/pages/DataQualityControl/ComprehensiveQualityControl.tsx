@@ -69,10 +69,9 @@ const ComprehensiveQualityControl: React.FC = () => {
     // 数据源选项
     const dataSourceOptions = [
         { label: '全部数据表', value: 'all_tables' },
-        { label: '患者信息相关表', value: 'patient_tables' },
-        { label: '诊疗信息相关表', value: 'medical_tables' },
-        { label: '检查检验相关表', value: 'examination_tables' },
-        { label: '药品处方相关表', value: 'prescription_tables' },
+        { label: '事件流/实时', value: 'streaming' },
+        { label: '批处理/日更', value: 'batch_daily' },
+        { label: '批处理/周更', value: 'batch_weekly' },
     ]
 
     // 解析Excel结果
@@ -81,43 +80,43 @@ const ComprehensiveQualityControl: React.FC = () => {
         const mockReports: QualityReport[] = [
             {
                 key: '1',
-                category: '数据完整性',
+                category: '刷新延迟（分钟）',
                 totalItems: 1000,
-                passedItems: 850,
-                failedItems: 150,
-                passRate: 85,
-                status: 'warning',
-                details: '部分患者基本信息缺失',
+                passedItems: 900,
+                failedItems: 100,
+                passRate: 90,
+                status: 'success',
+                details: '大部分表延迟≤15分钟',
             },
             {
                 key: '2',
-                category: '数据一致性',
+                category: '准点率（定时任务）',
                 totalItems: 800,
                 passedItems: 720,
                 failedItems: 80,
                 passRate: 90,
                 status: 'success',
-                details: '数据一致性良好',
+                details: '定时任务按计划执行，偶发延迟',
             },
             {
                 key: '3',
-                category: '数据准确性',
+                category: '增量覆盖率',
                 totalItems: 1200,
-                passedItems: 1080,
-                failedItems: 120,
-                passRate: 90,
-                status: 'success',
-                details: '数据准确性符合要求',
+                passedItems: 1020,
+                failedItems: 180,
+                passRate: 85,
+                status: 'warning',
+                details: '部分增量批次未全量覆盖',
             },
             {
                 key: '4',
-                category: '数据时效性',
+                category: '实时管道稳定性',
                 totalItems: 500,
-                passedItems: 400,
-                failedItems: 100,
-                passRate: 80,
+                passedItems: 425,
+                failedItems: 75,
+                passRate: 85,
                 status: 'warning',
-                details: '部分数据更新不及时',
+                details: '高峰期间吞吐下降，需优化缓冲',
             },
         ]
         setQualityReports(mockReports)
@@ -225,38 +224,38 @@ const ComprehensiveQualityControl: React.FC = () => {
             const mockMetrics: QualityMetric[] = [
                 {
                     key: '1',
-                    metric: '数据完整性',
-                    score: 85,
-                    status: 'good',
-                    description: '大部分字段填充完整，少数字段存在空值',
+                    metric: '刷新延迟控制',
+                    score: 93,
+                    status: 'excellent',
+                    description: '绝大多数表延迟≤15分钟',
                 },
                 {
                     key: '2',
-                    metric: '数据准确性',
-                    score: 92,
-                    status: 'excellent',
-                    description: '数据格式规范，准确性较高',
+                    metric: '准点率（调度）',
+                    score: 88,
+                    status: 'good',
+                    description: '定时任务准点率≥88%，偶发延迟',
                 },
                 {
                     key: '3',
-                    metric: '数据一致性',
-                    score: 78,
+                    metric: '实时管道稳定性',
+                    score: 80,
                     status: 'warning',
-                    description: '部分关联数据存在不一致问题',
+                    description: '高峰吞吐下降，需优化缓冲与重试策略',
                 },
                 {
                     key: '4',
-                    metric: '数据时效性',
-                    score: 95,
-                    status: 'excellent',
-                    description: '数据更新及时，时效性良好',
+                    metric: '迟到记录占比',
+                    score: 86,
+                    status: 'good',
+                    description: '迟到记录占比≤14%，总体可控',
                 },
                 {
                     key: '5',
-                    metric: '数据唯一性',
-                    score: 88,
-                    status: 'good',
-                    description: '存在少量重复记录，需要清理',
+                    metric: '增量覆盖率',
+                    score: 82,
+                    status: 'warning',
+                    description: '部分批次增量缺失，需补偿同步',
                 },
             ]
 
@@ -265,7 +264,7 @@ const ComprehensiveQualityControl: React.FC = () => {
                 mockMetrics.reduce((sum, item) => sum + item.score, 0) / mockMetrics.length
             )
             setOverallScore(avgScore)
-            uiMessage.success('综合质控检查完成！')
+            uiMessage.success('及时性质控检查完成！')
         } catch (error) {
             logger.error('质控检查失败:', error instanceof Error ? error : new Error(String(error)))
             uiMessage.error('质控检查失败，请重试')
@@ -420,14 +419,14 @@ const ComprehensiveQualityControl: React.FC = () => {
             >
                 <Title level={2} style={{ margin: 0 }}>
                     <BarChartOutlined style={{ marginRight: 8 }} />
-                    综合质控
+                    及时性质控
                 </Title>
             </div>
 
             {/* 信息提示 */}
             <Alert
-                message='综合质控功能'
-                description='对数据进行全面的质量检查，包括完整性、准确性、一致性、时效性等多个维度。支持上传Excel格式的质控结果文件进行分析。'
+                message='及时性质控功能'
+                description='聚焦数据的时效性与延迟控制，评估刷新延迟、准点率、实时管道稳定性与增量覆盖率；支持上传Excel结果进行解析。'
                 type='info'
                 showIcon
                 style={{ marginBottom: 24 }}
@@ -512,7 +511,7 @@ const ComprehensiveQualityControl: React.FC = () => {
                                     size='large'
                                     block
                                 >
-                                    开始综合质控
+                                    开始及时质控
                                 </Button>
                             </Form.Item>
                         </Form>
@@ -547,7 +546,7 @@ const ComprehensiveQualityControl: React.FC = () => {
                         title={
                             <>
                                 <CheckCircleOutlined style={{ marginRight: 8 }} />
-                                质控指标
+                                时效指标
                             </>
                         }
                         extra={
@@ -571,7 +570,7 @@ const ComprehensiveQualityControl: React.FC = () => {
                                 <BarChartOutlined style={{ fontSize: 48, marginBottom: 16 }} />
                                 <div>暂无质控结果</div>
                                 <div style={{ fontSize: 12, marginTop: 8 }}>
-                                    请先执行综合质控检查
+                                    请先执行及时性质控检查
                                 </div>
                             </div>
                         )}
@@ -583,7 +582,7 @@ const ComprehensiveQualityControl: React.FC = () => {
                             title={
                                 <>
                                     <FileExcelOutlined style={{ marginRight: 8 }} />
-                                    Excel解析结果
+                                    时效结果解析（Excel）
                                 </>
                             }
                             extra={

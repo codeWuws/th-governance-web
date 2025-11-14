@@ -104,7 +104,7 @@ const UserSettings: React.FC = () => {
             if (response.data.success) {
                 setUsers(response.data.data.records)
                 setTotal(response.data.data.total)
-                
+
                 // 初始化用户角色分配数据
                 const roleAssignments: Record<string, string[]> = {}
                 response.data.data.records.forEach((user: RBACUser) => {
@@ -451,7 +451,13 @@ const UserSettings: React.FC = () => {
                     </Col>
                     <Col span={10} style={{ textAlign: 'right' }}>
                         <Space>
-                            <Button icon={<ReloadOutlined />} onClick={() => { loadUsers(); loadRoles() }}>
+                            <Button
+                                icon={<ReloadOutlined />}
+                                onClick={() => {
+                                    loadUsers()
+                                    loadRoles()
+                                }}
+                            >
                                 刷新
                             </Button>
                             <Button type='primary' icon={<PlusOutlined />} onClick={handleCreate}>

@@ -416,9 +416,33 @@ const ImpactAnalysisManagement: React.FC = () => {
     ]
 
     return (
-        <div style={{ padding: '24px' }}>
+        <div style={{ padding: 0 }}>
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 24,
+                }}
+            >
+                <Typography.Title level={2} style={{ margin: 0 }}>
+                    影响分析
+                </Typography.Title>
+                <Space>
+                    <Button icon={<ReloadOutlined />} onClick={loadData} loading={loading}>
+                        刷新
+                    </Button>
+                </Space>
+            </div>
+            <Alert
+                message='数据变更影响分析'
+                description='按影响级别、分析状态与变更类型筛选，查看受影响对象与建议措施。'
+                type='info'
+                showIcon
+                style={{ marginBottom: 24 }}
+            />
             <Card>
-                <div style={{ marginBottom: 16 }}>
+                <div style={{ marginBottom: 24 }}>
                     <Space style={{ marginBottom: 16 }}>
                         <Button icon={<ReloadOutlined />} onClick={loadData} loading={loading}>
                             刷新

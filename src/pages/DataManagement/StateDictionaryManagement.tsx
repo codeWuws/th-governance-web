@@ -12,6 +12,8 @@ import {
     Form,
     Switch,
     DatePicker,
+    Alert,
+    Typography,
 } from 'antd'
 import {
     PlusOutlined,
@@ -385,20 +387,40 @@ const StateDictionaryManagement: React.FC = () => {
     ]
 
     return (
-        <div style={{ padding: '24px' }}>
+        <div style={{ padding: 0 }}>
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 24,
+                }}
+            >
+                <Typography.Title level={2} style={{ margin: 0 }}>
+                    状态字典管理
+                </Typography.Title>
+                <Space>
+                    <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
+                        新增状态字典
+                    </Button>
+                    <Button icon={<ImportOutlined />} onClick={handleImport}>
+                        导入
+                    </Button>
+                    <Button icon={<ExportOutlined />} onClick={handleExport}>
+                        导出
+                    </Button>
+                </Space>
+            </div>
+            <Alert
+                message='状态字典管理'
+                description='支持新增、导入、导出与搜索，维护标准化状态字典。'
+                type='info'
+                showIcon
+                style={{ marginBottom: 24 }}
+            />
             <Card>
-                <div style={{ marginBottom: 16 }}>
-                    <Space style={{ marginBottom: 16 }}>
-                        <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
-                            新增状态字典
-                        </Button>
-                        <Button icon={<ImportOutlined />} onClick={handleImport}>
-                            导入
-                        </Button>
-                        <Button icon={<ExportOutlined />} onClick={handleExport}>
-                            导出
-                        </Button>
-                    </Space>
+                <div style={{ marginBottom: 24 }}>
+                    <Space style={{ marginBottom: 16 }}></Space>
 
                     <Space style={{ marginBottom: 16 }}>
                         <Search

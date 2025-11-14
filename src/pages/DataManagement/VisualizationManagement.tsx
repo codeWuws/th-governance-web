@@ -14,6 +14,7 @@ import {
     Alert,
     Progress,
     Descriptions,
+    Typography,
 } from 'antd'
 import {
     ReloadOutlined,
@@ -498,9 +499,33 @@ const VisualizationManagement: React.FC = () => {
         }) || []
 
     return (
-        <div style={{ padding: '24px' }}>
+        <div style={{ padding: 0 }}>
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 24,
+                }}
+            >
+                <Typography.Title level={2} style={{ margin: 0 }}>
+                    可视化血缘图
+                </Typography.Title>
+                <Space>
+                    <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={loading}>
+                        刷新
+                    </Button>
+                </Space>
+            </div>
+            <Alert
+                message='数据血缘可视化'
+                description='选择数据库与视图参数，查看表与字段的血缘关系图，可导出图片与缩放操作。'
+                type='info'
+                showIcon
+                style={{ marginBottom: 24 }}
+            />
             <Card>
-                <div style={{ marginBottom: 16 }}>
+                <div style={{ marginBottom: 24 }}>
                     <Space style={{ marginBottom: 16 }}>
                         <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={loading}>
                             刷新

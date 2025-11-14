@@ -1,0 +1,145 @@
+@use '../../styles/mixins.scss' as mixins;
+
+.pageWrapper {
+    padding: 0;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.subHeader {
+    color: #6b7280;
+    margin-bottom: 12px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 16px;
+}
+
+.panel {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 6px 18px rgba(17, 24, 39, 0.06);
+}
+
+.selectorBox {
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.summary {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+}
+
+.actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.catalogCard {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.catalogHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: linear-gradient(90deg, #0ea5e9 0%, #6366f1 100%);
+    color: #fff;
+    font-weight: 600;
+}
+
+.catalogBody {
+    padding: 14px 16px;
+    color: #374151;
+}
+
+.tagList {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.optionsGrid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.optionCard {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(17, 24, 39, 0.06);
+}
+.optionCard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(17, 24, 39, 0.08);
+}
+.optionHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid #f1f5f9;
+}
+.optionTitle {
+    font-weight: 600;
+    color: #111827;
+}
+.optionDesc {
+    padding: 12px 14px;
+    color: #4b5563;
+    font-size: 13px;
+}
+.optionSelected {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+.optionFooter {
+    display: flex;
+    justify-content: flex-end;
+    padding: 10px 14px 14px;
+}
+.selectedBadge {
+    background: #10b981;
+    color: #fff;
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 12px;
+}
+
+.help {
+    margin-top: 12px;
+}
+.helpTitle {
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 6px;
+}
+.helpList {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: #4b5563;
+    font-size: 13px;
+}

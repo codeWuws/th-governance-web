@@ -7,11 +7,9 @@ import { ExecutionHistory } from '../pages/DataGovernance/ExecutionHistory'
 import WorkflowConfig from '../pages/DataGovernance/WorkflowConfig'
 import WorkflowDetail from '../pages/DataGovernance/WorkflowDetail'
 import DataQualityControl from '../pages/DataQualityControl'
-import BasicMedicalLogicQualityControl from '../pages/DataQualityControl/BasicMedicalLogicQualityControl'
-import CompletenessQualityControl from '../pages/DataQualityControl/CompletenessQualityControl'
-import ComprehensiveQualityControl from '../pages/DataQualityControl/ComprehensiveQualityControl'
-import CoreDataQualityControl from '../pages/DataQualityControl/CoreDataQualityControl'
-import TextQualityControl from '../pages/DataQualityControl/TextQualityControl'
+import IntegratedQualityControlManagement from '../pages/DataQualityControl/IntegratedQualityControlManagement'
+import FlowManagement from '../pages/DataQualityControl/FlowManagement'
+import QCExecutionHistory from '../pages/DataQualityControl/ExecutionHistory'
 
 import DataManagement from '../pages/DataManagement'
 import MetadataManagement from '../pages/DataManagement/MetadataManagement'
@@ -76,24 +74,16 @@ export const router = createBrowserRouter([
                 element: <DataQualityControl />,
             },
             {
-                path: 'data-quality-control/text',
-                element: <TextQualityControl />,
+                path: 'data-quality-control/flow-management',
+                element: <FlowManagement />,
             },
             {
-                path: 'data-quality-control/comprehensive',
-                element: <ComprehensiveQualityControl />,
+                path: 'data-quality-control/execution-history',
+                element: <QCExecutionHistory />,
             },
             {
-                path: 'data-quality-control/completeness',
-                element: <CompletenessQualityControl />,
-            },
-            {
-                path: 'data-quality-control/basic-medical-logic',
-                element: <BasicMedicalLogicQualityControl />,
-            },
-            {
-                path: 'data-quality-control/core-data',
-                element: <CoreDataQualityControl />,
+                path: 'data-quality-control/integrated',
+                element: <IntegratedQualityControlManagement />,
             },
 
             {

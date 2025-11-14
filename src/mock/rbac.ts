@@ -3,14 +3,8 @@
  * 提供用户、角色、权限的模拟数据
  */
 
-import {
-    User,
-    Role,
-    UserStatus,
-    RoleStatus,
-} from '@/types/rbac'
+import { User, Role, UserStatus, RoleStatus } from '@/types/rbac'
 import { menuItems } from '@/components/Layout/Sidebar'
-
 
 // 收集菜单叶子节点 key 作为权限项
 const collectLeafKeys = (items: any[]): string[] => {
@@ -55,7 +49,11 @@ const mockRoles: Role[] = [
         sortOrder: 2,
         createdAt: '2024-01-01T00:00:00Z',
         updatedAt: '2024-01-01T00:00:00Z',
-        permissions: ['/system-settings/users', '/system-settings/roles', '/system-settings/permissions'],
+        permissions: [
+            '/system-settings/users',
+            '/system-settings/roles',
+            '/system-settings/permissions',
+        ],
     },
     {
         id: '3',
@@ -481,8 +479,6 @@ export const mockRoleApi = {
         }
     },
 }
-
-
 
 // 获取所有角色（用于用户角色分配）
 export const getAllRoles = () => [...roles]

@@ -503,14 +503,14 @@ const CoreDataQualityControl: React.FC = () => {
             >
                 <Title level={2} style={{ margin: 0 }}>
                     <HeartOutlined style={{ marginRight: 8 }} />
-                    核心数据质控
+                    准确性质控
                 </Title>
             </div>
 
             {/* 信息提示 */}
             <Alert
-                message='核心数据质控功能'
-                description='对医疗核心数据进行深度质量分析，包括患者信息、诊断、手术、用药等关键数据的质量评估和对比分析。'
+                message='准确性质控功能'
+                description='针对核心医疗数据开展准确性评估，包括编码规范、字段值校验与跨周期/科室/医生维度的对比分析。'
                 type='info'
                 showIcon
                 style={{ marginBottom: 24 }}

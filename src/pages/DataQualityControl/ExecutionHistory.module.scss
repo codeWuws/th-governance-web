@@ -1,0 +1,36 @@
+.pageWrapper {
+    padding: 0;
+}
+.pageHeader {
+    margin-bottom: 24px;
+}
+
+.tableWrapper {
+    background: #fff;
+    border: 1px solid #f0f0f0;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.filtersWrapper {
+    background: #fff;
+    border: 1px solid #f0f0f0;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+.filtersForm {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.filterItem {
+    flex: 1 1 240px;
+    min-width: 220px;
+}
+.filterActions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
