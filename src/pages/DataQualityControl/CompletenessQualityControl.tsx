@@ -87,7 +87,7 @@ const CompletenessQualityControl: React.FC = () => {
         { label: '诊疗信息表', value: 'medical' },
         { label: '检查检验表', value: 'examination' },
         { label: '药品处方表', value: 'prescription' },
-        { label: '手术记录表', value: 'surgery' },
+        { label: '手术信息表', value: 'surgery' },
     ]
 
     // 执行完整性检查
@@ -138,7 +138,7 @@ const CompletenessQualityControl: React.FC = () => {
                 {
                     key: '5',
                     tableName: 'surgery_record',
-                    tableComment: '手术记录表',
+                    tableComment: '手术信息表',
                     totalRecords: 15000,
                     completenessRate: 65.4,
                     incompleteRecords: 5190,
