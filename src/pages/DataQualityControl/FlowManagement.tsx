@@ -1,7 +1,6 @@
 import {
     CheckCircleOutlined,
     SafetyCertificateOutlined,
-    FileTextOutlined,
     BarChartOutlined,
     PieChartOutlined,
     LinkOutlined,
@@ -20,12 +19,6 @@ type QcTypeOption = { label: string; value: string; description: string; icon?: 
 
 const deriveQcOptions = (): QcTypeOption[] => {
     return [
-        {
-            label: '可靠性质控',
-            value: 'text',
-            description: '面向文本数据的可靠性评估，关注规范、完整性与字符合规性。',
-            icon: <FileTextOutlined />,
-        },
         {
             label: '及时性质控',
             value: 'comprehensive',
@@ -57,7 +50,7 @@ const deriveQcOptions = (): QcTypeOption[] => {
     ]
 }
 
-const MAX_SELECT = 5
+const MAX_SELECT = 4
 
 const FlowManagement: React.FC = () => {
     const navigate = useNavigate()
@@ -105,12 +98,11 @@ const FlowManagement: React.FC = () => {
             uiMessage.success('质控流程已启动并记录历史')
 
             const typeToTabKey = (t: string) => {
-                if (t === 'text') return 'reliability'
                 if (t === 'comprehensive') return 'timeliness'
                 if (t === 'completeness') return 'completeness'
                 if (t === 'basic-medical-logic') return 'consistency'
                 if (t === 'core-data') return 'accuracy'
-                return 'reliability'
+                return 'timeliness'
             }
             const first = selectedTypes[0]
             const tabKey = typeToTabKey(first)
@@ -154,7 +146,7 @@ const FlowManagement: React.FC = () => {
             <div className={styles.subHeader}>以左侧菜单的质控类型为基准动态生成目录</div>
 
             <Alert
-                message='请选择需要参与流程的质控类型，最多可多选五项。点击启动后将进入流程执行页面，实时查看进度与日志。'
+                message='请选择需要参与流程的质控类型，最多可多选四项。点击启动后将进入流程执行页面，实时查看进度与日志。'
                 type='info'
                 showIcon
                 style={{ marginBottom: 24 }}
@@ -182,8 +174,11 @@ const FlowManagement: React.FC = () => {
                                         )}
                                     </div>
                                     <div className={styles.optionDesc}>{opt.description}</div>
-                                    <div className={styles.optionFooter}>
-                                        <Space>
+                                    <div
+                                        className={styles.optionFooter}
+                                        onClick={e => e.stopPropagation()}
+                                    >
+                                        <Space onClick={e => e.stopPropagation()}>
                                             <span>自动流转</span>
                                             <Switch
                                                 checked={!!autoFlowMap[opt.value]}
@@ -195,7 +190,7 @@ const FlowManagement: React.FC = () => {
                                                 }
                                             />
                                         </Space>
-                                    </div>
+                                        </div>
                                 </div>
                             )
                         })}
@@ -226,7 +221,7 @@ const FlowManagement: React.FC = () => {
                                 <div className={styles.helpTitle}>执行说明</div>
                                 <div className={styles.helpList}>
                                     <Text>• 包含数据预检查、队列调度与实时进度记录</Text>
-                                    <Text>• 最多选择5个质控类型，支持顺序执行与状态回写</Text>
+                                    <Text>• 最多选择4个质控类型，支持顺序执行与状态回写</Text>
                                     <Text>• 执行历史将保留在「质控执行历史」，可随时查看详情</Text>
                                     <Text>• 建议在非高峰时段启动，以减少资源冲突</Text>
                                 </div>

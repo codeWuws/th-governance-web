@@ -25,7 +25,7 @@ import {
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { logger } from '@/utils/logger'
 import uiMessage from '@/utils/uiMessage'
 
@@ -60,7 +60,9 @@ interface CoreDataFormValues {
     dateRange: [dayjs.Dayjs, dayjs.Dayjs]
 }
 
-const CoreDataQualityControl: React.FC = () => {
+type AutoProps = { autoStart?: boolean; onAutoDone?: () => void }
+
+const CoreDataQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) => {
     const [form] = Form.useForm()
     const [loading, setLoading] = useState(false)
     const [coreMetrics, setCoreMetrics] = useState<CoreDataMetric[]>([])
@@ -320,6 +322,25 @@ const CoreDataQualityControl: React.FC = () => {
         }))
         exportCsv(rows, '核心数据质控_对比分析.csv')
     }
+
+    useEffect(() => {
+        let cancelled = false
+        const run = async () => {
+            if (!autoStart || loading) return
+            try {
+                await handleCoreDataCheck({
+                    targetDatabase: 'dw_db',
+                    dateRange: [dayjs().subtract(30, 'day'), dayjs()],
+                } as unknown as CoreDataFormValues)
+            } finally {
+                if (!cancelled) onAutoDone && onAutoDone()
+            }
+        }
+        run()
+        return () => {
+            cancelled = true
+        }
+    }, [autoStart])
 
     // 核心数据指标表格列配置
     const metricsColumns: ColumnsType<CoreDataMetric> = [
@@ -588,7 +609,16 @@ const CoreDataQualityControl: React.FC = () => {
                             </>
                         }
                     >
-                        <Form form={form} layout='vertical' onFinish={handleCoreDataCheck}>
+                        <Form
+                            form={form}
+                            layout='vertical'
+                            onFinish={handleCoreDataCheck}
+                            initialValues={{
+                                dataType: 'all',
+                                comparison: 'time_comparison',
+                                dateRange: [dayjs().subtract(30, 'day'), dayjs()],
+                            }}
+                        >
                             <Form.Item
                                 label='数据类型'
                                 name='dataType'
@@ -618,11 +648,7 @@ const CoreDataQualityControl: React.FC = () => {
                                 name='dateRange'
                                 rules={[{ required: true, message: '请选择时间范围' }]}
                             >
-                                <RangePicker
-                                    size='large'
-                                    style={{ width: '100%' }}
-                                    defaultValue={[dayjs().subtract(30, 'day'), dayjs()]}
-                                />
+                                <RangePicker size='large' style={{ width: '100%' }} />
                             </Form.Item>
 
                             <Form.Item>

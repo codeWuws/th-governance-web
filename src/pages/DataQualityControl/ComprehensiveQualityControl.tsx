@@ -24,7 +24,7 @@ import {
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { UploadProps } from 'antd/es/upload'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { logger } from '@/utils/logger'
 import uiMessage from '@/utils/uiMessage'
 
@@ -54,7 +54,9 @@ interface ComprehensiveFormValues {
     targetDatabase: string
 }
 
-const ComprehensiveQualityControl: React.FC = () => {
+type AutoProps = { autoStart?: boolean; onAutoDone?: () => void }
+
+const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) => {
     const [form] = Form.useForm()
     const [loading, setLoading] = useState(false)
     const [qualityMetrics, setQualityMetrics] = useState<QualityMetric[]>([])
@@ -189,6 +191,22 @@ const ComprehensiveQualityControl: React.FC = () => {
             uiMessage.error('导出失败，请重试')
         }
     }
+
+    useEffect(() => {
+        let cancelled = false
+        const run = async () => {
+            if (!autoStart || loading) return
+            try {
+                await handleComprehensiveCheck({ targetDatabase: '' } as unknown as ComprehensiveFormValues)
+            } finally {
+                if (!cancelled) onAutoDone && onAutoDone()
+            }
+        }
+        run()
+        return () => {
+            cancelled = true
+        }
+    }, [autoStart])
 
     const handleExportMetrics = () => {
         const rows = qualityMetrics.map(m => ({
@@ -489,7 +507,12 @@ const ComprehensiveQualityControl: React.FC = () => {
                             </>
                         }
                     >
-                        <Form form={form} layout='vertical' onFinish={handleComprehensiveCheck}>
+                        <Form
+                            form={form}
+                            layout='vertical'
+                            onFinish={handleComprehensiveCheck}
+                            initialValues={{ dataSource: 'all_tables' }}
+                        >
                             <Form.Item
                                 label='选择数据源'
                                 name='dataSource'

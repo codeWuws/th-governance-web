@@ -22,7 +22,7 @@ import {
     Typography,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import uiMessage from '@/utils/uiMessage'
 import { logger } from '@/utils/logger'
 
@@ -59,7 +59,9 @@ interface LogicFormValues {
     checkType: string
 }
 
-const BasicMedicalLogicQualityControl: React.FC = () => {
+type AutoProps = { autoStart?: boolean; onAutoDone?: () => void }
+
+const BasicMedicalLogicQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) => {
     const [form] = Form.useForm()
     const [loading, setLoading] = useState(false)
     const [tableRelations, setTableRelations] = useState<TableRelation[]>([])
@@ -320,6 +322,22 @@ const BasicMedicalLogicQualityControl: React.FC = () => {
         }))
         exportCsv(rows, '医疗逻辑质控_业务逻辑.csv')
     }
+
+    useEffect(() => {
+        let cancelled = false
+        const run = async () => {
+            if (!autoStart || loading) return
+            try {
+                await handleLogicCheck({ module: 'all', checkType: 'relation_check' })
+            } finally {
+                if (!cancelled) onAutoDone && onAutoDone()
+            }
+        }
+        run()
+        return () => {
+            cancelled = true
+        }
+    }, [autoStart])
 
     // 主附表关联表格列配置
     const relationColumns: ColumnsType<TableRelation> = [
@@ -608,7 +626,12 @@ const BasicMedicalLogicQualityControl: React.FC = () => {
                             </>
                         }
                     >
-                        <Form form={form} layout='vertical' onFinish={handleLogicCheck}>
+                        <Form
+                            form={form}
+                            layout='vertical'
+                            onFinish={handleLogicCheck}
+                            initialValues={{ module: 'all', checkType: 'relation_check' }}
+                        >
                             <Form.Item
                                 label='业务模块'
                                 name='module'

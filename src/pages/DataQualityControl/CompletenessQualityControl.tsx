@@ -23,7 +23,7 @@ import {
     Typography,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { logger } from '@/utils/logger'
 import uiMessage from '@/utils/uiMessage'
 
@@ -57,7 +57,9 @@ interface CompletenessFormValues {
     tableFilter?: string
 }
 
-const CompletenessQualityControl: React.FC = () => {
+type AutoProps = { autoStart?: boolean; onAutoDone?: () => void }
+
+const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) => {
     const [form] = Form.useForm()
     const [loading, setLoading] = useState(false)
     const [tableCompleteness, setTableCompleteness] = useState<TableCompleteness[]>([])
@@ -311,6 +313,22 @@ const CompletenessQualityControl: React.FC = () => {
         exportCsv(rows, `完整性质控_字段_${selectedTable || '未选择'}.csv`)
     }
 
+    useEffect(() => {
+        let cancelled = false
+        const run = async () => {
+            if (!autoStart || loading) return
+            try {
+                await handleCompletenessCheck({ database: 'dw_db', tableType: 'all' })
+            } finally {
+                if (!cancelled) onAutoDone && onAutoDone()
+            }
+        }
+        run()
+        return () => {
+            cancelled = true
+        }
+    }, [autoStart])
+
     // 表级完整性表格列配置
     const tableColumns: ColumnsType<TableCompleteness> = [
         {
@@ -561,7 +579,12 @@ const CompletenessQualityControl: React.FC = () => {
                             </>
                         }
                     >
-                        <Form form={form} layout='vertical' onFinish={handleCompletenessCheck}>
+                        <Form
+                            form={form}
+                            layout='vertical'
+                            onFinish={handleCompletenessCheck}
+                            initialValues={{ database: 'dw_db', tableType: 'all', tableFilter: '' }}
+                        >
                             <Form.Item
                                 label='选择数据库'
                                 name='database'

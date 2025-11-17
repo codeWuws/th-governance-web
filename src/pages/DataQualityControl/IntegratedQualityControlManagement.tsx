@@ -36,12 +36,24 @@ const IntegratedQualityControlManagement: React.FC = () => {
         'basic-medical-logic': '一致性质控',
         'core-data': '准确性质控',
     }
-    const tabToComponent: Record<string, React.ReactNode> = {
-        reliability: <TextQualityControl />,
-        timeliness: <ComprehensiveQualityControl />,
-        completeness: <CompletenessQualityControl />,
-        consistency: <BasicMedicalLogicQualityControl />,
-        accuracy: <CoreDataQualityControl />,
+    const renderTabContent = (k: string) => {
+        const current = steps[currentStep]
+        const autoStart = running && current && current.key === k && current.auto
+        const onAutoDone = () => setCurrentStep(prev => prev + 1)
+        if (k === 'reliability') return <TextQualityControl />
+        if (k === 'timeliness')
+            return (
+                <ComprehensiveQualityControl autoStart={autoStart} onAutoDone={onAutoDone} />
+            )
+        if (k === 'completeness')
+            return (
+                <CompletenessQualityControl autoStart={autoStart} onAutoDone={onAutoDone} />
+            )
+        if (k === 'consistency')
+            return (
+                <BasicMedicalLogicQualityControl autoStart={autoStart} onAutoDone={onAutoDone} />
+            )
+        return <CoreDataQualityControl autoStart={autoStart} onAutoDone={onAutoDone} />
     }
     const selectedTabKeys = useMemo(
         () => typesParam.map(t => typeToTab[t]).filter((k): k is string => !!k),
@@ -88,11 +100,11 @@ const IntegratedQualityControlManagement: React.FC = () => {
 
     useEffect(() => {
         if (!fromFlowManagement) return
-        if (!running && steps.length && steps.some(s => s.auto)) {
+        if (steps.length) {
             setRunning(true)
             setCurrentStep(0)
         }
-    }, [steps, running, fromFlowManagement])
+    }, [steps, fromFlowManagement])
 
     useEffect(() => {
         if (!running) return
@@ -102,12 +114,6 @@ const IntegratedQualityControlManagement: React.FC = () => {
             return
         }
         setActiveKey(step.key)
-        if (step.auto) {
-            const timer = setTimeout(() => {
-                setCurrentStep(prev => prev + 1)
-            }, 1500)
-            return () => clearTimeout(timer)
-        }
     }, [running, currentStep, steps])
 
     const onTabChange = (key: string) => {
@@ -176,7 +182,7 @@ const IntegratedQualityControlManagement: React.FC = () => {
                                         <span><HeartOutlined /> 准确性质控</span>
                                     )
                                 }>
-                                    {tabToComponent[k]}
+                                    {renderTabContent(k)}
                                 </TabPane>
                             ))}
                         </Tabs>
@@ -199,7 +205,7 @@ const IntegratedQualityControlManagement: React.FC = () => {
                                     <span><HeartOutlined /> 准确性质控</span>
                                 )
                             }>
-                                {tabToComponent[k]}
+                                {renderTabContent(k)}
                             </TabPane>
                         ))}
                     </Tabs>
