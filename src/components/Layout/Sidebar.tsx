@@ -175,61 +175,61 @@ export const menuItems: MenuItem[] = [
             },
         ],
     },
-    {
-        key: 'data-parsing',
-        icon: <ApiOutlined />,
-        label: '数据解析',
-        children: [
-            {
-                key: '/data-parsing',
-                icon: <ApiOutlined />,
-                label: '数据解析首页',
-            },
-            {
-                key: '/data-parsing/annotation',
-                icon: <TagOutlined />,
-                label: '数据标注',
-            },
-            {
-                key: '/data-parsing/medical-record',
-                icon: <FileTextOutlined />,
-                label: '电子病历解析',
-            },
-        ],
-    },
-    // 数据检索模块
-    {
-        key: 'data-retrieval',
-        icon: <SearchOutlined />,
-        label: '数据检索',
-        children: [
-            {
-                key: '/data-retrieval/fulltext',
-                icon: <SearchOutlined />,
-                label: '全文检索',
-            },
-            {
-                key: '/data-retrieval/advanced',
-                icon: <FileTextOutlined />,
-                label: '高级检索',
-            },
-            {
-                key: '/data-retrieval/condition-tree',
-                icon: <LinkOutlined />,
-                label: '条件树检索',
-            },
-            {
-                key: '/data-retrieval/analysis',
-                icon: <LineChartOutlined />,
-                label: '检索分析',
-            },
-            {
-                key: '/data-retrieval/visualization',
-                icon: <EyeOutlined />,
-                label: '可视化查看',
-            },
-        ],
-    },
+    // {
+    //     key: 'data-parsing',
+    //     icon: <ApiOutlined />,
+    //     label: '数据解析',
+    //     children: [
+    //         {
+    //             key: '/data-parsing',
+    //             icon: <ApiOutlined />,
+    //             label: '数据解析首页',
+    //         },
+    //         {
+    //             key: '/data-parsing/annotation',
+    //             icon: <TagOutlined />,
+    //             label: '数据标注',
+    //         },
+    //         {
+    //             key: '/data-parsing/medical-record',
+    //             icon: <FileTextOutlined />,
+    //             label: '电子病历解析',
+    //         },
+    //     ],
+    // },
+    // // 数据检索模块
+    // {
+    //     key: 'data-retrieval',
+    //     icon: <SearchOutlined />,
+    //     label: '数据检索',
+    //     children: [
+    //         {
+    //             key: '/data-retrieval/fulltext',
+    //             icon: <SearchOutlined />,
+    //             label: '全文检索',
+    //         },
+    //         {
+    //             key: '/data-retrieval/advanced',
+    //             icon: <FileTextOutlined />,
+    //             label: '高级检索',
+    //         },
+    //         {
+    //             key: '/data-retrieval/condition-tree',
+    //             icon: <LinkOutlined />,
+    //             label: '条件树检索',
+    //         },
+    //         {
+    //             key: '/data-retrieval/analysis',
+    //             icon: <LineChartOutlined />,
+    //             label: '检索分析',
+    //         },
+    //         {
+    //             key: '/data-retrieval/visualization',
+    //             icon: <EyeOutlined />,
+    //             label: '可视化查看',
+    //         },
+    //     ],
+    // },
     // 系统设置模块
     {
         key: 'system-settings',

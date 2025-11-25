@@ -444,7 +444,7 @@ export const WorkflowNodeType = {
     /** 数据去重 */
     DATA_DEDUPLICATION: 'DataDeduplication',
     /** 数据转换 */
-    DATA_TRANSFORM: 'dataTransform',
+    DATA_TRANSFORM: 'DataTransform',
     /** 标准字典对照 */
     STANDARD_MAPPING: 'StandardMapping',
     /** EMPI发放 */

@@ -10,6 +10,9 @@ import api, { SSEManager, SSEStatus, SSEStatusType } from '../utils/request'
 
 // 启动工作流的配置参数
 export interface StartWorkflowConfig {
+    sourceDbId?: number // 数据源ID
+    targetDbId?: number // 目标源ID
+    taskFlowName?: string // 任务流名称
     onSuccess?: (taskId: string) => void // 成功回调
     onError?: (error: string) => void // 错误回调
     onMessage?: (message: string) => void // 消息回调
@@ -85,10 +88,23 @@ class WorkflowExecutionService {
             // 保存配置
             this.currentConfig = config
 
+            // 构建请求体数据
+            const requestData: Record<string, unknown> = {}
+            if (config.sourceDbId !== undefined) {
+                requestData.sourceDbId = config.sourceDbId
+            }
+            if (config.targetDbId !== undefined) {
+                requestData.targetDbId = config.targetDbId
+            }
+            if (config.taskFlowName !== undefined) {
+                requestData.taskFlowName = config.taskFlowName
+            }
+
             // 创建SSE连接管理器
             const manager = api.createSSE({
                 url,
                 method: 'POST',
+                data: Object.keys(requestData).length > 0 ? requestData : undefined,
                 maxReconnectAttempts: 3,
                 reconnectInterval: 5000,
                 onOpen: _event => {

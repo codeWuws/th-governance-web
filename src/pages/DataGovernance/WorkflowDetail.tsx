@@ -204,19 +204,17 @@ const WorkflowDetail: React.FC = () => {
         const detail = JSON.parse(JSON.stringify(logDetailData)) as WorkflowLogDetailData
         // 将 executionMessages 移到 useMemo 内部，避免依赖问题
         const executionMessages = workflowExecution?.messages || []
-        console.debug(`[${taskId}] executionMessages:`, executionMessages)
         console.log('executionMessages:===>', executionMessages)
 
         if (executionMessages?.length && detail?.logList) {
             // 找到最后一个正在执行的步骤索引
             const lastExecutingStep = executionMessages.at(-1)
             const lastNode = executionMessages.findLast(
-                msg => msg.executionStatus === 'running' && !!msg.node
+                msg => msg.executionStatus !== 'end' && !!msg.node && msg.node !== '-'
             )
             const isEnd =
-                lastExecutingStep?.executionStatus === 'end' ||
+                lastExecutingStep?.executionStatus === 'end' &&
                 lastNode?.node.nodeType === detail?.logList?.at(-1)?.node_type
-
             executionMessages.forEach(msgInfo => {
                 const { node, tableQuantity, completedQuantity, status } = msgInfo
 
@@ -231,14 +229,16 @@ const WorkflowDetail: React.FC = () => {
                         step => step.node_type === lastNode?.node.nodeType
                     )
 
-                    if ((isEnd || step.step_no + 1 < lastIndex) && step.enabled) {
+                    if ((isEnd || step.step_no < lastIndex + 1) && step.enabled) {
                         step.step_status = 2
                     } else {
                         step.step_status = status
                     }
                 }
             })
-
+            if (lastNode) {
+                detail.logSummary.node_type = lastNode?.node.nodeType
+            }
             if (isEnd) {
                 detail.logSummary.status = 2
             } else if (lastNode?.node && !lastNode.node.isAuto) {
@@ -247,7 +247,6 @@ const WorkflowDetail: React.FC = () => {
                 detail.logSummary.status = 1
             }
         }
-
         return detail
     }, [logDetailData, workflowExecution?.messages, taskId])
 
@@ -264,9 +263,10 @@ const WorkflowDetail: React.FC = () => {
     }
 
     const getCurrentStep = () => {
-        return displayDetail?.logList?.findIndex(
+        const stepIndex = displayDetail?.logList?.findIndex(
             step => displayDetail?.logSummary?.node_type === step.node_type
         )
+        return stepIndex
     }
 
     const isCompletedNode = (step: WorkflowStepLog) => {
@@ -407,7 +407,7 @@ const WorkflowDetail: React.FC = () => {
 
     // 渲染进度条
     const renderProgressBar = (step: WorkflowStepLog) => {
-        if ([3, 4].includes(step.step_status) && !step.is_auto) {
+        if ([2, 3, 4].includes(step.step_status)) {
             return null
         }
 
@@ -524,6 +524,7 @@ const WorkflowDetail: React.FC = () => {
                         const stepInfo = EXECUTION_STEPS.find(
                             item => item.nodeType === step.node_type
                         )
+                        
                         return (
                             <Step
                                 key={index}
@@ -531,9 +532,11 @@ const WorkflowDetail: React.FC = () => {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                         <span>{step?.step_name}</span>
                                         <Space>
-                                            <Tag color={step.is_auto ? 'blue' : 'orange'}>
-                                                {step.is_auto ? '自动执行' : '手动执行'}
-                                            </Tag>
+                                            {
+                                                step.step_status !== 4 && <Tag color={step.is_auto ? 'blue' : 'orange'}>
+                                                    {step.is_auto ? '自动执行' : '手动执行'}
+                                                </Tag>
+                                            }
                                             {getStatusTag(step.step_status || 0, step)}
                                         </Space>
                                     </div>
@@ -560,7 +563,7 @@ const WorkflowDetail: React.FC = () => {
                                             </Button>
                                         )}
 
-                                        {step.details && (
+                                        {step.step_status === 2 && (
                                             <Button
                                                 type='link'
                                                 size='small'

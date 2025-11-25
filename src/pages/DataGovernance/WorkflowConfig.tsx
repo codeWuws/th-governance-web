@@ -9,9 +9,9 @@ import {
     SwapOutlined,
     UnorderedListOutlined,
 } from '@ant-design/icons'
-import { Alert, Button, Card, Space, Spin, Switch, Typography } from 'antd'
+import { Alert, Button, Card, Form, Input, Modal, Select, Space, Spin, Switch, Typography } from 'antd'
 import uiMessage from '@/utils/uiMessage'
-import React, { useCallback, useEffect, useRef } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDebounceCallback } from '../../hooks/useDebounce'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
@@ -20,11 +20,13 @@ import {
     updateWorkflowConfig,
     updateWorkflowConfigLocal,
 } from '../../store/slices/dataGovernanceSlice'
-import type { WorkflowConfigUpdateItem } from '../../types'
+import type { DbConnection, WorkflowConfigUpdateItem } from '../../types'
+import { dataGovernanceService } from '../../services/dataGovernanceService'
 import { logger } from '../../utils/logger'
 import { startWorkflow } from '../../utils/workflowUtils'
 
 const { Title } = Typography
+const { Option } = Select
 
 // 节点类型到图标的映射
 const nodeTypeIconMap = {
@@ -62,6 +64,12 @@ const WorkflowConfig: React.FC = () => {
 
     // 用于收集待更新的配置项
     const pendingUpdatesRef = useRef<Map<number, WorkflowConfigUpdateItem>>(new Map())
+
+    // 数据源选择弹窗相关状态
+    const [isDataSourceModalVisible, setIsDataSourceModalVisible] = useState(false)
+    const [dataSourceList, setDataSourceList] = useState<DbConnection[]>([])
+    const [loadingDataSources, setLoadingDataSources] = useState(false)
+    const [dataSourceForm] = Form.useForm()
 
     // 批量更新工作流配置
     const updateWorkflowConfigs = useCallback(async () => {
@@ -155,14 +163,77 @@ const WorkflowConfig: React.FC = () => {
     }, [dispatch])
 
     /**
-     * 启动工作流
+     * 获取数据源列表
      */
-    const handleStartWorkflow = async () => {
-        logger.debug('工作流配置页面 - 开始启动工作流...')
-
+    const fetchDataSourceList = useCallback(async () => {
         try {
+            setLoadingDataSources(true)
+            // 获取所有数据源，使用较大的 pageSize 来获取全部数据
+            const result = await dataGovernanceService.getDbConnectionPage({
+                pageNo: 1,
+                pageSize: 1000, // 假设不超过1000个数据源
+            })
+
+            if (result.code === 200) {
+                setDataSourceList(result.data.list || [])
+            } else {
+                uiMessage.error(result.msg || '获取数据源列表失败')
+            }
+        } catch (error) {
+            logger.error(
+                '获取数据源列表失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            uiMessage.error('获取数据源列表失败')
+        } finally {
+            setLoadingDataSources(false)
+        }
+    }, [])
+
+    /**
+     * 打开数据源选择弹窗
+     */
+    const handleOpenDataSourceModal = useCallback(async () => {
+        setIsDataSourceModalVisible(true)
+        dataSourceForm.resetFields()
+        // 如果数据源列表为空，则获取数据源列表
+        if (dataSourceList.length === 0) {
+            await fetchDataSourceList()
+        }
+    }, [dataSourceForm, dataSourceList.length, fetchDataSourceList])
+
+    /**
+     * 确认选择数据源并启动工作流
+     */
+    const handleConfirmDataSourceAndStart = useCallback(async () => {
+        try {
+            const values = await dataSourceForm.validateFields()
+            const { workflowName, dataSource, targetSource } = values
+
+            // 将字符串ID转换为数字
+            const sourceDbId = Number(dataSource)
+            const targetDbId = Number(targetSource)
+
+            // 验证ID转换是否成功
+            if (isNaN(sourceDbId) || isNaN(targetDbId)) {
+                uiMessage.error('数据源ID或目标源ID无效')
+                return
+            }
+
+            logger.debug('工作流配置页面 - 开始启动工作流...', {
+                workflowName,
+                sourceDbId,
+                targetDbId,
+            })
+
+            // 关闭弹窗
+            setIsDataSourceModalVisible(false)
+
             // 使用工作流工具函数启动工作流
             const success = await startWorkflow({
+                sourceDbId,
+                targetDbId,
+                taskFlowName: workflowName,
                 onSuccess: taskId => {
                     logger.debug('工作流启动成功，任务ID:', taskId)
                     uiMessage.success('工作流启动成功！')
@@ -182,14 +253,25 @@ const WorkflowConfig: React.FC = () => {
                 logger.warn('工作流启动失败')
                 uiMessage.error('工作流启动失败，请稍后重试')
             }
-        } catch (_error) {
+        } catch (error) {
+            // 如果是表单验证错误，不处理
+            if (error && typeof error === 'object' && 'errorFields' in error) {
+                return
+            }
             logger.error(
                 '启动工作流时发生异常',
-                _error instanceof Error ? _error : new Error(String(_error))
+                error instanceof Error ? error : new Error(String(error))
             )
             uiMessage.error('启动工作流时发生异常，请稍后重试')
         }
-    }
+    }, [dataSourceForm, navigate])
+
+    /**
+     * 启动工作流（打开数据源选择弹窗）
+     */
+    const handleStartWorkflow = useCallback(() => {
+        handleOpenDataSourceModal()
+    }, [handleOpenDataSourceModal])
 
     // 如果正在加载初始数据，显示加载状态
     if (workflowLoading && steps.length === 0) {
@@ -387,6 +469,76 @@ const WorkflowConfig: React.FC = () => {
                     </Card>
                 ))}
             </div>
+
+            {/* 数据源选择弹窗 */}
+            <Modal
+                title='选择数据源'
+                open={isDataSourceModalVisible}
+                onOk={handleConfirmDataSourceAndStart}
+                onCancel={() => {
+                    setIsDataSourceModalVisible(false)
+                    dataSourceForm.resetFields()
+                }}
+                okText='确定'
+                cancelText='取消'
+                width={600}
+            >
+                <Form form={dataSourceForm} layout='vertical'>
+                    <Form.Item
+                        name='workflowName'
+                        label='任务流名称'
+                        rules={[{ required: true, message: '请输入任务流名称' }]}
+                    >
+                        <Input placeholder='请输入任务流名称' maxLength={100} showCount />
+                    </Form.Item>
+
+                    <Form.Item
+                        name='dataSource'
+                        label='数据源'
+                        rules={[{ required: true, message: '请选择数据源' }]}
+                    >
+                        <Select
+                            placeholder='请选择数据源'
+                            loading={loadingDataSources}
+                            showSearch
+                            filterOption={(input, option) => {
+                                const label = String(option?.label ?? option?.children ?? '')
+                                return label.toLowerCase().includes(input.toLowerCase())
+                            }}
+                        >
+                            {dataSourceList.map(connection => (
+                                <Option key={connection.id} value={connection.id}>
+                                    {connection.connectionName} ({connection.dbType} -{' '}
+                                    {connection.dbName})
+                                </Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+
+                    <Form.Item
+                        name='targetSource'
+                        label='目标源'
+                        rules={[{ required: true, message: '请选择目标源' }]}
+                    >
+                        <Select
+                            placeholder='请选择目标源'
+                            loading={loadingDataSources}
+                            showSearch
+                            filterOption={(input, option) => {
+                                const label = String(option?.label ?? option?.children ?? '')
+                                return label.toLowerCase().includes(input.toLowerCase())
+                            }}
+                        >
+                            {dataSourceList.map(connection => (
+                                <Option key={connection.id} value={connection.id}>
+                                    {connection.connectionName} ({connection.dbType} -{' '}
+                                    {connection.dbName})
+                                </Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+                </Form>
+            </Modal>
         </div>
     )
 }

@@ -85,7 +85,6 @@ export const router = createBrowserRouter([
                 path: 'data-quality-control/integrated',
                 element: <IntegratedQualityControlManagement />,
             },
-
             {
                 path: 'data-management',
                 element: <DataManagement />,
