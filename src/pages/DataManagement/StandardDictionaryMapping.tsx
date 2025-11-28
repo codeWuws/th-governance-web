@@ -33,145 +33,60 @@ const { Search } = Input
 const { Option } = Select
 const { TextArea } = Input
 
-interface DictionaryMapping {
+interface StandardDictionaryMapping {
     id: string
-    name: string
-    sourceDictionary: string
-    sourceDictionaryCode: string
-    targetDictionary: string
-    targetDictionaryCode: string
-    mappingType: 'one-to-one' | 'one-to-many' | 'many-to-one' | 'many-to-many'
-    mappingRules: MappingRule[]
+    standardName: string // 标准名称
+    standardDatasetName: string // 标准数据集名称
+    standardDatasetContent: string // 标准数据集内容
+    originalTableName: string // 原始表名称
+    originalDataField: string // 原始数据字段
+    originalDataset: string // 原始数据集
     status: 'active' | 'inactive'
-    description: string
     createTime: string
     updateTime: string
     creator: string
 }
 
-interface MappingRule {
-    id: string
-    sourceCode: string
-    sourceName: string
-    targetCode: string
-    targetName: string
-    mappingType: 'exact' | 'fuzzy' | 'custom'
-    priority: number
-    status: 'active' | 'inactive'
-}
-
 const StandardDictionaryMapping: React.FC = () => {
     const [loading, setLoading] = useState(false)
-    const [data, setData] = useState<DictionaryMapping[]>([])
-    const [filteredData, setFilteredData] = useState<DictionaryMapping[]>([])
+    const [data, setData] = useState<StandardDictionaryMapping[]>([])
+    const [filteredData, setFilteredData] = useState<StandardDictionaryMapping[]>([])
     const [modalVisible, setModalVisible] = useState(false)
     const [detailModalVisible, setDetailModalVisible] = useState(false)
-    const [editingRecord, setEditingRecord] = useState<DictionaryMapping | null>(null)
-    const [viewingRecord, setViewingRecord] = useState<DictionaryMapping | null>(null)
+    const [editingRecord, setEditingRecord] = useState<StandardDictionaryMapping | null>(null)
+    const [viewingRecord, setViewingRecord] = useState<StandardDictionaryMapping | null>(null)
     const [form] = Form.useForm()
     const [searchText, setSearchText] = useState('')
     const [statusFilter, setStatusFilter] = useState<string>('')
-    const [mappingTypeFilter, setMappingTypeFilter] = useState<string>('')
+    const [standardNameFilter, setStandardNameFilter] = useState<string>('')
 
     // 模拟数据
-    const mockData: DictionaryMapping[] = [
+    const mockData: StandardDictionaryMapping[] = [
         {
             id: '1',
-            name: 'ICD-10 到 SNOMED CT 映射',
-            sourceDictionary: 'ICD-10 国际疾病分类',
-            sourceDictionaryCode: 'ICD10',
-            targetDictionary: 'SNOMED CT',
-            targetDictionaryCode: 'SNOMED',
-            mappingType: 'one-to-many',
-            mappingRules: [
-                {
-                    id: '1',
-                    sourceCode: 'A00',
-                    sourceName: '霍乱',
-                    targetCode: '61486000',
-                    targetName: 'Cholera',
-                    mappingType: 'exact',
-                    priority: 1,
-                    status: 'active',
-                },
-                {
-                    id: '2',
-                    sourceCode: 'A01',
-                    sourceName: '伤寒和副伤寒',
-                    targetCode: '397430003',
-                    targetName: 'Typhoid fever',
-                    mappingType: 'exact',
-                    priority: 1,
-                    status: 'active',
-                },
-            ],
+            standardName: '患者基本信息',
+            standardDatasetName: '性别',
+            standardDatasetContent: '男',
+            originalTableName: '门诊患者基本信息',
+            originalDataField: 'sex',
+            originalDataset: 'M',
             status: 'active',
-            description: 'ICD-10 疾病编码到 SNOMED CT 临床术语的映射关系',
             createTime: '2024-01-15 10:00:00',
             updateTime: '2024-01-20 14:30:00',
             creator: '张三',
         },
         {
             id: '2',
-            name: 'LOINC 到 本地检验代码映射',
-            sourceDictionary: 'LOINC 检验项目代码',
-            sourceDictionaryCode: 'LOINC',
-            targetDictionary: '本地检验代码',
-            targetDictionaryCode: 'LOCAL_LAB',
-            mappingType: 'many-to-one',
-            mappingRules: [
-                {
-                    id: '3',
-                    sourceCode: '33914-3',
-                    sourceName: 'Glucose [Mass/volume] in Blood',
-                    targetCode: 'GLU',
-                    targetName: '血糖',
-                    mappingType: 'exact',
-                    priority: 1,
-                    status: 'active',
-                },
-                {
-                    id: '4',
-                    sourceCode: '2339-0',
-                    sourceName: 'Glucose [Mass/volume] in Serum or Plasma',
-                    targetCode: 'GLU',
-                    targetName: '血糖',
-                    mappingType: 'fuzzy',
-                    priority: 2,
-                    status: 'active',
-                },
-            ],
+            standardName: '患者基本信息',
+            standardDatasetName: '性别',
+            standardDatasetContent: '女',
+            originalTableName: '门诊患者基本信息',
+            originalDataField: 'sex',
+            originalDataset: 'F',
             status: 'active',
-            description: 'LOINC 检验代码到本地检验代码的映射关系',
-            createTime: '2024-01-16 09:00:00',
-            updateTime: '2024-01-22 09:30:00',
-            creator: '李四',
-        },
-        {
-            id: '3',
-            name: '药品字典到ATC分类映射',
-            sourceDictionary: '国家药品字典',
-            sourceDictionaryCode: 'NDC',
-            targetDictionary: 'ATC 分类',
-            targetDictionaryCode: 'ATC',
-            mappingType: 'one-to-one',
-            mappingRules: [
-                {
-                    id: '5',
-                    sourceCode: 'A01AA01',
-                    sourceName: '氟化钠',
-                    targetCode: 'A01AA01',
-                    targetName: 'Sodium fluoride',
-                    mappingType: 'exact',
-                    priority: 1,
-                    status: 'active',
-                },
-            ],
-            status: 'inactive',
-            description: '国家药品字典到 ATC 分类的映射关系',
-            createTime: '2024-01-17 11:00:00',
-            updateTime: '2024-01-25 16:20:00',
-            creator: '王五',
+            createTime: '2024-01-15 10:00:00',
+            updateTime: '2024-01-20 14:30:00',
+            creator: '张三',
         },
     ]
 
@@ -181,7 +96,7 @@ const StandardDictionaryMapping: React.FC = () => {
 
     useEffect(() => {
         filterData()
-    }, [searchText, statusFilter, mappingTypeFilter])
+    }, [searchText, statusFilter, standardNameFilter, data])
 
     const fetchData = async () => {
         setLoading(true)
@@ -191,22 +106,24 @@ const StandardDictionaryMapping: React.FC = () => {
             setData(mockData)
             setFilteredData(mockData)
         } catch {
-            message.error('获取标准字典关系对照失败')
+            message.error('获取标准字典对照失败')
         } finally {
             setLoading(false)
         }
     }
 
     const filterData = () => {
-        let filtered = [...mockData]
+        let filtered = [...data]
 
         if (searchText) {
             filtered = filtered.filter(
                 item =>
-                    item.name.toLowerCase().includes(searchText.toLowerCase()) ||
-                    item.sourceDictionary.toLowerCase().includes(searchText.toLowerCase()) ||
-                    item.targetDictionary.toLowerCase().includes(searchText.toLowerCase()) ||
-                    item.description.toLowerCase().includes(searchText.toLowerCase())
+                    item.standardName.toLowerCase().includes(searchText.toLowerCase()) ||
+                    item.standardDatasetName.toLowerCase().includes(searchText.toLowerCase()) ||
+                    item.standardDatasetContent.toLowerCase().includes(searchText.toLowerCase()) ||
+                    item.originalTableName.toLowerCase().includes(searchText.toLowerCase()) ||
+                    item.originalDataField.toLowerCase().includes(searchText.toLowerCase()) ||
+                    item.originalDataset.toLowerCase().includes(searchText.toLowerCase())
             )
         }
 
@@ -214,8 +131,8 @@ const StandardDictionaryMapping: React.FC = () => {
             filtered = filtered.filter(item => item.status === statusFilter)
         }
 
-        if (mappingTypeFilter) {
-            filtered = filtered.filter(item => item.mappingType === mappingTypeFilter)
+        if (standardNameFilter) {
+            filtered = filtered.filter(item => item.standardName === standardNameFilter)
         }
 
         setFilteredData(filtered)
@@ -226,12 +143,11 @@ const StandardDictionaryMapping: React.FC = () => {
         form.resetFields()
         form.setFieldsValue({
             status: true,
-            mappingType: 'one-to-one',
         })
         setModalVisible(true)
     }
 
-    const handleEdit = (record: DictionaryMapping) => {
+    const handleEdit = (record: StandardDictionaryMapping) => {
         setEditingRecord(record)
         form.setFieldsValue({
             ...record,
@@ -240,18 +156,20 @@ const StandardDictionaryMapping: React.FC = () => {
         setModalVisible(true)
     }
 
-    const handleDelete = (record: DictionaryMapping) => {
+    const handleDelete = (record: StandardDictionaryMapping) => {
         Modal.confirm({
             title: '确认删除',
-            content: `确定要删除标准字典关系对照"${record.name}"吗？`,
+            content: `确定要删除标准字典对照记录吗？`,
             onOk: () => {
+                const newData = data.filter(item => item.id !== record.id)
+                setData(newData)
                 message.success('删除成功')
                 fetchData()
             },
         })
     }
 
-    const handleView = (record: DictionaryMapping) => {
+    const handleView = (record: StandardDictionaryMapping) => {
         setViewingRecord(record)
         setDetailModalVisible(true)
     }
@@ -259,19 +177,31 @@ const StandardDictionaryMapping: React.FC = () => {
     const handleModalOk = async () => {
         try {
             const values = await form.validateFields()
-            const formData = {
-                ...values,
+            const formData: StandardDictionaryMapping = {
+                id: editingRecord?.id || Date.now().toString(),
+                standardName: values.standardName,
+                standardDatasetName: values.standardDatasetName,
+                standardDatasetContent: values.standardDatasetContent,
+                originalTableName: values.originalTableName,
+                originalDataField: values.originalDataField,
+                originalDataset: values.originalDataset,
                 status: values.status ? 'active' : 'inactive',
+                createTime: editingRecord?.createTime || new Date().toLocaleString('zh-CN'),
                 updateTime: new Date().toLocaleString('zh-CN'),
+                creator: editingRecord?.creator || '当前用户',
             }
 
             if (editingRecord) {
+                const newData = data.map(item => (item.id === editingRecord.id ? formData : item))
+                setData(newData)
                 message.success('修改成功')
             } else {
+                setData([...data, formData])
                 message.success('新增成功')
             }
 
             setModalVisible(false)
+            form.resetFields()
             fetchData()
         } catch (error) {
             console.error('表单验证失败:', error)
@@ -292,57 +222,55 @@ const StandardDictionaryMapping: React.FC = () => {
         message.success('导出成功')
     }
 
-    const columns: ColumnsType<DictionaryMapping> = [
+    // 获取所有标准名称用于筛选
+    const standardNames = Array.from(new Set(data.map(item => item.standardName)))
+
+    const columns: ColumnsType<StandardDictionaryMapping> = [
         {
-            title: '映射名称',
-            dataIndex: 'name',
-            key: 'name',
-            width: 200,
+            title: '序号',
+            key: 'index',
+            width: 80,
+            align: 'center',
+            render: (_, __, index) => index + 1,
+        },
+        {
+            title: '标准名称',
+            dataIndex: 'standardName',
+            key: 'standardName',
+            width: 150,
             render: (text: string) => <strong>{text}</strong>,
         },
         {
-            title: '源字典',
-            key: 'sourceDictionary',
+            title: '标准数据集名称',
+            dataIndex: 'standardDatasetName',
+            key: 'standardDatasetName',
+            width: 150,
+        },
+        {
+            title: '标准数据集内容',
+            dataIndex: 'standardDatasetContent',
+            key: 'standardDatasetContent',
+            width: 150,
+        },
+        {
+            title: '原始表名称',
+            dataIndex: 'originalTableName',
+            key: 'originalTableName',
             width: 180,
-            render: (_, record) => (
-                <div>
-                    <div>{record.sourceDictionary}</div>
-                    <Tag color='blue'>{record.sourceDictionaryCode}</Tag>
-                </div>
-            ),
         },
         {
-            title: '目标字典',
-            key: 'targetDictionary',
-            width: 180,
-            render: (_, record) => (
-                <div>
-                    <div>{record.targetDictionary}</div>
-                    <Tag color='green'>{record.targetDictionaryCode}</Tag>
-                </div>
-            ),
+            title: '原始数据字段',
+            dataIndex: 'originalDataField',
+            key: 'originalDataField',
+            width: 150,
+            render: (text: string) => <code style={{ background: '#f5f5f5', padding: '2px 4px', borderRadius: '4px' }}>{text}</code>,
         },
         {
-            title: '映射类型',
-            dataIndex: 'mappingType',
-            key: 'mappingType',
-            width: 120,
-            render: (type: string) => {
-                const typeMap: Record<string, { text: string; color: string }> = {
-                    'one-to-one': { text: '一对一', color: 'blue' },
-                    'one-to-many': { text: '一对多', color: 'orange' },
-                    'many-to-one': { text: '多对一', color: 'purple' },
-                    'many-to-many': { text: '多对多', color: 'red' },
-                }
-                const config = typeMap[type] || { text: type, color: 'default' }
-                return <Tag color={config.color}>{config.text}</Tag>
-            },
-        },
-        {
-            title: '映射规则数',
-            key: 'mappingRules',
-            width: 120,
-            render: (_, record) => <span>{record.mappingRules.length} 条</span>,
+            title: '原始数据集',
+            dataIndex: 'originalDataset',
+            key: 'originalDataset',
+            width: 150,
+            render: (text: string) => <Tag color='blue'>{text}</Tag>,
         },
         {
             title: '状态',
@@ -392,7 +320,7 @@ const StandardDictionaryMapping: React.FC = () => {
                     </Button>
                     <Popconfirm
                         title='确认删除'
-                        description={`确定要删除"${record.name}"吗？`}
+                        description='确定要删除这条记录吗？'
                         onConfirm={() => handleDelete(record)}
                         okText='确定'
                         cancelText='取消'
@@ -417,11 +345,11 @@ const StandardDictionaryMapping: React.FC = () => {
                 }}
             >
                 <Typography.Title level={2} style={{ margin: 0 }}>
-                    标准字典关系对照
+                    标准字典对照
                 </Typography.Title>
                 <Space>
                     <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
-                        新增映射关系
+                        新增对照
                     </Button>
                     <Button icon={<ImportOutlined />} onClick={handleImport}>
                         导入
@@ -435,8 +363,8 @@ const StandardDictionaryMapping: React.FC = () => {
                 </Space>
             </div>
             <Alert
-                message='标准字典关系对照'
-                description='管理不同标准字典之间的映射关系，支持一对一、一对多、多对一、多对多等多种映射类型。'
+                message='标准字典对照'
+                description='管理标准数据集与原始数据之间的对照关系，用于数据标准化和映射。'
                 type='info'
                 showIcon
                 style={{ marginBottom: 24 }}
@@ -445,13 +373,26 @@ const StandardDictionaryMapping: React.FC = () => {
                 <div style={{ marginBottom: 24 }}>
                     <Space>
                         <Search
-                            placeholder='搜索映射名称、源字典、目标字典或描述'
+                            placeholder='搜索标准名称、数据集名称、原始表名等'
                             allowClear
                             style={{ width: 300 }}
                             value={searchText}
                             onChange={e => setSearchText(e.target.value)}
                             onSearch={filterData}
                         />
+                        <Select
+                            placeholder='选择标准名称'
+                            style={{ width: 180 }}
+                            value={standardNameFilter}
+                            onChange={setStandardNameFilter}
+                            allowClear
+                        >
+                            {standardNames.map(name => (
+                                <Option key={name} value={name}>
+                                    {name}
+                                </Option>
+                            ))}
+                        </Select>
                         <Select
                             placeholder='选择状态'
                             style={{ width: 150 }}
@@ -461,18 +402,6 @@ const StandardDictionaryMapping: React.FC = () => {
                         >
                             <Option value='active'>启用</Option>
                             <Option value='inactive'>禁用</Option>
-                        </Select>
-                        <Select
-                            placeholder='选择映射类型'
-                            style={{ width: 150 }}
-                            value={mappingTypeFilter}
-                            onChange={setMappingTypeFilter}
-                            allowClear
-                        >
-                            <Option value='one-to-one'>一对一</Option>
-                            <Option value='one-to-many'>一对多</Option>
-                            <Option value='many-to-one'>多对一</Option>
-                            <Option value='many-to-many'>多对多</Option>
                         </Select>
                         <Button type='primary' icon={<SearchOutlined />} onClick={filterData}>
                             查询
@@ -496,7 +425,7 @@ const StandardDictionaryMapping: React.FC = () => {
 
             {/* 新增/编辑模态框 */}
             <Modal
-                title={editingRecord ? '编辑标准字典关系对照' : '新增标准字典关系对照'}
+                title={editingRecord ? '编辑标准字典对照' : '新增标准字典对照'}
                 open={modalVisible}
                 onOk={handleModalOk}
                 onCancel={handleModalCancel}
@@ -505,30 +434,30 @@ const StandardDictionaryMapping: React.FC = () => {
             >
                 <Form form={form} layout='vertical'>
                     <Form.Item
-                        name='name'
-                        label='映射名称'
-                        rules={[{ required: true, message: '请输入映射名称' }]}
+                        name='standardName'
+                        label='标准名称'
+                        rules={[{ required: true, message: '请输入标准名称' }]}
                     >
-                        <Input placeholder='请输入映射名称' />
+                        <Input placeholder='请输入标准名称，如：患者基本信息' />
                     </Form.Item>
 
                     <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item
-                                name='sourceDictionary'
-                                label='源字典名称'
-                                rules={[{ required: true, message: '请输入源字典名称' }]}
+                                name='standardDatasetName'
+                                label='标准数据集名称'
+                                rules={[{ required: true, message: '请输入标准数据集名称' }]}
                             >
-                                <Input placeholder='请输入源字典名称' />
+                                <Input placeholder='请输入标准数据集名称，如：性别' />
                             </Form.Item>
                         </Col>
                         <Col span={12}>
                             <Form.Item
-                                name='sourceDictionaryCode'
-                                label='源字典编码'
-                                rules={[{ required: true, message: '请输入源字典编码' }]}
+                                name='standardDatasetContent'
+                                label='标准数据集内容'
+                                rules={[{ required: true, message: '请输入标准数据集内容' }]}
                             >
-                                <Input placeholder='请输入源字典编码' />
+                                <Input placeholder='请输入标准数据集内容，如：男' />
                             </Form.Item>
                         </Col>
                     </Row>
@@ -536,43 +465,30 @@ const StandardDictionaryMapping: React.FC = () => {
                     <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item
-                                name='targetDictionary'
-                                label='目标字典名称'
-                                rules={[{ required: true, message: '请输入目标字典名称' }]}
+                                name='originalTableName'
+                                label='原始表名称'
+                                rules={[{ required: true, message: '请输入原始表名称' }]}
                             >
-                                <Input placeholder='请输入目标字典名称' />
+                                <Input placeholder='请输入原始表名称，如：门诊患者基本信息' />
                             </Form.Item>
                         </Col>
                         <Col span={12}>
                             <Form.Item
-                                name='targetDictionaryCode'
-                                label='目标字典编码'
-                                rules={[{ required: true, message: '请输入目标字典编码' }]}
+                                name='originalDataField'
+                                label='原始数据字段'
+                                rules={[{ required: true, message: '请输入原始数据字段' }]}
                             >
-                                <Input placeholder='请输入目标字典编码' />
+                                <Input placeholder='请输入原始数据字段，如：sex' />
                             </Form.Item>
                         </Col>
                     </Row>
 
                     <Form.Item
-                        name='mappingType'
-                        label='映射类型'
-                        rules={[{ required: true, message: '请选择映射类型' }]}
+                        name='originalDataset'
+                        label='原始数据集'
+                        rules={[{ required: true, message: '请输入原始数据集' }]}
                     >
-                        <Select placeholder='请选择映射类型'>
-                            <Option value='one-to-one'>一对一</Option>
-                            <Option value='one-to-many'>一对多</Option>
-                            <Option value='many-to-one'>多对一</Option>
-                            <Option value='many-to-many'>多对多</Option>
-                        </Select>
-                    </Form.Item>
-
-                    <Form.Item
-                        name='description'
-                        label='描述'
-                        rules={[{ required: true, message: '请输入描述' }]}
-                    >
-                        <TextArea rows={3} placeholder='请输入描述' />
+                        <Input placeholder='请输入原始数据集，如：M' />
                     </Form.Item>
 
                     <Form.Item
@@ -588,7 +504,7 @@ const StandardDictionaryMapping: React.FC = () => {
 
             {/* 详情查看模态框 */}
             <Modal
-                title='标准字典关系对照详情'
+                title='标准字典对照详情'
                 open={detailModalVisible}
                 onCancel={() => setDetailModalVisible(false)}
                 footer={[
@@ -596,59 +512,47 @@ const StandardDictionaryMapping: React.FC = () => {
                         关闭
                     </Button>,
                 ]}
-                width={900}
+                width={800}
             >
                 {viewingRecord && (
                     <div>
                         <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                             <Col span={12}>
                                 <div>
-                                    <strong>映射名称：</strong>
-                                    {viewingRecord.name}
+                                    <strong>标准名称：</strong>
+                                    {viewingRecord.standardName}
                                 </div>
                             </Col>
                             <Col span={12}>
                                 <div>
-                                    <strong>映射类型：</strong>
-                                    <Tag
-                                        color={
-                                            viewingRecord.mappingType === 'one-to-one'
-                                                ? 'blue'
-                                                : viewingRecord.mappingType === 'one-to-many'
-                                                  ? 'orange'
-                                                  : viewingRecord.mappingType === 'many-to-one'
-                                                    ? 'purple'
-                                                    : 'red'
-                                        }
-                                    >
-                                        {viewingRecord.mappingType === 'one-to-one'
-                                            ? '一对一'
-                                            : viewingRecord.mappingType === 'one-to-many'
-                                              ? '一对多'
-                                              : viewingRecord.mappingType === 'many-to-one'
-                                                ? '多对一'
-                                                : '多对多'}
-                                    </Tag>
+                                    <strong>标准数据集名称：</strong>
+                                    {viewingRecord.standardDatasetName}
                                 </div>
                             </Col>
                             <Col span={12}>
                                 <div>
-                                    <strong>源字典：</strong>
-                                    {viewingRecord.sourceDictionary} (
-                                    <Tag color='blue'>{viewingRecord.sourceDictionaryCode}</Tag>)
+                                    <strong>标准数据集内容：</strong>
+                                    <Tag color='green'>{viewingRecord.standardDatasetContent}</Tag>
                                 </div>
                             </Col>
                             <Col span={12}>
                                 <div>
-                                    <strong>目标字典：</strong>
-                                    {viewingRecord.targetDictionary} (
-                                    <Tag color='green'>{viewingRecord.targetDictionaryCode}</Tag>)
+                                    <strong>原始表名称：</strong>
+                                    {viewingRecord.originalTableName}
                                 </div>
                             </Col>
-                            <Col span={24}>
+                            <Col span={12}>
                                 <div>
-                                    <strong>描述：</strong>
-                                    {viewingRecord.description}
+                                    <strong>原始数据字段：</strong>
+                                    <code style={{ background: '#f5f5f5', padding: '2px 4px', borderRadius: '4px' }}>
+                                        {viewingRecord.originalDataField}
+                                    </code>
+                                </div>
+                            </Col>
+                            <Col span={12}>
+                                <div>
+                                    <strong>原始数据集：</strong>
+                                    <Tag color='blue'>{viewingRecord.originalDataset}</Tag>
                                 </div>
                             </Col>
                             <Col span={12}>
@@ -678,66 +582,6 @@ const StandardDictionaryMapping: React.FC = () => {
                                 </div>
                             </Col>
                         </Row>
-
-                        <div style={{ marginTop: 24 }}>
-                            <Typography.Title level={5}>映射规则列表</Typography.Title>
-                            <Table
-                                size='small'
-                                dataSource={viewingRecord.mappingRules}
-                                columns={[
-                                    {
-                                        title: '源编码',
-                                        dataIndex: 'sourceCode',
-                                        key: 'sourceCode',
-                                    },
-                                    {
-                                        title: '源名称',
-                                        dataIndex: 'sourceName',
-                                        key: 'sourceName',
-                                    },
-                                    {
-                                        title: '目标编码',
-                                        dataIndex: 'targetCode',
-                                        key: 'targetCode',
-                                    },
-                                    {
-                                        title: '目标名称',
-                                        dataIndex: 'targetName',
-                                        key: 'targetName',
-                                    },
-                                    {
-                                        title: '映射方式',
-                                        dataIndex: 'mappingType',
-                                        key: 'mappingType',
-                                        render: (type: string) => {
-                                            const typeMap: Record<string, string> = {
-                                                exact: '精确匹配',
-                                                fuzzy: '模糊匹配',
-                                                custom: '自定义',
-                                            }
-                                            return typeMap[type] || type
-                                        },
-                                    },
-                                    {
-                                        title: '优先级',
-                                        dataIndex: 'priority',
-                                        key: 'priority',
-                                    },
-                                    {
-                                        title: '状态',
-                                        dataIndex: 'status',
-                                        key: 'status',
-                                        render: (status: string) => (
-                                            <Tag color={status === 'active' ? 'green' : 'red'}>
-                                                {status === 'active' ? '启用' : '禁用'}
-                                            </Tag>
-                                        ),
-                                    },
-                                ]}
-                                pagination={false}
-                                rowKey='id'
-                            />
-                        </div>
                     </div>
                 )}
             </Modal>
