@@ -1,0 +1,275 @@
+@use '../../styles/variables' as *;
+
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+    position: relative;
+    background: #ffffff;
+    min-height: calc(100vh - 200px);
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.layout {
+    flex: 1;
+    overflow: hidden;
+    background: #ffffff;
+    display: flex;
+    min-height: 0;
+    gap: $spacing-md;
+    padding: 0;
+}
+
+.sider {
+    background: $background-color;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    flex-shrink: 0;
+}
+
+.toolbar {
+    padding: $spacing-md $spacing-lg;
+    border-bottom: 1px solid $border-color-split;
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    flex-shrink: 0;
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+    border-radius: 12px 12px 0 0;
+}
+
+.treeContainer {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: $spacing-md;
+    background: $background-color;
+    min-height: 0;
+    
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 3px;
+        
+        &:hover {
+            background: rgba(0, 0, 0, 0.3);
+        }
+    }
+}
+
+.content {
+    flex: 1;
+    overflow: hidden;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    min-width: 0;
+}
+
+.detailCard {
+    height: 100%;
+    background: $background-color;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.detailHeader {
+    padding: $spacing-lg $spacing-xl;
+    border-bottom: 1px solid $border-color-split;
+    background: linear-gradient(90deg, #f0f7ff 0%, #ffffff 100%);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    
+    :global(.anticon) {
+        font-size: 20px;
+    }
+}
+
+.detailTitle {
+    margin: 0 !important;
+    font-size: $font-size-lg;
+    font-weight: $font-weight-semibold;
+    color: #0c63e4;
+}
+
+.detailContent {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: $spacing-xl;
+    min-height: 0;
+    background: $background-color;
+    
+    &::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+        
+        &:hover {
+            background: rgba(0, 0, 0, 0.3);
+        }
+    }
+}
+
+.infoSection {
+    margin-bottom: $spacing-xxxl;
+    
+    &:last-child {
+        margin-bottom: 0;
+    }
+    
+    :global(.ant-descriptions) {
+        background: $background-color;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    :global(.ant-descriptions-item-label) {
+        font-weight: $font-weight-medium;
+        background: #f8fafc;
+        width: 120px;
+        color: #6b7280;
+    }
+    
+    :global(.ant-descriptions-item-content) {
+        color: $text-color;
+    }
+}
+
+.sectionTitle {
+    font-size: $font-size-base;
+    font-weight: $font-weight-semibold;
+    color: $text-color;
+    margin-bottom: $spacing-lg;
+    padding-bottom: $spacing-sm;
+    border-bottom: 1px solid $border-color-split;
+    display: flex;
+    align-items: center;
+    
+    &::before {
+        content: '';
+        display: inline-block;
+        width: 3px;
+        height: 14px;
+        background: #0c63e4;
+        margin-right: $spacing-sm;
+        border-radius: 2px;
+    }
+}
+
+.infoTable {
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    
+    :global(.ant-table) {
+        font-size: $font-size-sm;
+    }
+    
+    :global(.ant-table-thead > tr > th) {
+        background: #f8fafc;
+        font-weight: $font-weight-semibold;
+        color: $text-color;
+        border-bottom: 1px solid #e5e7eb;
+        padding: $spacing-md $spacing-lg;
+    }
+    
+    :global(.ant-table-tbody > tr) {
+        transition: background-color $animation-duration-base $ease-out;
+        
+        &:hover {
+            background: #f0f7ff !important;
+        }
+        
+        td {
+            padding: $spacing-sm $spacing-lg;
+            border-bottom: 1px solid #f0f0f0;
+            color: $text-color;
+        }
+    }
+    
+    :global(.ant-table-tbody > tr:last-child > td) {
+        border-bottom: none;
+    }
+    
+    :global(code) {
+        background: #f1f5f9;
+        padding: 2px 6px;
+        border-radius: $border-radius-xs;
+        font-size: $font-size-xs;
+        color: $text-color;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    }
+}
+
+// 树节点样式
+:global {
+    .ant-tree-node-content-wrapper {
+        border-radius: 6px;
+        transition: all $animation-duration-base $ease-out;
+        padding: 4px 8px;
+        
+        &:hover {
+            background-color: #f0f7ff !important;
+        }
+
+        &.ant-tree-node-selected {
+            background-color: #e0f2fe !important;
+            font-weight: $font-weight-medium;
+        }
+    }
+
+    .ant-tree-treenode {
+        padding: 2px 0;
+        
+        .ant-tree-switcher {
+            color: #6b7280;
+        }
+    }
+    
+    .ant-tree-title {
+        display: flex;
+        align-items: center;
+    }
+    
+    .ant-tree-node-selected .ant-tree-title {
+        color: #0c63e4;
+    }
+}

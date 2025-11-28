@@ -12,9 +12,8 @@ import FlowManagement from '../pages/DataQualityControl/FlowManagement'
 import QCExecutionHistory from '../pages/DataQualityControl/ExecutionHistory'
 
 import DataManagement from '../pages/DataManagement'
-import MetadataManagement from '../pages/DataManagement/MetadataManagement'
+import DataAssetManagement from '../pages/DataManagement/DataAssetManagement'
 import DataStandardManagement from '../pages/DataManagement/DataStandardManagement'
-import TableRelationshipManagement from '../pages/DataManagement/TableRelationshipManagement'
 import IndexGenerationRules from '../pages/DataManagement/IndexGenerationRules'
 import IndexMergeRules from '../pages/DataManagement/IndexMergeRules'
 import IndexProcessingManagement from '../pages/DataManagement/IndexProcessingManagement'
@@ -22,9 +21,7 @@ import IndexProcessingManagement from '../pages/DataManagement/IndexProcessingMa
 import BusinessDatasetManagement from '../pages/DataManagement/BusinessDatasetManagement'
 import MedicalDictionaryManagement from '../pages/DataManagement/MedicalDictionaryManagement'
 import StateDictionaryManagement from '../pages/DataManagement/StateDictionaryManagement'
-import AutoDiscoveryManagement from '../pages/DataManagement/AutoDiscoveryManagement'
-import VisualizationManagement from '../pages/DataManagement/VisualizationManagement'
-import ImpactAnalysisManagement from '../pages/DataManagement/ImpactAnalysisManagement'
+import StandardDictionaryMapping from '../pages/DataManagement/StandardDictionaryMapping'
 import DataParsing, { DataAnnotation, MedicalRecordParsing } from '../pages/DataParsing'
 import FullTextSearch from '../pages/DataRetrieval/FullTextSearch'
 import AdvancedSearch from '../pages/DataRetrieval/AdvancedSearch'
@@ -90,8 +87,8 @@ export const router = createBrowserRouter([
                 element: <DataManagement />,
                 children: [
                     {
-                        path: 'metadata',
-                        element: <MetadataManagement />,
+                        path: 'data-asset',
+                        element: <DataAssetManagement />,
                     },
                     {
                         path: 'standards',
@@ -110,20 +107,8 @@ export const router = createBrowserRouter([
                         element: <StateDictionaryManagement />,
                     },
                     {
-                        path: 'relationships',
-                        element: <TableRelationshipManagement />,
-                    },
-                    {
-                        path: 'auto-discovery',
-                        element: <AutoDiscoveryManagement />,
-                    },
-                    {
-                        path: 'visualization',
-                        element: <VisualizationManagement />,
-                    },
-                    {
-                        path: 'impact-analysis',
-                        element: <ImpactAnalysisManagement />,
+                        path: 'standard-dictionary-mapping',
+                        element: <StandardDictionaryMapping />,
                     },
                     {
                         path: 'index-rules',

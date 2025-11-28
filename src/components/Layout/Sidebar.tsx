@@ -93,9 +93,9 @@ export const menuItems: MenuItem[] = [
         label: '数据管理',
         children: [
             {
-                key: '/data-management/metadata',
+                key: '/data-management/data-asset',
                 icon: <FileTextOutlined />,
-                label: '元数据管理',
+                label: '数据资产管理',
             },
             {
                 key: 'data-standards',
@@ -125,31 +125,9 @@ export const menuItems: MenuItem[] = [
                 ],
             },
             {
-                key: 'table-relationships',
+                key: '/data-management/standard-dictionary-mapping',
                 icon: <LinkOutlined />,
-                label: '关联关系管理',
-                children: [
-                    {
-                        key: '/data-management/relationships',
-                        icon: <LinkOutlined />,
-                        label: '表关联关系管理',
-                    },
-                    {
-                        key: '/data-management/auto-discovery',
-                        icon: <SearchOutlined />,
-                        label: '自动关联发现',
-                    },
-                    {
-                        key: '/data-management/visualization',
-                        icon: <EyeOutlined />,
-                        label: '可视化血缘图',
-                    },
-                    {
-                        key: '/data-management/impact-analysis',
-                        icon: <LineChartOutlined />,
-                        label: '影响分析',
-                    },
-                ],
+                label: '标准字典关系对照',
             },
             {
                 key: 'master-index',

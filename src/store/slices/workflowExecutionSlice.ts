@@ -42,7 +42,7 @@ export interface WorkflowExecutionInfo {
 export interface WorkflowExecutionState {
     // 按taskId组织的工作流执行信息
     executions: Record<string, WorkflowExecutionInfo>
-
+ 
     // 当前活跃的工作流taskId列表
     activeTaskIds: string[]
 
