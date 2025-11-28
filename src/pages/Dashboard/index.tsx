@@ -1,39 +1,129 @@
-import { BarChartOutlined, CheckCircleOutlined, DatabaseOutlined } from '@ant-design/icons'
-import { Alert, Card, Col, Progress, Row, Space, Statistic, Typography } from 'antd'
-import React, { useState } from 'react'
+import {
+    BarChartOutlined,
+    CheckCircleOutlined,
+    CloseCircleOutlined,
+    DatabaseOutlined,
+    HistoryOutlined,
+    PlayCircleOutlined,
+    SettingOutlined,
+    SyncOutlined,
+    ThunderboltOutlined,
+} from '@ant-design/icons'
+import { Alert, Button, Card, Col, List, Progress, Row, Space, Statistic, Tag, Typography } from 'antd'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { DataGovernanceService } from '@/services/dataGovernanceService'
+import { useAppSelector } from '@/store/hooks'
+import { selectWorkflowStats } from '@/store/slices/workflowExecutionSlice'
+import { statusConfig } from '@/pages/DataGovernance/const'
+import type { ExecutionLogItem } from '@/types'
+import { logger } from '@/utils/logger'
+import { getMockExecutionHistoryResponse, mockApiDelay } from '@/utils/mockData'
+import dayjs from 'dayjs'
 
-const { Title } = Typography
-
-interface StatisticData {
-    totalTables: number
-    processedTables: number
-    totalRecords: number
-    cleanedRecords: number
-    duplicateRecords: number
-    errorRecords: number
-}
+const { Title, Text } = Typography
 
 const Dashboard: React.FC = () => {
-    const [statisticData, _setStatisticData] = useState<StatisticData>({
-        totalTables: 40,
-        processedTables: 32,
-        totalRecords: 1250000,
-        cleanedRecords: 1180000,
-        duplicateRecords: 45000,
-        errorRecords: 25000,
-    })
+    const navigate = useNavigate()
+    
+    // 从Redux获取工作流执行统计
+    const workflowStats = useAppSelector(selectWorkflowStats)
+    
+    // 从Redux获取工作流配置
+    const workflowConfig = useAppSelector(state => state.dataGovernance.workflowConfig)
+    
+    // 最近执行记录
+    const [recentRecords, setRecentRecords] = useState<ExecutionLogItem[]>([])
+    const [loadingRecords, setLoadingRecords] = useState(false)
 
-    // 计算处理进度
-    const overallProgress = Math.round(
-        (statisticData.processedTables / statisticData.totalTables) * 100
-    )
-    const dataQualityRate = Math.round(
-        (statisticData.cleanedRecords / statisticData.totalRecords) * 100
-    )
+    // 获取最近执行记录
+    const fetchRecentRecords = useCallback(async () => {
+        try {
+            setLoadingRecords(true)
+            await mockApiDelay(500)
+            
+            try {
+                const response = await DataGovernanceService.getExecutionLogPage({
+                    pageNo: 1,
+                    pageSize: 5,
+                })
+                
+                if (response.code === 200) {
+                    setRecentRecords(response.data.list)
+                } else {
+                    throw new Error(response.msg || '接口返回错误')
+                }
+            } catch (apiError) {
+                logger.warn('接口调用失败，使用模拟数据', apiError)
+                const mockResponse = getMockExecutionHistoryResponse(10, 1, 5)
+                setRecentRecords(mockResponse.data.list)
+            }
+        } catch (error) {
+            logger.error('获取最近执行记录失败', error as Error)
+        } finally {
+            setLoadingRecords(false)
+        }
+    }, [])
+
+    // 初始化加载数据
+    useEffect(() => {
+        fetchRecentRecords()
+    }, [fetchRecentRecords])
+
+    // 计算工作流成功率
+    const successRate = useMemo(() => {
+        const { total, completed, failed } = workflowStats
+        if (total === 0) return 100
+        return Math.round((completed / (completed + failed)) * 100) || 0
+    }, [workflowStats])
+
+    // 计算启用的工作流步骤数量
+    const enabledStepsCount = useMemo(() => {
+        return workflowConfig.filter(step => step.enabled).length
+    }, [workflowConfig])
+
+    // 渲染工作流步骤状态
+    const renderWorkflowStep = (step: typeof workflowConfig[0]) => {
+        return (
+            <List.Item>
+                <List.Item.Meta
+                    title={
+                        <Space>
+                            <Text strong>{step.nodeName}</Text>
+                            <Tag color={step.enabled ? 'success' : 'default'}>
+                                {step.enabled ? '已启用' : '已禁用'}
+                            </Tag>
+                            {step.isAuto && <Tag color='processing'>自动执行</Tag>}
+                        </Space>
+                    }
+                    description={
+                        <Text type='secondary' style={{ fontSize: 12 }}>
+                            {step.descript}
+                        </Text>
+                    }
+                />
+            </List.Item>
+        )
+    }
+
+    // 渲染执行记录状态
+    const renderRecordStatus = (status: number) => {
+        const config = statusConfig[status as keyof typeof statusConfig] || {
+            text: '未知',
+            color: 'default',
+        }
+        return <Tag color={config.color}>{config.text}</Tag>
+    }
+
+    // 格式化时间
+    const formatTime = (timeStr: string) => {
+        if (!timeStr) return '-'
+        return dayjs(timeStr).format('MM-DD HH:mm')
+    }
 
     return (
         <div>
-            {/* 页面标题 - 与数据治理页面保持一致的风格 */}
+            {/* 页面标题 */}
             <div
                 style={{
                     display: 'flex',
@@ -46,36 +136,66 @@ const Dashboard: React.FC = () => {
                     <BarChartOutlined style={{ marginRight: 8 }} />
                     数据治理仪表盘
                 </Title>
+                <Space>
+                    <Button
+                        type='primary'
+                        icon={<PlayCircleOutlined />}
+                        onClick={() => navigate('/data-governance/workflow-config')}
+                    >
+                        启动工作流
+                    </Button>
+                    <Button
+                        icon={<SettingOutlined />}
+                        onClick={() => navigate('/data-governance/workflow-config')}
+                    >
+                        工作流配置
+                    </Button>
+                    <Button
+                        icon={<HistoryOutlined />}
+                        onClick={() => navigate('/data-governance/execution-history')}
+                    >
+                        执行历史
+                    </Button>
+                </Space>
             </div>
 
-            {/* 信息提示 - 与数据治理页面保持一致 */}
+            {/* 信息提示 */}
             <Alert
                 message='数据治理概览'
-                description='实时监控数据治理工作流的执行状态、处理进度和数据质量指标，帮助您全面了解数据治理的整体情况。'
+                description='实时监控数据治理工作流的执行状态、处理进度和步骤配置情况，帮助您全面了解数据治理的整体运行状况。'
                 type='info'
                 showIcon
                 style={{ marginBottom: 24 }}
             />
 
-            {/* 统计卡片 */}
+            {/* 工作流执行统计 */}
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                 <Col xs={24} sm={12} lg={6}>
                     <Card>
                         <Statistic
-                            title='总表数量'
-                            value={statisticData.totalTables}
+                            title='总工作流数'
+                            value={workflowStats.total}
                             prefix={<DatabaseOutlined />}
-                            suffix='张'
+                            valueStyle={{ color: '#1890ff' }}
                         />
                     </Card>
                 </Col>
                 <Col xs={24} sm={12} lg={6}>
                     <Card>
                         <Statistic
-                            title='已处理表数'
-                            value={statisticData.processedTables}
+                            title='运行中'
+                            value={workflowStats.active}
+                            prefix={<SyncOutlined spin={workflowStats.active > 0} />}
+                            valueStyle={{ color: '#1890ff' }}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card>
+                        <Statistic
+                            title='已完成'
+                            value={workflowStats.completed}
                             prefix={<CheckCircleOutlined />}
-                            suffix='张'
                             valueStyle={{ color: '#3f8600' }}
                         />
                     </Card>
@@ -83,52 +203,21 @@ const Dashboard: React.FC = () => {
                 <Col xs={24} sm={12} lg={6}>
                     <Card>
                         <Statistic
-                            title='总记录数'
-                            value={statisticData.totalRecords}
-                            precision={0}
-                            formatter={value => `${Number(value).toLocaleString()}`}
-                        />
-                    </Card>
-                </Col>
-                <Col xs={24} sm={12} lg={6}>
-                    <Card>
-                        <Statistic
-                            title='已清洗记录'
-                            value={statisticData.cleanedRecords}
-                            precision={0}
-                            formatter={value => `${Number(value).toLocaleString()}`}
-                            valueStyle={{ color: '#3f8600' }}
+                            title='执行失败'
+                            value={workflowStats.failed}
+                            prefix={<CloseCircleOutlined />}
+                            valueStyle={{ color: '#cf1322' }}
                         />
                     </Card>
                 </Col>
             </Row>
 
-            {/* 进度概览 */}
+            {/* 工作流健康度指标 */}
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                 <Col xs={24} lg={12}>
-                    <Card title='整体处理进度' extra={`${overallProgress}%`}>
+                    <Card title='工作流成功率' extra={`${successRate}%`}>
                         <Progress
-                            percent={overallProgress}
-                            strokeColor={{
-                                '0%': '#108ee9',
-                                '100%': '#87d068',
-                            }}
-                        />
-                        <div style={{ marginTop: 16 }}>
-                            <Space>
-                                <span>已处理: {statisticData.processedTables} 张表</span>
-                                <span>
-                                    剩余:{' '}
-                                    {statisticData.totalTables - statisticData.processedTables} 张表
-                                </span>
-                            </Space>
-                        </div>
-                    </Card>
-                </Col>
-                <Col xs={24} lg={12}>
-                    <Card title='数据质量率' extra={`${dataQualityRate}%`}>
-                        <Progress
-                            percent={dataQualityRate}
+                            percent={successRate}
                             strokeColor={{
                                 '0%': '#ff4d4f',
                                 '50%': '#faad14',
@@ -136,13 +225,134 @@ const Dashboard: React.FC = () => {
                             }}
                         />
                         <div style={{ marginTop: 16 }}>
-                            <Space direction='vertical' size='small'>
-                                <span>
-                                    重复记录: {statisticData.duplicateRecords.toLocaleString()}
-                                </span>
-                                <span>错误记录: {statisticData.errorRecords.toLocaleString()}</span>
+                            <Space>
+                                <span>成功: {workflowStats.completed} 个</span>
+                                <span>失败: {workflowStats.failed} 个</span>
                             </Space>
                         </div>
+                    </Card>
+                </Col>
+                <Col xs={24} lg={12}>
+                    <Card title='工作流步骤配置' extra={`${enabledStepsCount}/${workflowConfig.length} 已启用`}>
+                        <Progress
+                            percent={Math.round((enabledStepsCount / workflowConfig.length) * 100)}
+                            strokeColor={{
+                                '0%': '#108ee9',
+                                '100%': '#87d068',
+                            }}
+                        />
+                        <div style={{ marginTop: 16 }}>
+                            <Space>
+                                <span>已启用: {enabledStepsCount} 个步骤</span>
+                                <span>已禁用: {workflowConfig.length - enabledStepsCount} 个步骤</span>
+                            </Space>
+                        </div>
+                    </Card>
+                </Col>
+            </Row>
+
+            {/* 工作流步骤列表和最近执行记录 */}
+            <Row gutter={[16, 16]}>
+                <Col xs={24} lg={14}>
+                    <Card
+                        title={
+                            <Space>
+                                <ThunderboltOutlined />
+                                <span>工作流步骤配置</span>
+                            </Space>
+                        }
+                        extra={
+                            <Button
+                                type='link'
+                                size='small'
+                                onClick={() => navigate('/data-governance/workflow-config')}
+                            >
+                                查看全部
+                            </Button>
+                        }
+                    >
+                        <List
+                            dataSource={workflowConfig.slice(0, 5)}
+                            renderItem={renderWorkflowStep}
+                            size='small'
+                            loading={false}
+                        />
+                        {workflowConfig.length > 5 && (
+                            <div style={{ textAlign: 'center', marginTop: 16 }}>
+                                <Text type='secondary'>
+                                    还有 {workflowConfig.length - 5} 个步骤未显示
+                                </Text>
+                            </div>
+                        )}
+                    </Card>
+                </Col>
+                <Col xs={24} lg={10}>
+                    <Card
+                        title={
+                            <Space>
+                                <HistoryOutlined />
+                                <span>最近执行记录</span>
+                            </Space>
+                        }
+                        extra={
+                            <Button
+                                type='link'
+                                size='small'
+                                onClick={() => {
+                                    fetchRecentRecords()
+                                }}
+                                loading={loadingRecords}
+                            >
+                                刷新
+                            </Button>
+                        }
+                    >
+                        <List
+                            dataSource={recentRecords}
+                            loading={loadingRecords}
+                            size='small'
+                            renderItem={record => (
+                                <List.Item
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={() => navigate(`/data-governance/workflow/${record.batch_id}`)}
+                                >
+                                    <List.Item.Meta
+                                        title={
+                                            <Space>
+                                                <Text strong style={{ fontSize: 13 }}>
+                                                    {record.name || `批次 ${record.batch_id}`}
+                                                </Text>
+                                                {renderRecordStatus(record.status)}
+                                            </Space>
+                                        }
+                                        description={
+                                            <Space direction='vertical' size={2}>
+                                                <Text type='secondary' style={{ fontSize: 12 }}>
+                                                    开始时间: {formatTime(record.start_time)}
+                                                </Text>
+                                                {record.end_time && (
+                                                    <Text type='secondary' style={{ fontSize: 12 }}>
+                                                        结束时间: {formatTime(record.end_time)}
+                                                    </Text>
+                                                )}
+                                            </Space>
+                                        }
+                                    />
+                                </List.Item>
+                            )}
+                            locale={{ emptyText: '暂无执行记录' }}
+                        />
+                        {recentRecords.length > 0 && (
+                            <div style={{ textAlign: 'center', marginTop: 16 }}>
+                                <Button
+                                    type='link'
+                                    size='small'
+                                    onClick={() => navigate('/data-governance/execution-history')}
+                                >
+                                    查看全部记录
+                                </Button>
+                            </div>
+                        )}
                     </Card>
                 </Col>
             </Row>

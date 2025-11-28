@@ -16,6 +16,7 @@ import {
     Col,
     Timeline,
     Progress,
+    Typography,
 } from 'antd'
 import {
     SearchOutlined,
