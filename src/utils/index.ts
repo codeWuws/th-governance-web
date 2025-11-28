@@ -16,3 +16,6 @@ export * from './mockData'
 
 // 工作流工具函数
 export * from './workflowUtils'
+
+// 可控制的 Promise 工具
+export * from './createControllablePromise'

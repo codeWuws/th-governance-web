@@ -35,6 +35,7 @@ import SystemSettings from '../pages/SystemSettings'
 import UserSettings from '../pages/SystemSettings/UserSettings'
 import RoleSettings from '../pages/SystemSettings/RoleSettings'
 import PermissionSettings from '../pages/SystemSettings/PermissionSettings'
+import DialogTest from '../pages/DialogTest'
 
 export const router = createBrowserRouter([
     {
@@ -208,6 +209,11 @@ export const router = createBrowserRouter([
                         element: <PermissionSettings />,
                     },
                 ],
+            },
+            // Dialog 测试页面
+            {
+                path: 'dialog-test',
+                element: <DialogTest />,
             },
         ],
     },
