@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Modal, ModalProps } from 'antd'
+import { showDialog } from '@/utils/showDialog'
 
 /**
  * CustomDialog 组件的属性接口
@@ -107,4 +108,3 @@ const CustomDialog: React.FC<CustomDialogProps> = ({
 }
 
 export default CustomDialog
-

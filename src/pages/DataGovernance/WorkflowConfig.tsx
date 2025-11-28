@@ -24,6 +24,8 @@ import type { DbConnection, WorkflowConfigUpdateItem } from '../../types'
 import { dataGovernanceService } from '../../services/dataGovernanceService'
 import { logger } from '../../utils/logger'
 import { startWorkflow } from '../../utils/workflowUtils'
+import { showDialog } from '@/utils/showDialog'
+import CustomDialog from '@/components/CustomDialog'
 
 const { Title } = Typography
 const { Option } = Select

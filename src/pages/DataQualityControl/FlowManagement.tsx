@@ -6,7 +6,7 @@ import {
     LinkOutlined,
     HeartOutlined,
 } from '@ant-design/icons'
-import { Alert, Button, Card, Col, Row, Space, Statistic, Typography, Tag, Switch } from 'antd'
+import { Alert, Button, Card, Col, Row, Space, Statistic, Typography, Tag } from 'antd'
 import React, { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
@@ -57,7 +57,6 @@ const FlowManagement: React.FC = () => {
     const dispatch = useDispatch()
     const [starting, setStarting] = useState(false)
     const [selectedTypes, setSelectedTypes] = useState<string[]>([])
-    const [autoFlowMap, setAutoFlowMap] = useState<Record<string, boolean>>({})
 
     const qcOptions = useMemo(deriveQcOptions, [])
 
@@ -97,24 +96,9 @@ const FlowManagement: React.FC = () => {
 
             uiMessage.success('质控流程已启动并记录历史')
 
-            const typeToTabKey = (t: string) => {
-                if (t === 'comprehensive') return 'timeliness'
-                if (t === 'completeness') return 'completeness'
-                if (t === 'basic-medical-logic') return 'consistency'
-                if (t === 'core-data') return 'accuracy'
-                return 'timeliness'
-            }
-            const first = selectedTypes[0]
-            const tabKey = typeToTabKey(first)
             const typesParam = selectedTypes.join(',')
-            const autoParam = Object.entries(autoFlowMap)
-                .filter(([t, v]) => v && selectedTypes.includes(t))
-                .map(([t]) => t)
-                .join(',')
             navigate(
-                `/data-quality-control/integrated?tab=${tabKey}&types=${encodeURIComponent(
-                    typesParam
-                )}&autoflow=${encodeURIComponent(autoParam)}`
+                `/data-quality-control/flow/${taskId}?types=${encodeURIComponent(typesParam)}`
             )
         } catch (e) {
             uiMessage.error('启动流程失败，请稍后重试')
@@ -174,23 +158,6 @@ const FlowManagement: React.FC = () => {
                                         )}
                                     </div>
                                     <div className={styles.optionDesc}>{opt.description}</div>
-                                    <div
-                                        className={styles.optionFooter}
-                                        onClick={e => e.stopPropagation()}
-                                    >
-                                        <Space onClick={e => e.stopPropagation()}>
-                                            <span>自动流转</span>
-                                            <Switch
-                                                checked={!!autoFlowMap[opt.value]}
-                                                onChange={checked =>
-                                                    setAutoFlowMap(prev => ({
-                                                        ...prev,
-                                                        [opt.value]: checked,
-                                                    }))
-                                                }
-                                            />
-                                        </Space>
-                                        </div>
                                 </div>
                             )
                         })}

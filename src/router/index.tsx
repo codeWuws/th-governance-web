@@ -10,6 +10,7 @@ import DataQualityControl from '../pages/DataQualityControl'
 import IntegratedQualityControlManagement from '../pages/DataQualityControl/IntegratedQualityControlManagement'
 import FlowManagement from '../pages/DataQualityControl/FlowManagement'
 import QCExecutionHistory from '../pages/DataQualityControl/ExecutionHistory'
+import QualityControlFlowDetail from '../pages/DataQualityControl/QualityControlFlowDetail'
 
 import DataManagement from '../pages/DataManagement'
 import DataAssetManagement from '../pages/DataManagement/DataAssetManagement'
@@ -81,6 +82,10 @@ export const router = createBrowserRouter([
             {
                 path: 'data-quality-control/integrated',
                 element: <IntegratedQualityControlManagement />,
+            },
+            {
+                path: 'data-quality-control/flow/:taskId',
+                element: <QualityControlFlowDetail />,
             },
             {
                 path: 'data-management',

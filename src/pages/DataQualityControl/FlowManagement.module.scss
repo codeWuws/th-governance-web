@@ -1,4 +1,5 @@
 @use '../../styles/mixins.scss' as mixins;
+@use '../../styles/variables.scss' as *;
 
 .pageWrapper {
     padding: 0;
@@ -112,8 +113,8 @@
     font-size: 13px;
 }
 .optionSelected {
-    border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    border-color: $primary-color;
+    box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.2);
 }
 .optionFooter {
     display: flex;

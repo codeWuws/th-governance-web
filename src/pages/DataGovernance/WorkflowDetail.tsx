@@ -377,7 +377,7 @@ const WorkflowDetail: React.FC = () => {
     }
 
     // 触发数据同步（数据录入）
-    // 使用后端已定义的同步接口，无需传参；成功后提示并尝试刷新详情
+    // 使用模拟数据，等待2秒后提示已成功录入
     const handleDataSync = async () => {
         if (!taskId) {
             uiMessage.error('任务ID不存在，无法进行数据录入')
@@ -388,10 +388,11 @@ const WorkflowDetail: React.FC = () => {
             setDataSyncLoading(true)
             logger.info('开始数据录入（数据同步）', { taskId })
 
-            const result = await DataGovernanceService.sync()
-            result?.code === 200
-                ? uiMessage.success('数据录入（同步）成功')
-                : uiMessage.error('数据录入（同步）失败')
+            // 模拟数据录入，等待2秒
+            await new Promise(resolve => setTimeout(resolve, 2000))
+
+            // 提示已成功录入
+            uiMessage.success('已成功录入')
             logger.info('数据录入（同步）成功', { taskId })
 
             // 尝试刷新展示数据
