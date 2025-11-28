@@ -15,11 +15,12 @@ import {
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styles from './ExecutionHistory.module.scss'
+import { generateMockExecutionHistory } from './utils/mock'
 
 const { Title } = Typography
 const { RangePicker } = DatePicker
 
-interface HistoryItem {
+export interface HistoryItem {
     id: string
     types: string[]
     status: 'starting' | 'running' | 'completed' | 'error' | 'cancelled'
@@ -119,14 +120,26 @@ const ExecutionHistory: React.FC = () => {
     const reload = () => {
         const key = 'qcExecutionHistory'
         const prev = localStorage.getItem(key)
-        const list: HistoryItem[] = prev ? JSON.parse(prev) : []
+        let list: HistoryItem[] = prev ? JSON.parse(prev) : []
+        
+        // 如果没有数据，生成模拟数据
+        if (list.length === 0) {
+            list = generateMockExecutionHistory(25)
+            try {
+                localStorage.setItem(key, JSON.stringify(list))
+            } catch (err) {
+                console.warn('Failed to save mock data to localStorage', err)
+            }
+        }
+        
         setData(list)
     }
 
     useEffect(() => {
-        try {
-            localStorage.removeItem('qcExecutionHistory')
-        } catch {}
+        // 注释掉自动清空，保留历史数据
+        // try {
+        //     localStorage.removeItem('qcExecutionHistory')
+        // } catch {}
         reload()
     }, [])
 

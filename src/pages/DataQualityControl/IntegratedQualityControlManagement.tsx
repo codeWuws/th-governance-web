@@ -63,14 +63,6 @@ const IntegratedQualityControlManagement: React.FC = () => {
                 </Title>
             </div>
 
-            <Alert
-                message='综合质控管理'
-                description='以标签页整合可靠性、及时性、完整性、一致性、准确性质控，保持原有交互与布局不变。'
-                type='info'
-                showIcon
-                style={{ marginBottom: 24 }}
-            />
-
             <Card>
                 <Tabs activeKey={activeKey} onChange={onTabChange}>
                     {visibleTabs.map(k => (
