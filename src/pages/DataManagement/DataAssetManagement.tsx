@@ -33,6 +33,7 @@ import {
     EditOutlined,
     DeleteOutlined,
     MoreOutlined,
+    ArrowLeftOutlined,
 } from '@ant-design/icons'
 import { useDebounce } from '../../hooks/useDebounce'
 import styles from './DataAssetManagement.module.scss'
@@ -402,6 +403,9 @@ const mockTables: Record<string, TableInfo> = {
     },
 }
 
+// 视图状态类型
+type ViewMode = 'empty' | 'category' | 'tableFields'
+
 const DataAssetManagement: React.FC = () => {
     const [dataSources, setDataSources] = useState<DataSource[]>(mockDataSources)
     const [categories, setCategories] = useState<AssetCategory[]>(mockCategories)
@@ -415,6 +419,10 @@ const DataAssetManagement: React.FC = () => {
     const [selectedDatabase, setSelectedDatabase] = useState<string>('')
     const [form] = Form.useForm()
     const [categoryForm] = Form.useForm()
+    // 视图状态管理
+    const [viewMode, setViewMode] = useState<ViewMode>('empty')
+    const [selectedCategory, setSelectedCategory] = useState<AssetCategory | null>(null)
+    const [selectedTable, setSelectedTable] = useState<TableInfo | null>(null)
 
     const debouncedSearchText = useDebounce(searchText, 300)
 
@@ -481,7 +489,7 @@ const DataAssetManagement: React.FC = () => {
                     children: [],
                 }
 
-                // 添加资产类别
+                // 添加资产类别（仅显示两个层级：资产 -> 资产类别）
                 const dsCategories = categories.filter(cat => cat.dataSourceId === ds.id)
                 dsCategories.forEach(cat => {
                     const catNode: ExtendedDataNode = {
@@ -495,52 +503,8 @@ const DataAssetManagement: React.FC = () => {
                         nodeType: 'category',
                         data: cat,
                         dataSourceId: ds.id,
-                        children: [],
+                        children: [], // 不再包含表和字段子节点
                     }
-
-                    // 添加表
-                    cat.tables.forEach(tableName => {
-                        const tableInfo = mockTables[tableName]
-                        if (tableInfo) {
-                            const tableNode: ExtendedDataNode = {
-                                title: (
-                                    <span>
-                                        <TableOutlined style={{ marginRight: 8, color: '#faad14' }} />
-                                        {tableInfo.name}
-                                    </span>
-                                ),
-                                key: `table-${cat.id}-${tableName}`,
-                                nodeType: 'table',
-                                data: tableInfo,
-                                dataSourceId: ds.id,
-                                categoryId: cat.id,
-                                tableName: tableName,
-                                children: [],
-                            }
-
-                            // 添加字段
-                            if (tableInfo.fields) {
-                                tableNode.children = tableInfo.fields.map(field => ({
-                                    title: (
-                                        <span>
-                                            <FieldTimeOutlined
-                                                style={{ marginRight: 8, color: '#722ed1' }}
-                                            />
-                                            {field.name}
-                                        </span>
-                                    ),
-                                    key: `field-${cat.id}-${tableName}-${field.name}`,
-                                    nodeType: 'field',
-                                    data: field,
-                                    dataSourceId: ds.id,
-                                    categoryId: cat.id,
-                                    tableName: tableName,
-                                })) as ExtendedDataNode[]
-                            }
-
-                            catNode.children!.push(tableNode)
-                        }
-                    })
 
                     dsNode.children!.push(catNode)
                 })
@@ -583,7 +547,7 @@ const DataAssetManagement: React.FC = () => {
         return filterTree(treeData)
     }, [treeData, debouncedSearchText])
 
-    // 查找选中的节点
+    // 查找选中的节点并更新视图状态
     useEffect(() => {
         if (selectedKeys.length > 0) {
             const findNode = (
@@ -605,11 +569,31 @@ const DataAssetManagement: React.FC = () => {
             if (selectedKeys[0] !== undefined) {
                 const node = findNode(treeData, selectedKeys[0])
                 setSelectedNode(node || null)
+                
+                // 根据节点类型更新视图状态
+                if (node) {
+                    if (node.nodeType === 'category') {
+                        const cat = node.data as AssetCategory
+                        setSelectedCategory(cat)
+                        setViewMode('category')
+                        setSelectedTable(null) // 重置选中的表
+                    } else if (node.nodeType === 'dataSource') {
+                        setViewMode('empty')
+                        setSelectedCategory(null)
+                        setSelectedTable(null)
+                    }
+                }
             } else {
                 setSelectedNode(null)
+                setViewMode('empty')
+                setSelectedCategory(null)
+                setSelectedTable(null)
             }
         } else {
             setSelectedNode(null)
+            setViewMode('empty')
+            setSelectedCategory(null)
+            setSelectedTable(null)
         }
     }, [selectedKeys, treeData])
 
@@ -690,338 +674,277 @@ const DataAssetManagement: React.FC = () => {
         }
     }
 
+    // 处理表行点击
+    const handleTableRowClick = (tableName: string) => {
+        const tableInfo = mockTables[tableName]
+        if (tableInfo) {
+            setSelectedTable(tableInfo)
+            setViewMode('tableFields')
+        }
+    }
+
+    // 返回到表列表
+    const handleBackToTableList = () => {
+        setSelectedTable(null)
+        setViewMode('category')
+    }
+
     // 渲染右侧详情区域
     const renderDetailContent = () => {
-        if (!selectedNode) {
+        // 空状态
+        if (viewMode === 'empty') {
             return (
                 <div className={styles.detailContent}>
                     <Empty
-                        description='请从左侧选择数据源、资产类别、表或字段查看详情'
+                        description='请从左侧选择资产类别查看表列表'
                         style={{ marginTop: 100 }}
                     />
                 </div>
             )
         }
 
-        const { nodeType, data } = selectedNode
+        // 字段详情视图
+        if (viewMode === 'tableFields' && selectedTable) {
+            const columns = [
+                {
+                    title: '字段名',
+                    dataIndex: 'name',
+                    key: 'name',
+                    width: 180,
+                    fixed: 'left' as const,
+                    render: (text: string, record: FieldInfo) => (
+                        <span style={{ fontWeight: record.primaryKey ? 600 : 400 }}>
+                            {text}
+                            {record.primaryKey && (
+                                <Tag color='gold' style={{ marginLeft: 8, fontSize: 11 }}>PK</Tag>
+                            )}
+                        </span>
+                    ),
+                },
+                {
+                    title: '数据类型',
+                    dataIndex: 'type',
+                    key: 'type',
+                    width: 150,
+                    render: (type: string, record: FieldInfo) => {
+                        const length = record.length ? `(${record.length})` : ''
+                        return <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 3 }}>{`${type}${length}`}</code>
+                    },
+                },
+                {
+                    title: '允许为空',
+                    dataIndex: 'nullable',
+                    key: 'nullable',
+                    width: 100,
+                    align: 'center' as const,
+                    render: (nullable: boolean) => (
+                        nullable ? <span style={{ color: '#52c41a' }}>✓</span> : <span style={{ color: '#ff4d4f' }}>✗</span>
+                    ),
+                },
+                {
+                    title: '默认值',
+                    dataIndex: 'default',
+                    key: 'default',
+                    width: 150,
+                    render: (value: string) => value ? <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 3 }}>{value}</code> : <span style={{ color: '#bfbfbf' }}>-</span>,
+                },
+                {
+                    title: '说明',
+                    dataIndex: 'comment',
+                    key: 'comment',
+                    ellipsis: true,
+                    render: (text: string) => text || <span style={{ color: '#bfbfbf' }}>-</span>,
+                },
+            ]
 
-        switch (nodeType) {
-            case 'dataSource': {
-                const ds = data as DataSource
-                return (
-                    <>
-                        <div className={styles.detailHeader}>
-                            <DatabaseOutlined style={{ fontSize: 20, color: '#0c63e4' }} />
-                            <Title level={4} className={styles.detailTitle}>
-                                {ds.name}
-                            </Title>
-                            <Tag 
-                                color={ds.status === 'connected' ? 'success' : 'default'} 
-                                style={{ marginLeft: 'auto', borderRadius: '6px' }}
-                            >
-                                {ds.status === 'connected' ? '已连接' : '未连接'}
-                            </Tag>
+            return (
+                <>
+                    <div className={styles.detailHeader}>
+                        <Button
+                            type='text'
+                            icon={<ArrowLeftOutlined />}
+                            onClick={handleBackToTableList}
+                            style={{ marginRight: 8 }}
+                        >
+                            返回
+                        </Button>
+                        <TableOutlined style={{ fontSize: 20, color: '#0c63e4' }} />
+                        <Title level={4} className={styles.detailTitle}>
+                            {selectedTable.name}
+                        </Title>
+                        {selectedTable.comment && (
+                            <span style={{ color: '#6b7280', fontSize: 13, marginLeft: 12 }}>
+                                {selectedTable.comment}
+                            </span>
+                        )}
+                    </div>
+                    <div className={styles.detailContent}>
+                        <div className={styles.infoSection}>
+                            <div className={styles.sectionTitle}>基本信息</div>
+                            <Descriptions bordered column={3} size='small' style={{ marginBottom: 20 }}>
+                                <Descriptions.Item label='表名'>{selectedTable.name}</Descriptions.Item>
+                                <Descriptions.Item label='模式'>{selectedTable.schema}</Descriptions.Item>
+                                <Descriptions.Item label='记录数'>
+                                    {selectedTable.rowCount?.toLocaleString() || '-'}
+                                </Descriptions.Item>
+                            </Descriptions>
                         </div>
-                        <div className={styles.detailContent}>
-                            <div className={styles.infoSection}>
-                                <div className={styles.sectionTitle}>基本信息</div>
-                                <Descriptions bordered column={2} size='small'>
-                                    <Descriptions.Item label='数据源名称'>{ds.name}</Descriptions.Item>
-                                    <Descriptions.Item label='数据库类型'>
-                                        <Tag color='blue' style={{ borderRadius: '4px' }}>{ds.type.toUpperCase()}</Tag>
-                                    </Descriptions.Item>
-                                    <Descriptions.Item label='主机地址'>{ds.host}</Descriptions.Item>
-                                    <Descriptions.Item label='端口'>{ds.port}</Descriptions.Item>
-                                    <Descriptions.Item label='数据库名' span={2}>{ds.database}</Descriptions.Item>
-                                </Descriptions>
-                            </div>
-                        </div>
-                    </>
-                )
-            }
-
-            case 'category': {
-                const cat = data as AssetCategory
-                const ds = dataSources.find(d => d.id === cat.dataSourceId)
-                return (
-                    <>
-                        <div className={styles.detailHeader}>
-                            <FolderOutlined style={{ fontSize: 20, color: '#0c63e4' }} />
-                            <Title level={4} className={styles.detailTitle}>
-                                {cat.name}
-                            </Title>
-                        </div>
-                        <div className={styles.detailContent}>
-                            <Tabs
-                                defaultActiveKey='tables'
-                                items={[
-                                    {
-                                        key: 'tables',
-                                        label: `表 (${cat.tables.length})`,
-                                        children: (
-                                            <div className={styles.infoSection}>
-                                                <Table
-                                                    className={styles.infoTable}
-                                                    dataSource={cat.tables.map((table, index) => {
-                                                        const tableInfo = mockTables[table]
-                                                        return {
-                                                            key: index,
-                                                            name: table,
-                                                            schema: tableInfo?.schema || cat.database,
-                                                            comment: tableInfo?.comment || '-',
-                                                            rowCount: tableInfo?.rowCount || 0,
-                                                            fieldCount: tableInfo?.fields?.length || 0,
-                                                            createTime: '2024-01-15 10:00:00',
-                                                            updateTime: '2024-01-20 14:30:00',
-                                                            tableType: 'BASE TABLE',
-                                                            engine: 'InnoDB',
-                                                        }
-                                                    })}
-                                                    columns={[
-                                                        { 
-                                                            title: '表名', 
-                                                            dataIndex: 'name', 
-                                                            key: 'name',
-                                                            width: 180,
-                                                            fixed: 'left' as const,
-                                                        },
-                                                        { 
-                                                            title: '模式/数据库', 
-                                                            dataIndex: 'schema', 
-                                                            key: 'schema',
-                                                            width: 150,
-                                                        },
-                                                        { 
-                                                            title: '说明', 
-                                                            dataIndex: 'comment', 
-                                                            key: 'comment',
-                                                            ellipsis: true,
-                                                            width: 200,
-                                                        },
-                                                        {
-                                                            title: '记录数',
-                                                            dataIndex: 'rowCount',
-                                                            key: 'rowCount',
-                                                            width: 120,
-                                                            align: 'right' as const,
-                                                            render: (count: number) => count.toLocaleString(),
-                                                        },
-                                                        {
-                                                            title: '字段数',
-                                                            dataIndex: 'fieldCount',
-                                                            key: 'fieldCount',
-                                                            width: 100,
-                                                            align: 'right' as const,
-                                                        },
-                                                        {
-                                                            title: '表类型',
-                                                            dataIndex: 'tableType',
-                                                            key: 'tableType',
-                                                            width: 120,
-                                                        },
-                                                        {
-                                                            title: '存储引擎',
-                                                            dataIndex: 'engine',
-                                                            key: 'engine',
-                                                            width: 120,
-                                                        },
-                                                        {
-                                                            title: '创建时间',
-                                                            dataIndex: 'createTime',
-                                                            key: 'createTime',
-                                                            width: 160,
-                                                        },
-                                                        {
-                                                            title: '更新时间',
-                                                            dataIndex: 'updateTime',
-                                                            key: 'updateTime',
-                                                            width: 160,
-                                                        },
-                                                    ]}
-                                                    pagination={false}
-                                                    size='small'
-                                                    scroll={{ x: 1200 }}
-                                                />
-                                            </div>
-                                        ),
-                                    },
-                                    {
-                                        key: 'info',
-                                        label: '信息',
-                                        children: (
-                                            <div className={styles.infoSection}>
-                                                <div className={styles.sectionTitle}>基本信息</div>
-                                                <Descriptions bordered column={2} size='small'>
-                                                    <Descriptions.Item label='类别名称'>{cat.name}</Descriptions.Item>
-                                                    <Descriptions.Item label='所属数据源'>{ds?.name || '-'}</Descriptions.Item>
-                                                    <Descriptions.Item label='数据库'>{cat.database}</Descriptions.Item>
-                                                    <Descriptions.Item label='包含表数量'>{cat.tables.length}</Descriptions.Item>
-                                                </Descriptions>
-                                            </div>
-                                        ),
-                                    },
-                                ]}
+                        <div className={styles.infoSection}>
+                            <div className={styles.sectionTitle}>字段列表 ({selectedTable.fields.length})</div>
+                            <Table
+                                className={styles.infoTable}
+                                dataSource={selectedTable.fields}
+                                columns={columns}
+                                rowKey='name'
+                                pagination={false}
+                                size='small'
+                                scroll={{ x: 800 }}
                             />
                         </div>
-                    </>
-                )
-            }
-
-            case 'table': {
-                const table = data as TableInfo
-                const columns = [
-                    {
-                        title: '字段名',
-                        dataIndex: 'name',
-                        key: 'name',
-                        width: 180,
-                        fixed: 'left' as const,
-                        render: (text: string, record: FieldInfo) => (
-                            <span style={{ fontWeight: record.primaryKey ? 600 : 400 }}>
-                                {text}
-                                {record.primaryKey && (
-                                    <Tag color='gold' style={{ marginLeft: 8, fontSize: 11 }}>PK</Tag>
-                                )}
-                            </span>
-                        ),
-                    },
-                    {
-                        title: '数据类型',
-                        dataIndex: 'type',
-                        key: 'type',
-                        width: 150,
-                        render: (type: string, record: FieldInfo) => {
-                            const length = record.length ? `(${record.length})` : ''
-                            return <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 3 }}>{`${type}${length}`}</code>
-                        },
-                    },
-                    {
-                        title: '允许为空',
-                        dataIndex: 'nullable',
-                        key: 'nullable',
-                        width: 100,
-                        align: 'center' as const,
-                        render: (nullable: boolean) => (
-                            nullable ? <span style={{ color: '#52c41a' }}>✓</span> : <span style={{ color: '#ff4d4f' }}>✗</span>
-                        ),
-                    },
-                    {
-                        title: '默认值',
-                        dataIndex: 'default',
-                        key: 'default',
-                        width: 150,
-                        render: (value: string) => value ? <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 3 }}>{value}</code> : <span style={{ color: '#bfbfbf' }}>-</span>,
-                    },
-                    {
-                        title: '说明',
-                        dataIndex: 'comment',
-                        key: 'comment',
-                        ellipsis: true,
-                        render: (text: string) => text || <span style={{ color: '#bfbfbf' }}>-</span>,
-                    },
-                ]
-
-                return (
-                    <>
-                        <div className={styles.detailHeader}>
-                            <TableOutlined style={{ fontSize: 20, color: '#0c63e4' }} />
-                            <Title level={4} className={styles.detailTitle}>
-                                {table.name}
-                            </Title>
-                            {table.comment && (
-                                <span style={{ color: '#6b7280', fontSize: 13, marginLeft: 12 }}>
-                                    {table.comment}
-                                </span>
-                            )}
-                        </div>
-                        <div className={styles.detailContent}>
-                            <div className={styles.infoSection}>
-                                <div className={styles.sectionTitle}>基本信息</div>
-                                <Descriptions bordered column={3} size='small' style={{ marginBottom: 20 }}>
-                                    <Descriptions.Item label='表名'>{table.name}</Descriptions.Item>
-                                    <Descriptions.Item label='模式'>{table.schema}</Descriptions.Item>
-                                    <Descriptions.Item label='记录数'>
-                                        {table.rowCount?.toLocaleString() || '-'}
-                                    </Descriptions.Item>
-                                </Descriptions>
-                            </div>
-                            <div className={styles.infoSection}>
-                                <div className={styles.sectionTitle}>字段列表 ({table.fields.length})</div>
-                                <Table
-                                    className={styles.infoTable}
-                                    dataSource={table.fields}
-                                    columns={columns}
-                                    rowKey='name'
-                                    pagination={false}
-                                    size='small'
-                                    scroll={{ x: 800 }}
-                                />
-                            </div>
-                        </div>
-                    </>
-                )
-            }
-
-            case 'field': {
-                const field = data as FieldInfo
-                return (
-                    <>
-                        <div className={styles.detailHeader}>
-                            <FieldTimeOutlined style={{ fontSize: 20, color: '#0c63e4' }} />
-                            <Title level={4} className={styles.detailTitle}>
-                                {field.name}
-                            </Title>
-                            {field.primaryKey && (
-                                <Tag color='gold' style={{ marginLeft: 8, borderRadius: '4px' }}>主键</Tag>
-                            )}
-                        </div>
-                        <div className={styles.detailContent}>
-                            <div className={styles.infoSection}>
-                                <div className={styles.sectionTitle}>字段信息</div>
-                                <Descriptions bordered column={2} size='small'>
-                                    <Descriptions.Item label='字段名'>{field.name}</Descriptions.Item>
-                                    <Descriptions.Item label='数据类型'>
-                                        <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 3 }}>
-                                            {field.type}
-                                            {field.length ? `(${field.length})` : ''}
-                                        </code>
-                                    </Descriptions.Item>
-                                    <Descriptions.Item label='允许为空'>
-                                        {field.nullable ? (
-                                            <span style={{ color: '#52c41a' }}>是 ✓</span>
-                                        ) : (
-                                            <span style={{ color: '#ff4d4f' }}>否 ✗</span>
-                                        )}
-                                    </Descriptions.Item>
-                                    <Descriptions.Item label='默认值'>
-                                        {field.default ? (
-                                            <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 3 }}>
-                                                {field.default}
-                                            </code>
-                                        ) : (
-                                            <span style={{ color: '#bfbfbf' }}>-</span>
-                                        )}
-                                    </Descriptions.Item>
-                                    <Descriptions.Item label='主键'>
-                                        {field.primaryKey ? (
-                                            <Tag color='gold'>是</Tag>
-                                        ) : (
-                                            <span style={{ color: '#bfbfbf' }}>否</span>
-                                        )}
-                                    </Descriptions.Item>
-                                    <Descriptions.Item label='说明' span={2}>
-                                        {field.comment || <span style={{ color: '#bfbfbf' }}>-</span>}
-                                    </Descriptions.Item>
-                                </Descriptions>
-                            </div>
-                        </div>
-                    </>
-                )
-            }
-
-            default:
-                return null
+                    </div>
+                </>
+            )
         }
+
+        // 资产类别视图 - 显示表列表
+        if (viewMode === 'category' && selectedCategory) {
+            const cat = selectedCategory
+            const ds = dataSources.find(d => d.id === cat.dataSourceId)
+            
+            return (
+                <>
+                    <div className={styles.detailHeader}>
+                        <FolderOutlined style={{ fontSize: 20, color: '#0c63e4' }} />
+                        <Title level={4} className={styles.detailTitle}>
+                            {cat.name}
+                        </Title>
+                    </div>
+                    <div className={styles.detailContent}>
+                        <Tabs
+                            defaultActiveKey='tables'
+                            items={[
+                                {
+                                    key: 'tables',
+                                    label: `表 (${cat.tables.length})`,
+                                    children: (
+                                        <div className={styles.infoSection}>
+                                            <Table
+                                                className={styles.infoTable}
+                                                dataSource={cat.tables.map((table, index) => {
+                                                    const tableInfo = mockTables[table]
+                                                    return {
+                                                        key: index,
+                                                        name: table,
+                                                        schema: tableInfo?.schema || cat.database,
+                                                        comment: tableInfo?.comment || '-',
+                                                        rowCount: tableInfo?.rowCount || 0,
+                                                        fieldCount: tableInfo?.fields?.length || 0,
+                                                        createTime: '2024-01-15 10:00:00',
+                                                        updateTime: '2024-01-20 14:30:00',
+                                                        tableType: 'BASE TABLE',
+                                                        engine: 'InnoDB',
+                                                        tableInfo: tableInfo, // 保存表信息用于点击
+                                                    }
+                                                })}
+                                                columns={[
+                                                    { 
+                                                        title: '表名', 
+                                                        dataIndex: 'name', 
+                                                        key: 'name',
+                                                        width: 180,
+                                                        fixed: 'left' as const,
+                                                    },
+                                                    { 
+                                                        title: '模式/数据库', 
+                                                        dataIndex: 'schema', 
+                                                        key: 'schema',
+                                                        width: 150,
+                                                    },
+                                                    { 
+                                                        title: '说明', 
+                                                        dataIndex: 'comment', 
+                                                        key: 'comment',
+                                                        ellipsis: true,
+                                                        width: 200,
+                                                    },
+                                                    {
+                                                        title: '记录数',
+                                                        dataIndex: 'rowCount',
+                                                        key: 'rowCount',
+                                                        width: 120,
+                                                        align: 'right' as const,
+                                                        render: (count: number) => count.toLocaleString(),
+                                                    },
+                                                    {
+                                                        title: '字段数',
+                                                        dataIndex: 'fieldCount',
+                                                        key: 'fieldCount',
+                                                        width: 100,
+                                                        align: 'right' as const,
+                                                    },
+                                                    {
+                                                        title: '表类型',
+                                                        dataIndex: 'tableType',
+                                                        key: 'tableType',
+                                                        width: 120,
+                                                    },
+                                                    {
+                                                        title: '存储引擎',
+                                                        dataIndex: 'engine',
+                                                        key: 'engine',
+                                                        width: 120,
+                                                    },
+                                                    {
+                                                        title: '创建时间',
+                                                        dataIndex: 'createTime',
+                                                        key: 'createTime',
+                                                        width: 160,
+                                                    },
+                                                    {
+                                                        title: '更新时间',
+                                                        dataIndex: 'updateTime',
+                                                        key: 'updateTime',
+                                                        width: 160,
+                                                    },
+                                                ]}
+                                                pagination={false}
+                                                size='small'
+                                                scroll={{ x: 1200 }}
+                                                onRow={(record) => ({
+                                                    onClick: () => {
+                                                        handleTableRowClick(record.name)
+                                                    },
+                                                    style: {
+                                                        cursor: 'pointer',
+                                                    },
+                                                })}
+                                            />
+                                        </div>
+                                    ),
+                                },
+                                {
+                                    key: 'info',
+                                    label: '信息',
+                                    children: (
+                                        <div className={styles.infoSection}>
+                                            <div className={styles.sectionTitle}>基本信息</div>
+                                            <Descriptions bordered column={2} size='small'>
+                                                <Descriptions.Item label='类别名称'>{cat.name}</Descriptions.Item>
+                                                <Descriptions.Item label='所属数据源'>{ds?.name || '-'}</Descriptions.Item>
+                                                <Descriptions.Item label='数据库'>{cat.database}</Descriptions.Item>
+                                                <Descriptions.Item label='包含表数量'>{cat.tables.length}</Descriptions.Item>
+                                            </Descriptions>
+                                        </div>
+                                    ),
+                                },
+                            ]}
+                        />
+                    </div>
+                </>
+            )
+        }
+
+        return null
     }
 
     return (
