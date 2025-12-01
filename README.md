@@ -139,17 +139,22 @@ npm run build:analyze
 
 ### 环境变量
 
-复制 `.env.example` 到 `.env.development` 并根据需要修改：
+项目支持多环境配置，通过 `.env` 文件管理：
 
-```bash
-cp .env.example .env.development
-```
+- `.env.development` - 开发环境配置（已配置，使用本地代理）
+- `.env.production` - 生产环境配置（已配置，API地址：`http://10.90.10.13:6630/api`）
 
 支持的环境变量：
 
+- `VITE_APP_ENV` - 环境标识（development/production）
 - `VITE_APP_TITLE` - 应用标题
 - `VITE_APP_API_BASE_URL` - API 基础地址
-- 更多配置请查看 `.env.example`
+- `VITE_APP_VERSION` - 应用版本号
+
+**注意**：
+- 开发环境使用 Vite 代理，API 请求会被代理到 `http://192.168.110.34:8888`
+- 生产环境构建时会使用 `.env.production` 中配置的 API 地址
+- 本地覆盖文件 `.env.local` 和 `.env.*.local` 会被 git 忽略，可用于本地特殊配置
 
 ## 📚 最佳实践
 

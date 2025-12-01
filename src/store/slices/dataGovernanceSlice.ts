@@ -114,7 +114,7 @@ const initialState: DataGovernanceState = {
         {
             id: 3,
             nodeName: '类型转换',
-            nodeType: 'dataTransform',
+            nodeType: 'DataTransform',
             nodeStep: 3,
             enabled: true,
             isAuto: false,

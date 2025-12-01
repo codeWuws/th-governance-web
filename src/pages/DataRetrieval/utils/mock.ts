@@ -12,7 +12,14 @@ import {
 // 所有生成逻辑均产生稳定结构的数据，并控制字段一致性以避免前端类型错误。
 
 const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min
-const pick = <T>(arr: T[]): T => arr[randomInt(0, arr.length - 1)]
+const pick = <T>(arr: T[]): T => {
+    const index = randomInt(0, arr.length - 1)
+    const item = arr[index]
+    if (item === undefined) {
+        throw new Error('Array is empty or index out of bounds')
+    }
+    return item
+}
 
 const DIAGNOSES = ['高血压', '糖尿病', '冠心病', '慢性肾病', '哮喘', '甲状腺功能异常']
 const MEDICATIONS = ['阿司匹林', '二甲双胍', '氯沙坦', '他汀类', '胰岛素', '布洛芬']
@@ -35,7 +42,7 @@ export function generateMockPatient(id: number): PatientRecord {
             Math.random() < 0.5
                 ? moment().subtract(randomInt(1, 9), 'days').format('YYYY-MM-DD')
                 : undefined,
-        status: pick(['active', 'completed', 'discontinued']),
+        status: pick(['active', 'completed', 'discontinued'] as const) as 'active' | 'completed' | 'discontinued',
     }))
 
     const surgeries = Array.from({ length: randomInt(0, 2) }, (_, i) => ({
@@ -43,7 +50,7 @@ export function generateMockPatient(id: number): PatientRecord {
         name: pick(['阑尾切除', '胆囊切除', '冠脉支架', '白内障手术']),
         date: moment().subtract(randomInt(30, 600), 'days').format('YYYY-MM-DD'),
         type: 'surgery' as const,
-        status: pick(['scheduled', 'completed', 'cancelled']),
+        status: pick(['scheduled', 'completed', 'cancelled'] as const) as 'completed' | 'cancelled' | 'scheduled',
     }))
 
     const labs = Array.from({ length: randomInt(2, 6) }, (_, i) => ({
@@ -53,7 +60,7 @@ export function generateMockPatient(id: number): PatientRecord {
         result: `${randomInt(1, 10)}`,
         unit: pick(['mmol/L', 'mg/dL', 'g/L']),
         referenceRange: '正常范围',
-        status: pick(['normal', 'abnormal', 'critical']),
+        status: pick(['normal', 'abnormal', 'critical'] as const) as 'normal' | 'abnormal' | 'critical',
     }))
 
     return {

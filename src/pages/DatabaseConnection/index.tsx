@@ -71,7 +71,7 @@ const DatabaseConnection: React.FC = () => {
                 // 计算状态统计
                 const totalConnections = result.data.list?.length || 0
                 const connectedCount =
-                    result.data.list?.filter((conn: DbConnection) => conn.status === 'connected')
+                    result.data.list?.filter((conn: DbConnection) => conn.dbStatus === 1)
                         .length || 0
                 const abnormalCount = totalConnections - connectedCount
 
@@ -81,7 +81,7 @@ const DatabaseConnection: React.FC = () => {
                     abnormalCount,
                 })
             } else {
-                uiMessage.error(result.message || '获取数据库连接列表失败')
+                uiMessage.error(result.msg || '获取数据库连接列表失败')
             }
         } catch (error) {
             logger.error(
@@ -107,7 +107,9 @@ const DatabaseConnection: React.FC = () => {
     // 删除连接
     const handleDelete = async (id: string) => {
         try {
-            const result = await dataGovernanceService.deleteDbConnection(id)
+            // 获取当前用户，如果没有则使用默认值
+            const updateUser = 'system' // 可以从 store 或 localStorage 获取实际用户
+            const result = await dataGovernanceService.deleteDbConnection(id, updateUser)
             if (result.code === 200) {
                 uiMessage.success('删除成功')
                 await fetchDbConnections(pagination.current, pagination.pageSize)
@@ -344,7 +346,7 @@ const DatabaseConnection: React.FC = () => {
                 try {
                     const result = await dataGovernanceService.addDbConnection(connectionData)
 
-                    if (result.success) {
+                    if (result.code === 200) {
                         uiMessage.success('数据库连接已成功添加')
 
                         // 重新获取列表以确保数据同步

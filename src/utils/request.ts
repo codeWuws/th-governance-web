@@ -530,7 +530,7 @@ export class SSEManager {
                 return
             }
 
-            logger.error('SSE fetch连接错误:', error)
+            logger.error('SSE fetch连接错误:', error instanceof Error ? error : new Error(String(error)))
             this.handleError(new Event('error'))
         }
     }

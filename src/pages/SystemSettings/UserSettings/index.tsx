@@ -92,7 +92,7 @@ const UserSettings: React.FC = () => {
     const [selectedUser, setSelectedUser] = useState<RBACUser | null>(null)
 
     // 当前登录用户信息
-    const currentUser = useSelector((state: RootState) => state.user.userInfo)
+    const currentUser = useSelector((state: RootState) => state.user.currentUser)
 
     /**
      * 加载用户列表

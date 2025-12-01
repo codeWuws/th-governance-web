@@ -272,7 +272,12 @@ const CoreDataQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) 
                 uiMessage.warning('暂无可导出的数据')
                 return
             }
-            const headers = Object.keys(rows[0])
+            const firstRow = rows[0]
+            if (!firstRow) {
+                uiMessage.warning('暂无可导出的数据')
+                return
+            }
+            const headers = Object.keys(firstRow)
             const escape = (val: unknown) => {
                 const s = String(val ?? '')
                 const needQuote = /[",\n]/.test(s)

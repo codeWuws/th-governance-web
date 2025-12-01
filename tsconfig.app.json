@@ -41,7 +41,9 @@
         "noImplicitReturns": true,
         "noImplicitOverride": true,
         "noPropertyAccessFromIndexSignature": false,
-        "noUncheckedIndexedAccess": true
+        "noUncheckedIndexedAccess": true,
+        "downlevelIteration": true,
+        "target": "ES2020"
     },
     "include": ["src", "vite.config.ts", "src/types/css-modules.d.ts"],
     "exclude": ["node_modules", "dist", "build"]

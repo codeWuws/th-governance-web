@@ -176,7 +176,7 @@ export const ExecutionRecordTable: React.FC<ExecutionRecordTableProps> = ({
             title: '执行时长',
             key: 'duration',
             width: 100,
-            render: (_, record) => calculateDuration(record.start_time, record.end_time),
+            render: (_, record) => calculateDuration(record.start_time || '', record.end_time || ''),
         },
         {
             title: '操作',

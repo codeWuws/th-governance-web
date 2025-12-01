@@ -34,11 +34,12 @@ import UserSettings from '../pages/SystemSettings/UserSettings'
 import RoleSettings from '../pages/SystemSettings/RoleSettings'
 import PermissionSettings from '../pages/SystemSettings/PermissionSettings'
 
-export const router = createBrowserRouter([
-    {
-        path: '/',
-        element: <MainLayout />,
-        children: [
+export const router = createBrowserRouter(
+    [
+        {
+            path: '/',
+            element: <MainLayout />,
+            children: [
             {
                 index: true,
                 element: <Dashboard />,
@@ -201,6 +202,10 @@ export const router = createBrowserRouter([
             },
         ],
     },
-])
+    ],
+    {
+        basename: '/dataflow',
+    }
+)
 
 export default router

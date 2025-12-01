@@ -4,7 +4,10 @@
  * Role - 权限的集合
  */
 
-import { BaseEntity } from './common'
+import { BaseEntity, PageResponse, ApiResponse } from './common'
+
+// 导出通用类型以便使用
+export type { PageResponse, ApiResponse }
 
 /**
  * 用户状态枚举
@@ -54,6 +57,11 @@ export interface RBACUser extends BaseEntity {
     department?: string // 部门
     position?: string // 职位
 }
+
+/**
+ * 用户类型别名（向后兼容）
+ */
+export type User = RBACUser
 
 /**
  * 用户查询参数

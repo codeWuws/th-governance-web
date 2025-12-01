@@ -200,10 +200,13 @@ const QualityControlFlowDetail: React.FC = () => {
             setFlowDetail(current => {
                 if (!current) return current
                 const newSteps = [...current.steps]
-                newSteps[stepIndex] = {
-                    ...newSteps[stepIndex],
-                    completedQuantity: progress,
-                    totalQuantity: 100,
+                const existingStep = newSteps[stepIndex]
+                if (existingStep) {
+                    newSteps[stepIndex] = {
+                        ...existingStep,
+                        completedQuantity: progress,
+                        totalQuantity: 100,
+                    }
                 }
                 return { ...current, steps: newSteps }
             })
@@ -218,20 +221,26 @@ const QualityControlFlowDetail: React.FC = () => {
                 setFlowDetail(current => {
                     if (!current) return current
                     const finalSteps = [...current.steps]
-                    finalSteps[stepIndex] = {
-                        ...finalSteps[stepIndex],
-                        status: 2,
-                        completedQuantity: 100,
-                        endTime: new Date().toLocaleString('zh-CN'),
-                        resultSummary: `成功完成${executionSteps[stepIndex]?.title}，处理了 ${Math.floor(Math.random() * 10000) + 1000} 条记录，通过率 ${Math.floor(Math.random() * 20) + 80}%`,
+                    const currentStep = finalSteps[stepIndex]
+                    if (currentStep) {
+                        finalSteps[stepIndex] = {
+                            ...currentStep,
+                            status: 2,
+                            completedQuantity: 100,
+                            endTime: new Date().toLocaleString('zh-CN'),
+                            resultSummary: `成功完成${executionSteps[stepIndex]?.title}，处理了 ${Math.floor(Math.random() * 10000) + 1000} 条记录，通过率 ${Math.floor(Math.random() * 20) + 80}%`,
+                        }
                     }
 
                     // 如果还有下一步，自动开始执行
                     if (stepIndex < executionSteps.length - 1) {
-                        finalSteps[stepIndex + 1] = {
-                            ...finalSteps[stepIndex + 1],
-                            status: 1,
-                            startTime: new Date().toLocaleString('zh-CN'),
+                        const nextStep = finalSteps[stepIndex + 1]
+                        if (nextStep) {
+                            finalSteps[stepIndex + 1] = {
+                                ...nextStep,
+                                status: 1,
+                                startTime: new Date().toLocaleString('zh-CN'),
+                            }
                         }
                     } else {
                         // 所有步骤完成，更新localStorage中的历史记录
@@ -293,7 +302,7 @@ const QualityControlFlowDetail: React.FC = () => {
     useEffect(() => {
         if (flowDetail && flowDetail.steps.length > 0 && !hasStartedRef.current) {
             const firstStep = flowDetail.steps[0]
-            if (firstStep.status === 1 && firstStep.completedQuantity === 0) {
+            if (firstStep && firstStep.status === 1 && firstStep.completedQuantity === 0) {
                 hasStartedRef.current = true
                 executeStep(0)
             }

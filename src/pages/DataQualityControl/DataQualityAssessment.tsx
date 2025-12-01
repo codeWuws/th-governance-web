@@ -24,7 +24,7 @@ import {
     Col as AntCol,
     Timeline,
 } from 'antd'
-import type { BadgeStatus } from 'antd/es/badge/Badge'
+import type { BadgeProps } from 'antd'
 import {
     PlusOutlined,
     EditOutlined,
@@ -75,43 +75,27 @@ interface DataQualityAssessment {
     recommendations: string[]
 }
 
-// interface QualityAnnotation {
-//     id: string
-//     field: string
-//     originalValue: string
-//     correctedValue: string
-//     confidence: number
-//     annotationType: 'error' | 'warning' | 'suggestion'
-//     description: string
-//     annotator: string
-//     createTime: string
-// }
+interface QualityAnnotation {
+    id: string
+    field: string
+    originalValue: string
+    correctedValue: string
+    confidence: number
+    annotationType: 'error' | 'warning' | 'suggestion'
+    description: string
+    annotator: string
+    createTime: string
+}
 
-// interface QualityIssue {
-//     id: string
-//     category: string
-//     severity: 'low' | 'medium' | 'high' | 'critical'
-//     description: string
-//     count: number
-//     percentage: number
-//     status: 'open' | 'resolved' | 'wont-fix'
-// }
-
-// interface QualityAnnotation {
-//     id: string
-//     field: string
-//     originalValue: string
-//     correctedValue: string
-//     confidence: number
-//     annotationType: 'error' | 'warning' | 'suggestion'
-//     description: string
-//     annotator: string
-//     createTime: string
-// }
-
-// interface QualityIssue {
-//     id: string
-//     category: string
+interface QualityIssue {
+    id: string
+    category: string
+    severity: 'low' | 'medium' | 'high' | 'critical'
+    description: string
+    count: number
+    percentage: number
+    status: 'open' | 'resolved' | 'wont-fix'
+}
 //     severity: 'low' | 'medium' | 'high' | 'critical'
 //     description: string
 //     count: number
@@ -1013,7 +997,7 @@ const DataQualityAssessment: React.FC = () => {
                             </Descriptions.Item>
                             <Descriptions.Item label='状态'>
                                 <Badge
-                                    status={getStatusColor(viewingRecord.status) as BadgeStatus}
+                                    status={getStatusColor(viewingRecord.status) as BadgeProps['status']}
                                     text={getStatusText(viewingRecord.status)}
                                 />
                             </Descriptions.Item>

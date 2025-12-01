@@ -103,7 +103,7 @@ const mockUsers: User[] = [
         realName: '超级管理员',
         avatar: 'https://gw.alipayobjects.com/zos/rmsportal/BiazfanxmamNRoxxVxka.png',
         status: UserStatus.ACTIVE,
-        roleIds: ['1'],
+        roles: [mockRoles[0]!],
         department: '技术部',
         position: '技术总监',
         lastLoginAt: '2024-01-15T10:30:00Z',
@@ -118,7 +118,7 @@ const mockUsers: User[] = [
         realName: '系统管理员',
         avatar: 'https://gw.alipayobjects.com/zos/rmsportal/gaOngJwsRYRaVAuXXcmB.png',
         status: UserStatus.ACTIVE,
-        roleIds: ['2'],
+        roles: [mockRoles[1]!],
         department: '运维部',
         position: '系统管理员',
         lastLoginAt: '2024-01-14T15:20:00Z',
@@ -133,7 +133,7 @@ const mockUsers: User[] = [
         realName: '数据管理员',
         avatar: 'https://gw.alipayobjects.com/zos/rmsportal/WhxKECPNujWoWEFNdnJO.png',
         status: UserStatus.ACTIVE,
-        roleIds: ['3'],
+        roles: [mockRoles[2]!],
         department: '数据部',
         position: '数据分析师',
         lastLoginAt: '2024-01-13T09:15:00Z',
@@ -148,7 +148,7 @@ const mockUsers: User[] = [
         realName: '张三',
         avatar: 'https://gw.alipayobjects.com/zos/rmsportal/ubnKSIfAJTxIgXOKlciN.png',
         status: UserStatus.ACTIVE,
-        roleIds: ['4'],
+        roles: [mockRoles[3]!],
         department: '业务部',
         position: '业务专员',
         lastLoginAt: '2024-01-12T14:45:00Z',
@@ -163,7 +163,7 @@ const mockUsers: User[] = [
         realName: '李四',
         avatar: 'https://gw.alipayobjects.com/zos/rmsportal/jZUIxmJycoymBheLOOtb.png',
         status: UserStatus.DISABLED,
-        roleIds: ['4'],
+        roles: [mockRoles[3]!],
         department: '业务部',
         position: '业务助理',
         lastLoginAt: '2024-01-10T11:30:00Z',
@@ -199,7 +199,7 @@ export const mockUserApi = {
                 user.email.toLowerCase().includes(keyword.toLowerCase())
 
             const matchesStatus = !status || user.status === status
-            const matchesRole = !roleId || user.roleIds.includes(roleId)
+            const matchesRole = !roleId || user.roles.some(role => role.id === roleId)
 
             return matchesKeyword && matchesStatus && matchesRole
         })
@@ -316,12 +316,13 @@ export const mockUserApi = {
             throw new Error('用户不存在')
         }
 
-        // 更新用户的角色ID列表
-        users[userIndex].roleIds = roleIds
-        users[userIndex].updatedAt = new Date().toISOString()
-
-        // 同时更新用户的角色对象数组，用于前端展示
-        users[userIndex].roles = roles.filter(role => roleIds.includes(role.id))
+        // 更新用户的角色对象数组
+        const user = users[userIndex]
+        if (!user) {
+            throw new Error('用户不存在')
+        }
+        user.roles = roles.filter(role => roleIds.includes(role.id))
+        user.updatedAt = new Date().toISOString()
 
         return {
             data: {
@@ -465,15 +466,19 @@ export const mockRoleApi = {
         if (index === -1) {
             throw new Error('角色不存在')
         }
+        const role = roles[index]
+        if (!role) {
+            throw new Error('角色不存在')
+        }
         roles[index] = {
-            ...roles[index],
+            ...role,
             permissions: permissions,
             updatedAt: new Date().toISOString(),
         }
         return {
             data: {
                 success: true,
-                data: roles[index].permissions,
+                data: roles[index]!.permissions,
                 message: '更新角色权限成功',
             },
         }

@@ -210,11 +210,13 @@ const WorkflowDetail: React.FC = () => {
             // 找到最后一个正在执行的步骤索引
             const lastExecutingStep = executionMessages.at(-1)
             const lastNode = executionMessages.findLast(
-                msg => msg.executionStatus !== 'end' && !!msg.node && msg.node !== '-'
+                msg => msg.executionStatus !== 'end' && !!msg.node && (typeof msg.node === 'string' ? msg.node !== '-' : true)
             )
             const isEnd =
                 lastExecutingStep?.executionStatus === 'end' &&
-                lastNode?.node.nodeType === detail?.logList?.at(-1)?.node_type
+                (typeof lastNode?.node === 'object' && lastNode?.node !== null
+                    ? lastNode.node.nodeType === detail?.logList?.at(-1)?.node_type
+                    : false)
             executionMessages.forEach(msgInfo => {
                 const { node, tableQuantity, completedQuantity, status } = msgInfo
 
@@ -357,7 +359,7 @@ const WorkflowDetail: React.FC = () => {
                 onError: (error: string) => {
                     uiMessage.error(`继续执行失败: ${error}`)
                     setContinueLoading(false)
-                    logger.error('继续执行工作流失败', { taskId, error })
+                    logger.error('继续执行工作流失败', new Error(error), { taskId })
                 },
                 onMessage: (message: string) => {
                     // SSE消息处理逻辑已在Redux中处理
@@ -372,7 +374,7 @@ const WorkflowDetail: React.FC = () => {
             const errorMsg = error instanceof Error ? error.message : '继续执行时发生未知错误'
             uiMessage.error(`继续执行失败: ${errorMsg}`)
             setContinueLoading(false)
-            logger.error('继续执行工作流异常', { taskId, error: errorMsg })
+            logger.error('继续执行工作流异常', error instanceof Error ? error : new Error(errorMsg), { taskId })
         }
     }
 
@@ -400,7 +402,7 @@ const WorkflowDetail: React.FC = () => {
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : '数据录入（同步）失败'
             uiMessage.error(errorMsg)
-            logger.error('数据录入（同步）异常', { taskId, error: errorMsg })
+            logger.error('数据录入（同步）异常', error instanceof Error ? error : new Error(errorMsg), { taskId })
         } finally {
             setDataSyncLoading(false)
         }
@@ -413,7 +415,7 @@ const WorkflowDetail: React.FC = () => {
         }
 
         // 检查是否有进度数据
-        if (!(step.completedQuantity || step.table_quantity)) return null
+        if (!step.completedQuantity || !step.table_quantity) return null
 
         const percentage = Math.round((step.completedQuantity / step.table_quantity) * 100)
 

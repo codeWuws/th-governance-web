@@ -174,6 +174,7 @@ const ExecutionHistory: React.FC = () => {
                     const parts = record.types.slice(0, 3).map(t => {
                         const mt = metricsForType(record, t)
                         const keyMetric = mt[0]
+                        if (!keyMetric) return typeLabel(t)
                         return `${typeLabel(t)} ${keyMetric.label}${keyMetric.value}`
                     })
                     const more = record.types.length > 3 ? ` · 等${record.types.length}项` : ''

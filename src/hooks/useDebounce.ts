@@ -23,7 +23,7 @@ export const useDebounceCallback = <T extends (...args: unknown[]) => unknown>(
     delay: number
 ): T => {
     const callbackRef = useRef(callback)
-    const timeoutRef = useRef<number | null>(null)
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     // 更新回调引用
     useEffect(() => {

@@ -31,11 +31,12 @@ const { Title } = Typography
 const { Option } = Select
 
 // 节点类型到图标的映射
-const nodeTypeIconMap = {
+const nodeTypeIconMap: Record<string, React.ReactElement> = {
     dataAccess: <UnorderedListOutlined />,
     StandardMapping: <BookOutlined />,
     DataCleansing: <ClearOutlined />,
-    dataTransform: <SwapOutlined />,
+    DataTransform: <SwapOutlined />,
+    dataTransform: <SwapOutlined />, // 兼容小写
     DataDeduplication: <DeleteOutlined />,
     EMPIDefinitionDistribution: <CopyOutlined />,
     EMOIDefinitionDistribution: <CopyOutlined />,

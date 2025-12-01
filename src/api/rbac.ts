@@ -13,9 +13,8 @@ import {
     RoleFormData,
     BatchOperationParams,
     UserRoleData,
-    PageResponse,
-    ApiResponse,
 } from '@/types/rbac'
+import { PageResponse, ApiResponse } from '@/types/common'
 
 /**
  * 用户管理API

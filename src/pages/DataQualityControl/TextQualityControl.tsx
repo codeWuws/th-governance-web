@@ -1,6 +1,7 @@
 import { FileTextOutlined, InboxOutlined, TableOutlined, UploadOutlined } from '@ant-design/icons'
 import { Alert, Button, Card, Col, Form, Input, Row, Select, Space, Typography, Upload } from 'antd'
 import type { UploadFile, UploadProps } from 'antd/es/upload'
+import type { ColumnsType } from 'antd/es/table'
 import React, { useState } from 'react'
 import { logger } from '@/utils/logger'
 import uiMessage from '@/utils/uiMessage'
