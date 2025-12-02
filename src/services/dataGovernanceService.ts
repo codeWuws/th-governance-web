@@ -371,6 +371,205 @@ export class DataGovernanceService {
             )
         }
     }
+
+    /**
+     * 获取数据清洗结果
+     * @description 根据批次ID获取数据清洗的详细结果（分页）
+     * @param batchId 批次ID
+     * @param pageNum 当前页码，从1开始
+     * @param pageSize 每页大小
+     * @returns Promise<ApiResponse<{ records: Array<Record<string, unknown>>, total: number, size: number, current: number, pages: number }>>
+     */
+    static async getCleaningResult(
+        batchId: number | string,
+        pageNum = 1,
+        pageSize = 10
+    ): Promise<
+        ApiResponse<{
+            records: Array<Record<string, unknown>>
+            total: number
+            size: number
+            current: number
+            pages: number
+        }>
+    > {
+        try {
+            return await api.post<
+                ApiResponse<{
+                    records: Array<Record<string, unknown>>
+                    total: number
+                    size: number
+                    current: number
+                    pages: number
+                }>
+            >('/data/governance/task/logs/cleaning/page', {
+                batchId: Number(batchId),
+                pageNum,
+                pageSize,
+            })
+        } catch (error) {
+            throw new Error(
+                `获取数据清洗结果失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 获取去重步骤结果
+     * @description 根据批次ID获取去重步骤的详细结果（分页）
+     * @param batchId 批次ID
+     * @param pageNum 当前页码，从1开始
+     * @param pageSize 每页大小
+     * @returns Promise<ApiResponse<{ records: Array<{ id: number, batchId: number, ids: string, tableName: string, columnName: string }>, total: number, size: number, current: number, pages: number }>>
+     */
+    static async getDeduplicateResult(
+        batchId: number | string,
+        pageNum = 1,
+        pageSize = 20
+    ): Promise<
+        ApiResponse<{
+            records: Array<{
+                id: number
+                batchId: number
+                ids: string
+                tableName: string
+                columnName: string
+            }>
+            total: number
+            size: number
+            current: number
+            pages: number
+        }>
+    > {
+        try {
+            return await api.post<
+                ApiResponse<{
+                    records: Array<{
+                        id: number
+                        batchId: number
+                        ids: string
+                        tableName: string
+                        columnName: string
+                    }>
+                    total: number
+                    size: number
+                    current: number
+                    pages: number
+                }>
+            >('/data/governance/task/logs/deduplicate/page', {
+                batchId: Number(batchId),
+                pageNum,
+                pageSize,
+            })
+        } catch (error) {
+            throw new Error(
+                `获取去重步骤结果失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 获取丢孤儿步骤结果
+     * @description 根据批次ID获取丢孤儿步骤的详细结果（分页）
+     * @param batchId 批次ID
+     * @param pageNum 当前页码，从1开始
+     * @param pageSize 每页大小
+     * @returns Promise<ApiResponse<{ records: Array<Record<string, unknown>>, total: number, size: number, current: number, pages: number }>>
+     */
+    static async getOrphanResult(
+        batchId: number | string,
+        pageNum = 1,
+        pageSize = 20
+    ): Promise<
+        ApiResponse<{
+            records: Array<Record<string, unknown>>
+            total: number
+            size: number
+            current: number
+            pages: number
+        }>
+    > {
+        try {
+            return await api.post<
+                ApiResponse<{
+                    records: Array<Record<string, unknown>>
+                    total: number
+                    size: number
+                    current: number
+                    pages: number
+                }>
+            >('/data/governance/task/logs/orphan/page', {
+                batchId: Number(batchId),
+                pageNum,
+                pageSize,
+            })
+        } catch (error) {
+            throw new Error(
+                `获取丢孤儿步骤结果失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 获取数据脱敏步骤结果
+     * @description 根据批次ID获取数据脱敏步骤的详细结果（分页）
+     * @param batchId 批次ID
+     * @param pageNum 当前页码，从1开始
+     * @param pageSize 每页大小
+     * @returns Promise<ApiResponse<{ records: Array<Record<string, unknown>>, total: number, size: number, current: number, pages: number }>>
+     */
+    static async getSensitiveResult(
+        batchId: number | string,
+        pageNum = 1,
+        pageSize = 20
+    ): Promise<
+        ApiResponse<{
+            records: Array<Record<string, unknown>>
+            total: number
+            size: number
+            current: number
+            pages: number
+        }>
+    > {
+        try {
+            return await api.post<
+                ApiResponse<{
+                    records: Array<Record<string, unknown>>
+                    total: number
+                    size: number
+                    current: number
+                    pages: number
+                }>
+            >('/data/governance/task/logs/sensitive/page', {
+                batchId: Number(batchId),
+                pageNum,
+                pageSize,
+            })
+        } catch (error) {
+            throw new Error(
+                `获取数据脱敏步骤结果失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 数据录入（数据同步）
+     * @description 根据任务ID进行数据录入同步
+     * @param taskId 任务ID
+     * @returns Promise<ApiResponse<null>>
+     */
+    static async syncTaskData(taskId: string): Promise<ApiResponse<null>> {
+        try {
+            if (!taskId) {
+                throw new Error('任务ID不能为空')
+            }
+            return await api.post<ApiResponse<null>>(`/data/governance/task/data/sync/${taskId}`)
+        } catch (error) {
+            throw new Error(
+                `数据录入失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
 }
 
 /**
@@ -408,6 +607,11 @@ export const dataGovernanceService = {
 
     // 工作流执行相关
     getWorkflowDetail: DataGovernanceService.getWorkflowDetail,
+    getCleaningResult: DataGovernanceService.getCleaningResult,
+    getDeduplicateResult: DataGovernanceService.getDeduplicateResult,
+    getOrphanResult: DataGovernanceService.getOrphanResult,
+    getSensitiveResult: DataGovernanceService.getSensitiveResult,
+    syncTaskData: DataGovernanceService.syncTaskData,
 }
 
 export default dataGovernanceService

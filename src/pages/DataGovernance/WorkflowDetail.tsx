@@ -24,6 +24,7 @@ import {
 } from '../../types'
 import { statusConfig } from './const'
 import { continueWorkflow, subscribeWorkflow } from '@/utils/workflowUtils'
+import JsonToTable from '@/components/JsonToTable'
 // 移除直接请求，统一通过 service 调用
 
 const { Title, Text } = Typography
@@ -108,6 +109,56 @@ const WorkflowDetail: React.FC = () => {
         resultSummary: string
         stepIndex: number
     } | null>(null)
+    const [cleaningResultData, setCleaningResultData] = useState<Array<Record<string, unknown>>>([])
+    const [cleaningResultLoading, setCleaningResultLoading] = useState(false)
+    const [cleaningResultPagination, setCleaningResultPagination] = useState<{
+        current: number
+        pageSize: number
+        total: number
+    }>({
+        current: 1,
+        pageSize: 10,
+        total: 0,
+    })
+
+    // 去重结果状态
+    const [deduplicateResultData, setDeduplicateResultData] = useState<Array<Record<string, unknown>>>([])
+    const [deduplicateResultLoading, setDeduplicateResultLoading] = useState(false)
+    const [deduplicateResultPagination, setDeduplicateResultPagination] = useState<{
+        current: number
+        pageSize: number
+        total: number
+    }>({
+        current: 1,
+        pageSize: 20,
+        total: 0,
+    })
+
+    // 丢孤儿结果状态
+    const [orphanResultData, setOrphanResultData] = useState<Array<Record<string, unknown>>>([])
+    const [orphanResultLoading, setOrphanResultLoading] = useState(false)
+    const [orphanResultPagination, setOrphanResultPagination] = useState<{
+        current: number
+        pageSize: number
+        total: number
+    }>({
+        current: 1,
+        pageSize: 20,
+        total: 0,
+    })
+
+    // 数据脱敏结果状态
+    const [sensitiveResultData, setSensitiveResultData] = useState<Array<Record<string, unknown>>>([])
+    const [sensitiveResultLoading, setSensitiveResultLoading] = useState(false)
+    const [sensitiveResultPagination, setSensitiveResultPagination] = useState<{
+        current: number
+        pageSize: number
+        total: number
+    }>({
+        current: 1,
+        pageSize: 20,
+        total: 0,
+    })
 
     // 工作流日志详情状态
     const [logDetailData, setLogDetailData] = useState<WorkflowLogDetailData | null>(null)
@@ -117,6 +168,9 @@ const WorkflowDetail: React.FC = () => {
 
     // 数据同步（数据录入）按钮加载状态
     const [dataSyncLoading, setDataSyncLoading] = useState(false)
+
+    // 刷新状态
+    const [refreshLoading, setRefreshLoading] = useState(false)
 
     // Redux状态 - 按taskId获取特定工作流的执行信息
     const { loading } = useAppSelector(state => state.dataGovernance)
@@ -154,8 +208,18 @@ const WorkflowDetail: React.FC = () => {
 
     // 手动刷新数据的处理函数
     const handleRefresh = async () => {
-        logger.debug('手动刷新详情')
-        await fetchLogDetail()
+        try {
+            setRefreshLoading(true)
+            logger.debug('手动刷新详情')
+            await fetchLogDetail()
+            // 刷新成功后显示提示
+            uiMessage.success('刷新成功')
+        } catch (error) {
+            logger.error('刷新失败', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('刷新失败，请稍后重试')
+        } finally {
+            setRefreshLoading(false)
+        }
     }
 
     // 组件初始化时获取日志详情并初始化工作流执行状态
@@ -276,7 +340,7 @@ const WorkflowDetail: React.FC = () => {
     }
 
     // 查看执行结果
-    const handleViewResult = (stepIndex: number) => {
+    const handleViewResult = async (stepIndex: number) => {
         const step = EXECUTION_STEPS[stepIndex]
         if (!step) return
 
@@ -286,12 +350,252 @@ const WorkflowDetail: React.FC = () => {
             stepIndex,
         })
         setResultModalVisible(true)
+
+        // 如果是数据清洗步骤（第一个步骤），获取数据清洗结果
+        if (stepIndex === 0 && step.nodeType === WorkflowNodeType.DATA_CLEANSING && taskId) {
+            // 重置分页
+            setCleaningResultPagination({
+                current: 1,
+                pageSize: 10,
+                total: 0,
+            })
+            // 加载第一页数据
+            await fetchCleaningResult(taskId, 1, 10)
+        } else if (stepIndex === 1 && step.nodeType === WorkflowNodeType.DATA_DEDUPLICATION && taskId) {
+            // 如果是数据去重步骤（第二个步骤），获取去重结果
+            // 重置分页
+            setDeduplicateResultPagination({
+                current: 1,
+                pageSize: 20,
+                total: 0,
+            })
+            // 加载第一页数据
+            await fetchDeduplicateResult(taskId, 1, 20)
+        } else if (stepIndex === 7 && step.nodeType === WorkflowNodeType.DATA_ORPHAN && taskId) {
+            // 如果是丢孤儿步骤（第八个步骤），获取丢孤儿结果
+            // 重置分页
+            setOrphanResultPagination({
+                current: 1,
+                pageSize: 20,
+                total: 0,
+            })
+            // 加载第一页数据
+            await fetchOrphanResult(taskId, 1, 20)
+        } else if (stepIndex === 8 && step.nodeType === WorkflowNodeType.DATA_DESENSITIZATION && taskId) {
+            // 如果是数据脱敏步骤（第九个步骤），获取数据脱敏结果
+            // 重置分页
+            setSensitiveResultPagination({
+                current: 1,
+                pageSize: 20,
+                total: 0,
+            })
+            // 加载第一页数据
+            await fetchSensitiveResult(taskId, 1, 20)
+        } else {
+            // 其他步骤，清空数据
+            setCleaningResultData([])
+            setCleaningResultPagination({
+                current: 1,
+                pageSize: 10,
+                total: 0,
+            })
+            setDeduplicateResultData([])
+            setDeduplicateResultPagination({
+                current: 1,
+                pageSize: 20,
+                total: 0,
+            })
+            setOrphanResultData([])
+            setOrphanResultPagination({
+                current: 1,
+                pageSize: 20,
+                total: 0,
+            })
+            setSensitiveResultData([])
+            setSensitiveResultPagination({
+                current: 1,
+                pageSize: 20,
+                total: 0,
+            })
+        }
+    }
+
+    // 获取数据清洗结果
+    const fetchCleaningResult = async (batchId: string, pageNum: number, pageSize: number) => {
+        setCleaningResultLoading(true)
+        try {
+            const response = await DataGovernanceService.getCleaningResult(batchId, pageNum, pageSize)
+            // 接口返回标准 ApiResponse 格式：{ code, msg, data: { records, total, size, current, pages } }
+            if (response.code === 200 && response.data) {
+                setCleaningResultData(response.data.records || [])
+                setCleaningResultPagination({
+                    current: response.data.current || pageNum,
+                    pageSize: response.data.size || pageSize,
+                    total: response.data.total || 0,
+                })
+            } else {
+                const errorMsg =
+                    (response as { msg?: string; message?: string }).msg ||
+                    (response as { msg?: string; message?: string }).message ||
+                    '获取数据清洗结果失败'
+                uiMessage.error(errorMsg)
+                setCleaningResultData([])
+            }
+        } catch (error) {
+            logger.error('获取数据清洗结果失败', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('获取数据清洗结果失败')
+            setCleaningResultData([])
+        } finally {
+            setCleaningResultLoading(false)
+        }
+    }
+
+    // 获取去重结果
+    const fetchDeduplicateResult = async (batchId: string, pageNum: number, pageSize: number) => {
+        setDeduplicateResultLoading(true)
+        try {
+            const response = await DataGovernanceService.getDeduplicateResult(batchId, pageNum, pageSize)
+            // 接口返回标准 ApiResponse 格式：{ code, msg, data: { records, total, size, current, pages } }
+            if (response.code === 200 && response.data) {
+                setDeduplicateResultData(response.data.records || [])
+                setDeduplicateResultPagination({
+                    current: response.data.current || pageNum,
+                    pageSize: response.data.size || pageSize,
+                    total: response.data.total || 0,
+                })
+            } else {
+                const errorMsg =
+                    (response as { msg?: string; message?: string }).msg ||
+                    (response as { msg?: string; message?: string }).message ||
+                    '获取去重步骤结果失败'
+                uiMessage.error(errorMsg)
+                setDeduplicateResultData([])
+            }
+        } catch (error) {
+            logger.error('获取去重步骤结果失败', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('获取去重步骤结果失败')
+            setDeduplicateResultData([])
+        } finally {
+            setDeduplicateResultLoading(false)
+        }
+    }
+
+    // 处理分页变化
+    const handleCleaningResultPageChange = (page: number, pageSize: number) => {
+        if (taskId && selectedStepResult?.stepIndex === 0) {
+            fetchCleaningResult(taskId, page, pageSize)
+        }
+    }
+
+    // 获取丢孤儿结果
+    const fetchOrphanResult = async (batchId: string, pageNum: number, pageSize: number) => {
+        setOrphanResultLoading(true)
+        try {
+            const response = await DataGovernanceService.getOrphanResult(batchId, pageNum, pageSize)
+            // 接口返回标准 ApiResponse 格式：{ code, msg, data: { records, total, size, current, pages } }
+            if (response.code === 200 && response.data) {
+                setOrphanResultData(response.data.records || [])
+                setOrphanResultPagination({
+                    current: response.data.current || pageNum,
+                    pageSize: response.data.size || pageSize,
+                    total: response.data.total || 0,
+                })
+            } else {
+                const errorMsg =
+                    (response as { msg?: string; message?: string }).msg ||
+                    (response as { msg?: string; message?: string }).message ||
+                    '获取丢孤儿步骤结果失败'
+                uiMessage.error(errorMsg)
+                setOrphanResultData([])
+            }
+        } catch (error) {
+            logger.error('获取丢孤儿步骤结果失败', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('获取丢孤儿步骤结果失败')
+            setOrphanResultData([])
+        } finally {
+            setOrphanResultLoading(false)
+        }
+    }
+
+    // 处理去重结果分页变化
+    const handleDeduplicateResultPageChange = (page: number, pageSize: number) => {
+        if (taskId && selectedStepResult?.stepIndex === 1) {
+            fetchDeduplicateResult(taskId, page, pageSize)
+        }
+    }
+
+    // 获取数据脱敏结果
+    const fetchSensitiveResult = async (batchId: string, pageNum: number, pageSize: number) => {
+        setSensitiveResultLoading(true)
+        try {
+            const response = await DataGovernanceService.getSensitiveResult(batchId, pageNum, pageSize)
+            // 接口返回标准 ApiResponse 格式：{ code, msg, data: { records, total, size, current, pages } }
+            if (response.code === 200 && response.data) {
+                setSensitiveResultData(response.data.records || [])
+                setSensitiveResultPagination({
+                    current: response.data.current || pageNum,
+                    pageSize: response.data.size || pageSize,
+                    total: response.data.total || 0,
+                })
+            } else {
+                const errorMsg =
+                    (response as { msg?: string; message?: string }).msg ||
+                    (response as { msg?: string; message?: string }).message ||
+                    '获取数据脱敏步骤结果失败'
+                uiMessage.error(errorMsg)
+                setSensitiveResultData([])
+            }
+        } catch (error) {
+            logger.error('获取数据脱敏步骤结果失败', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('获取数据脱敏步骤结果失败')
+            setSensitiveResultData([])
+        } finally {
+            setSensitiveResultLoading(false)
+        }
+    }
+
+    // 处理丢孤儿结果分页变化
+    const handleOrphanResultPageChange = (page: number, pageSize: number) => {
+        if (taskId && selectedStepResult?.stepIndex === 7) {
+            fetchOrphanResult(taskId, page, pageSize)
+        }
+    }
+
+    // 处理数据脱敏结果分页变化
+    const handleSensitiveResultPageChange = (page: number, pageSize: number) => {
+        if (taskId && selectedStepResult?.stepIndex === 8) {
+            fetchSensitiveResult(taskId, page, pageSize)
+        }
     }
 
     // 关闭结果弹窗
     const handleCloseResultModal = () => {
         setResultModalVisible(false)
         setSelectedStepResult(null)
+        setCleaningResultData([])
+        setCleaningResultPagination({
+            current: 1,
+            pageSize: 10,
+            total: 0,
+        })
+        setDeduplicateResultData([])
+        setDeduplicateResultPagination({
+            current: 1,
+            pageSize: 20,
+            total: 0,
+        })
+        setOrphanResultData([])
+        setOrphanResultPagination({
+            current: 1,
+            pageSize: 20,
+            total: 0,
+        })
+        setSensitiveResultData([])
+        setSensitiveResultPagination({
+            current: 1,
+            pageSize: 20,
+            total: 0,
+        })
     }
 
     // 获取状态标签
@@ -379,7 +683,6 @@ const WorkflowDetail: React.FC = () => {
     }
 
     // 触发数据同步（数据录入）
-    // 使用模拟数据，等待2秒后提示已成功录入
     const handleDataSync = async () => {
         if (!taskId) {
             uiMessage.error('任务ID不存在，无法进行数据录入')
@@ -390,15 +693,23 @@ const WorkflowDetail: React.FC = () => {
             setDataSyncLoading(true)
             logger.info('开始数据录入（数据同步）', { taskId })
 
-            // 模拟数据录入，等待2秒
-            await new Promise(resolve => setTimeout(resolve, 2000))
+            const response = await DataGovernanceService.syncTaskData(taskId)
 
-            // 提示已成功录入
-            uiMessage.success('已成功录入')
-            logger.info('数据录入（同步）成功', { taskId })
-
-            // 尝试刷新展示数据
-            await fetchLogDetail()
+            if (response.code === 200) {
+                const successMsg = (response as { msg?: string; message?: string }).msg || 
+                                   (response as { msg?: string; message?: string }).message || 
+                                   '数据录入成功'
+                uiMessage.success(successMsg)
+                logger.info('数据录入（同步）成功', { taskId })
+                // 刷新展示数据
+                await fetchLogDetail()
+            } else {
+                const errorMsg = (response as { msg?: string; message?: string }).msg || 
+                                 (response as { msg?: string; message?: string }).message || 
+                                 '数据录入失败'
+                uiMessage.error(errorMsg)
+                logger.error('数据录入失败', new Error(errorMsg), { taskId, response })
+            }
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : '数据录入（同步）失败'
             uiMessage.error(errorMsg)
@@ -454,32 +765,38 @@ const WorkflowDetail: React.FC = () => {
     }
 
     return (
-        <div>
-            {/* 头部 */}
-            <div
-                style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: 24,
-                }}
-            >
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <Button
-                        icon={<ArrowLeftOutlined />}
-                        onClick={goBack}
-                        style={{ marginRight: 16 }}
+        <Spin spinning={refreshLoading} tip="正在刷新...">
+            <div>
+                {/* 头部 */}
+                <div
+                    style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: 24,
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <Button
+                            icon={<ArrowLeftOutlined />}
+                            onClick={goBack}
+                            style={{ marginRight: 16 }}
+                        >
+                            返回
+                        </Button>
+                        <Title level={2} style={{ margin: 0 }}>
+                            执行详情
+                        </Title>
+                    </div>
+                    <Button 
+                        icon={<ReloadOutlined />} 
+                        onClick={handleRefresh} 
+                        loading={refreshLoading}
+                        type="default"
                     >
-                        返回
+                        刷新
                     </Button>
-                    <Title level={2} style={{ margin: 0 }}>
-                        执行详情
-                    </Title>
                 </div>
-                <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={loading}>
-                    刷新
-                </Button>
-            </div>
 
             {/* 基本信息 */}
             <Card title='基本信息' style={{ marginBottom: 24 }}>
@@ -566,7 +883,11 @@ const WorkflowDetail: React.FC = () => {
                                             </Button>
                                         )}
 
-                                        {step.step_status === 2 && (
+                                        {step.step_status === 2 && 
+                                         (step.node_type === WorkflowNodeType.DATA_CLEANSING ||
+                                          step.node_type === WorkflowNodeType.DATA_DEDUPLICATION ||
+                                          step.node_type === WorkflowNodeType.DATA_ORPHAN ||
+                                          step.node_type === WorkflowNodeType.DATA_DESENSITIZATION) && (
                                             <Button
                                                 type='link'
                                                 size='small'
@@ -608,7 +929,7 @@ const WorkflowDetail: React.FC = () => {
                         关闭
                     </Button>,
                 ]}
-                width={600}
+                width={selectedStepResult?.stepIndex === 0 || selectedStepResult?.stepIndex === 1 || selectedStepResult?.stepIndex === 7 || selectedStepResult?.stepIndex === 8 ? 1200 : 600}
             >
                 {selectedStepResult && (
                     <div>
@@ -630,24 +951,279 @@ const WorkflowDetail: React.FC = () => {
                                     : '手动执行'}
                             </Tag>
                         </div>
-                        <div>
-                            <Text strong>执行结果：</Text>
-                            <div
-                                style={{
-                                    marginTop: 8,
-                                    padding: 12,
-                                    background: '#f5f5f5',
-                                    borderRadius: 4,
-                                    border: '1px solid #d9d9d9',
-                                }}
-                            >
-                                <Text>{selectedStepResult.resultSummary}</Text>
+                        {/* 数据清洗步骤显示表格 */}
+                        {selectedStepResult.stepIndex === 0 &&
+                        EXECUTION_STEPS[selectedStepResult.stepIndex]?.nodeType ===
+                            WorkflowNodeType.DATA_CLEANSING ? (
+                            <div>
+                                <Text strong style={{ display: 'block', marginBottom: 16 }}>
+                                    数据清洗结果：
+                                </Text>
+                                <Spin spinning={cleaningResultLoading}>
+                                    {cleaningResultData.length > 0 ? (
+                                        <JsonToTable
+                                            data={cleaningResultData}
+                                            columnMapping={{
+                                                id: 'ID',
+                                                batchId: '批次ID',
+                                                batch_id: '批次ID',
+                                                tableName: '表名',
+                                                table_name: '表名',
+                                                table: '表名',
+                                                columnName: '列名',
+                                                column_name: '列名',
+                                                column: '列名',
+                                                fieldName: '字段名',
+                                                field_name: '字段名',
+                                                oldValue: '原值',
+                                                old_value: '原值',
+                                                newValue: '新值',
+                                                new_value: '新值',
+                                                value: '值',
+                                                ids: '记录ID',
+                                            }}
+                                            tableProps={{
+                                                scroll: { y: 400 },
+                                                pagination: {
+                                                    current: cleaningResultPagination.current,
+                                                    pageSize: cleaningResultPagination.pageSize,
+                                                    total: cleaningResultPagination.total,
+                                                    showSizeChanger: true,
+                                                    showQuickJumper: true,
+                                                    showTotal: (total, range) =>
+                                                        `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`,
+                                                    onChange: handleCleaningResultPageChange,
+                                                    onShowSizeChange: handleCleaningResultPageChange,
+                                                },
+                                            }}
+                                        />
+                                    ) : (
+                                        <div
+                                            style={{
+                                                padding: 40,
+                                                textAlign: 'center',
+                                                color: '#999',
+                                            }}
+                                        >
+                                            {cleaningResultLoading
+                                                ? '加载中...'
+                                                : '暂无数据清洗结果'}
+                                        </div>
+                                    )}
+                                </Spin>
                             </div>
-                        </div>
+                        ) : selectedStepResult.stepIndex === 1 &&
+                          EXECUTION_STEPS[selectedStepResult.stepIndex]?.nodeType ===
+                              WorkflowNodeType.DATA_DEDUPLICATION ? (
+                            <div>
+                                <Text strong style={{ display: 'block', marginBottom: 16 }}>
+                                    去重步骤结果：
+                                </Text>
+                                <Spin spinning={deduplicateResultLoading}>
+                                    {deduplicateResultData.length > 0 ? (
+                                        <JsonToTable
+                                            data={deduplicateResultData}
+                                            columnMapping={{
+                                                id: 'ID',
+                                                batchId: '批次ID',
+                                                ids: '重复记录ID',
+                                                tableName: '表名',
+                                                columnName: '列名',
+                                            }}
+                                            tableProps={{
+                                                scroll: { y: 400 },
+                                                pagination: {
+                                                    current: deduplicateResultPagination.current,
+                                                    pageSize: deduplicateResultPagination.pageSize,
+                                                    total: deduplicateResultPagination.total,
+                                                    showSizeChanger: true,
+                                                    showQuickJumper: true,
+                                                    showTotal: (total, range) =>
+                                                        `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`,
+                                                    onChange: handleDeduplicateResultPageChange,
+                                                    onShowSizeChange: handleDeduplicateResultPageChange,
+                                                },
+                                            }}
+                                        />
+                                    ) : (
+                                        <div
+                                            style={{
+                                                padding: 40,
+                                                textAlign: 'center',
+                                                color: '#999',
+                                            }}
+                                        >
+                                            {deduplicateResultLoading
+                                                ? '加载中...'
+                                                : '暂无去重步骤结果'}
+                                        </div>
+                                    )}
+                                </Spin>
+                            </div>
+                        ) : selectedStepResult.stepIndex === 7 &&
+                          EXECUTION_STEPS[selectedStepResult.stepIndex]?.nodeType ===
+                              WorkflowNodeType.DATA_ORPHAN ? (
+                            <div>
+                                <Text strong style={{ display: 'block', marginBottom: 16 }}>
+                                    丢孤儿步骤结果：
+                                </Text>
+                                <Spin spinning={orphanResultLoading}>
+                                    {orphanResultData.length > 0 ? (
+                                        <JsonToTable
+                                            data={orphanResultData}
+                                            columnMapping={{
+                                                id: 'ID',
+                                                batchId: '批次ID',
+                                                batch_id: '批次ID',
+                                                childTable: '子表名',
+                                                child_table: '子表名',
+                                                parentTable: '父表名',
+                                                parent_table: '父表名',
+                                                childColumn: '子表列名',
+                                                child_column: '子表列名',
+                                                parentColumn: '父表列名',
+                                                parent_column: '父表列名',
+                                                childId: '子表记录ID',
+                                                child_id: '子表记录ID',
+                                                // 兼容其他可能的字段名
+                                                tableName: '表名',
+                                                table_name: '表名',
+                                                table: '表名',
+                                                masterTable: '主表名',
+                                                master_table: '主表名',
+                                                orphanCount: '孤儿数量',
+                                                orphan_count: '孤儿数量',
+                                                columnName: '列名',
+                                                column_name: '列名',
+                                                column: '列名',
+                                                ids: '记录ID',
+                                                reason: '原因',
+                                                relatedFields: '关联字段',
+                                                related_fields: '关联字段',
+                                            }}
+                                            tableProps={{
+                                                scroll: { y: 400 },
+                                                pagination: {
+                                                    current: orphanResultPagination.current,
+                                                    pageSize: orphanResultPagination.pageSize,
+                                                    total: orphanResultPagination.total,
+                                                    showSizeChanger: true,
+                                                    showQuickJumper: true,
+                                                    showTotal: (total, range) =>
+                                                        `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`,
+                                                    onChange: handleOrphanResultPageChange,
+                                                    onShowSizeChange: handleOrphanResultPageChange,
+                                                },
+                                            }}
+                                        />
+                                    ) : (
+                                        <div
+                                            style={{
+                                                padding: 40,
+                                                textAlign: 'center',
+                                                color: '#999',
+                                            }}
+                                        >
+                                            {orphanResultLoading
+                                                ? '加载中...'
+                                                : '暂无丢孤儿步骤结果'}
+                                        </div>
+                                    )}
+                                </Spin>
+                            </div>
+                        ) : selectedStepResult.stepIndex === 8 &&
+                          EXECUTION_STEPS[selectedStepResult.stepIndex]?.nodeType ===
+                              WorkflowNodeType.DATA_DESENSITIZATION ? (
+                            <div>
+                                <Text strong style={{ display: 'block', marginBottom: 16 }}>
+                                    数据脱敏步骤结果：
+                                </Text>
+                                <Spin spinning={sensitiveResultLoading}>
+                                    {sensitiveResultData.length > 0 ? (
+                                        <JsonToTable
+                                            data={sensitiveResultData}
+                                            columnMapping={{
+                                                id: 'ID',
+                                                batchId: '批次ID',
+                                                batch_id: '批次ID',
+                                                childTable: '子表名',
+                                                child_table: '子表名',
+                                                parentTable: '父表名',
+                                                parent_table: '父表名',
+                                                childColumn: '子表列名',
+                                                child_column: '子表列名',
+                                                parentColumn: '父表列名',
+                                                parent_column: '父表列名',
+                                                childId: '子表记录ID',
+                                                child_id: '子表记录ID',
+                                                // 兼容其他可能的字段名
+                                                tableName: '表名',
+                                                table_name: '表名',
+                                                table: '表名',
+                                                columnName: '列名',
+                                                column_name: '列名',
+                                                column: '列名',
+                                                fieldName: '字段名',
+                                                field_name: '字段名',
+                                                oldValue: '原值',
+                                                old_value: '原值',
+                                                newValue: '脱敏后值',
+                                                new_value: '脱敏后值',
+                                                sensitiveType: '脱敏类型',
+                                                sensitive_type: '脱敏类型',
+                                                ids: '记录ID',
+                                            }}
+                                            tableProps={{
+                                                scroll: { y: 400 },
+                                                pagination: {
+                                                    current: sensitiveResultPagination.current,
+                                                    pageSize: sensitiveResultPagination.pageSize,
+                                                    total: sensitiveResultPagination.total,
+                                                    showSizeChanger: true,
+                                                    showQuickJumper: true,
+                                                    showTotal: (total, range) =>
+                                                        `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`,
+                                                    onChange: handleSensitiveResultPageChange,
+                                                    onShowSizeChange: handleSensitiveResultPageChange,
+                                                },
+                                            }}
+                                        />
+                                    ) : (
+                                        <div
+                                            style={{
+                                                padding: 40,
+                                                textAlign: 'center',
+                                                color: '#999',
+                                            }}
+                                        >
+                                            {sensitiveResultLoading
+                                                ? '加载中...'
+                                                : '暂无数据脱敏步骤结果'}
+                                        </div>
+                                    )}
+                                </Spin>
+                            </div>
+                        ) : (
+                            <div>
+                                <Text strong>执行结果：</Text>
+                                <div
+                                    style={{
+                                        marginTop: 8,
+                                        padding: 12,
+                                        background: '#f5f5f5',
+                                        borderRadius: 4,
+                                        border: '1px solid #d9d9d9',
+                                    }}
+                                >
+                                    <Text>{selectedStepResult.resultSummary}</Text>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </Modal>
-        </div>
+            </div>
+        </Spin>
     )
 }
 
