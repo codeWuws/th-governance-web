@@ -116,6 +116,14 @@
     border-color: $primary-color;
     box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.2);
 }
+.optionDisabled {
+    background: #f9fafb;
+    border-color: #e5e7eb;
+    &:hover {
+        transform: none;
+        box-shadow: 0 4px 12px rgba(17, 24, 39, 0.06);
+    }
+}
 .optionFooter {
     display: flex;
     justify-content: flex-end;

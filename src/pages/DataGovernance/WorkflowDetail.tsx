@@ -282,7 +282,7 @@ const WorkflowDetail: React.FC = () => {
                     ? lastNode.node.nodeType === detail?.logList?.at(-1)?.node_type
                     : false)
             executionMessages.forEach(msgInfo => {
-                const { node, tableQuantity, completedQuantity, status } = msgInfo
+                const { node, tableQuantity, completedQuantity, status, tableName, table } = msgInfo
 
                 const step = detail.logList.find(
                     log => log.node_type === node.nodeType
@@ -290,6 +290,13 @@ const WorkflowDetail: React.FC = () => {
                 if (step) {
                     step.completedQuantity = completedQuantity
                     step.table_quantity = tableQuantity
+                    // 更新tableName和table字段
+                    if (tableName !== undefined) {
+                        step.tableName = tableName
+                    }
+                    if (table !== undefined) {
+                        step.table = table
+                    }
                     // 找到最后一个的索引
                     const lastIndex = detail.logList?.findIndex(
                         step => step.node_type === lastNode?.node.nodeType
@@ -727,28 +734,40 @@ const WorkflowDetail: React.FC = () => {
 
         // 检查是否有进度数据
         if (!step.completedQuantity || !step.table_quantity) return null
-
+        const { table, tableName } = step;
         const percentage = Math.round((step.completedQuantity / step.table_quantity) * 100)
+        const isRunning = step.step_no === getCurrentStep() + 1;
+        
 
         return (
-            <div
-                style={{
-                    marginTop: 8,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                }}
-            >
-                <Progress
-                    percent={percentage}
-                    size='small'
-                    status={percentage === 100 ? 'success' : 'active'}
-                    showInfo={false}
-                    style={{ width: 250 }}
-                />
-                <Text type='secondary' style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-                    {step.completedQuantity}/{step.table_quantity} ({percentage}%)
-                </Text>
+            <div style={{ marginTop: 8 }}>
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        marginBottom: isRunning ? 8 : 0,
+                    }}
+                >
+                    <Progress
+                        percent={percentage}
+                        size='small'
+                        status={percentage === 100 ? 'success' : 'active'}
+                        showInfo={false}
+                        style={{ width: 250 }}
+                    />
+                    <Text type='secondary' style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                        {step.completedQuantity}/{step.table_quantity} ({percentage}%)
+                    </Text>
+                </div>
+                {/* 在进度条下方显示table信息 */}
+                {isRunning && (table || tableName) && (
+                    <div>
+                        <Text type='secondary' style={{ fontSize: 12 }}>
+                            正在处理数据表{table}({tableName})
+                        </Text>
+                    </div>
+                )}
             </div>
         )
     }

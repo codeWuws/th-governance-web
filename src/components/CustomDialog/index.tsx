@@ -23,6 +23,10 @@ export interface CustomDialogProps extends Omit<ModalProps, 'open' | 'onOk' | 'o
     footer?: React.ReactNode | null
     /** 弹窗内容 */
     children?: React.ReactNode
+    /** 点击确定按钮后是否关闭弹窗，默认为 true */
+    okClose?: boolean
+    /** 点击取消按钮后是否关闭弹窗，默认为 true */
+    cancelClose?: boolean
 }
 
 /**
@@ -47,6 +51,8 @@ const CustomDialog: React.FC<CustomDialogProps> = ({
     cancelText,
     footer,
     children,
+    okClose = true,
+    cancelClose = true,
     ...restProps
 }) => {
     const [loading, setLoading] = useState(false)
@@ -64,12 +70,20 @@ const CustomDialog: React.FC<CustomDialogProps> = ({
                 setLoading(false)
             }
         }
+        // 如果 okClose 为 false，返回 false 阻止弹窗关闭
+        if (!okClose) {
+            return false
+        }
     }
 
     // 处理取消按钮点击
     const handleCancel = (e: React.MouseEvent<HTMLElement>) => {
         if (onCancel) {
             onCancel(e)
+        }
+        // 如果 cancelClose 为 false，返回 false 阻止弹窗关闭
+        if (!cancelClose) {
+            return false
         }
         if (onClose) {
             onClose()

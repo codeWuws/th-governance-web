@@ -13,6 +13,10 @@ import uiMessage from '@/utils/uiMessage'
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { logger } from '@/utils/logger'
+import { api } from '@/utils/request'
+import type { SSEManager } from '@/utils/request'
+import { dataGovernanceService } from '@/services/dataGovernanceService'
+import type { QCTaskLogDetailData } from '@/types'
 
 const { Title, Text } = Typography
 const { Step } = Steps
@@ -85,6 +89,7 @@ const QualityControlFlowDetail: React.FC = () => {
     // 状态管理
     const [loading, setLoading] = useState(false)
     const [flowDetail, setFlowDetail] = useState<QCFlowDetail | null>(null)
+    const [logDetailData, setLogDetailData] = useState<QCTaskLogDetailData | null>(null)
     const [resultModalVisible, setResultModalVisible] = useState(false)
     const [selectedStepResult, setSelectedStepResult] = useState<{
         title: string
@@ -92,11 +97,36 @@ const QualityControlFlowDetail: React.FC = () => {
         stepIndex: number
     } | null>(null)
     const [continueLoading, setContinueLoading] = useState(false)
+    const [executionLogs, setExecutionLogs] = useState<string[]>([]) // SSE执行日志
     const executionRef = useRef<{ [key: number]: boolean }>({}) // 跟踪每个步骤是否正在执行
     const intervalRef = useRef<NodeJS.Timeout | null>(null) // 存储定时器引用
+    const sseManagerRef = useRef<SSEManager | null>(null) // SSE连接管理器
+    const logsEndRef = useRef<HTMLDivElement>(null) // 日志滚动到底部的引用
 
-    // 根据类型生成执行步骤
+    // 根据类型生成执行步骤（优先使用接口返回的数据）
     const executionSteps = useMemo(() => {
+        if (logDetailData?.logList && logDetailData.logList.length > 0) {
+            // 使用接口返回的logList
+            return logDetailData.logList.map((log, index) => {
+                // 根据node_type查找对应的类型信息
+                const nodeTypeToValue: Record<string, string> = {
+                    TimelinessQC: 'comprehensive',
+                    CompletenessQC: 'completeness',
+                    ConsistencyQC: 'basic-medical-logic',
+                    AccuracyQC: 'core-data',
+                }
+                const type = nodeTypeToValue[log.node_type] || log.node_type
+                const typeInfo = QC_TYPE_MAP[type]
+                return {
+                    stepIndex: log.step_no - 1,
+                    title: log.step_name,
+                    description: typeInfo?.description || '',
+                    icon: typeInfo?.icon,
+                    type: type,
+                }
+            })
+        }
+        // 如果没有接口数据，使用URL参数中的types
         return types.map((type, index) => {
             const typeInfo = QC_TYPE_MAP[type]
             return {
@@ -107,9 +137,77 @@ const QualityControlFlowDetail: React.FC = () => {
                 type: type,
             }
         })
-    }, [types])
+    }, [logDetailData, types])
 
-    // 初始化流程详情
+    // 获取质控任务日志详情
+    const fetchLogDetail = useCallback(async () => {
+        if (!taskId) {
+            return
+        }
+
+        try {
+            setLoading(true)
+            logger.info('开始获取质控任务日志详情', { taskId })
+            const response = await dataGovernanceService.getQCTaskLogDetail(taskId)
+
+            if (response.code === 200 && response.data) {
+                setLogDetailData(response.data)
+                logger.info('成功获取质控任务日志详情', {
+                    taskId,
+                    logCount: response.data.logList?.length || 0,
+                })
+
+                // 将接口数据转换为flowDetail格式
+                const summary = response.data.logSummary
+                const logList = response.data.logList || []
+
+                // 从task_types或logList中获取类型，并转换为内部使用的类型值
+                const nodeTypeToValue: Record<string, string> = {
+                    TimelinessQC: 'comprehensive',
+                    CompletenessQC: 'completeness',
+                    ConsistencyQC: 'basic-medical-logic',
+                    AccuracyQC: 'core-data',
+                }
+                
+                const taskTypes = summary.task_types
+                    ? summary.task_types.split(',').map(type => nodeTypeToValue[type.trim()] || type.trim()).filter(Boolean)
+                    : logList.map(log => nodeTypeToValue[log.node_type] || log.node_type).filter(Boolean)
+
+                // 将logList转换为steps
+                const steps: QCStepStatus[] = logList.map((log) => ({
+                    stepIndex: log.step_no - 1, // step_no从1开始，stepIndex从0开始
+                    status: log.step_status,
+                    completedQuantity: log.step_status === 2 ? 100 : log.step_status === 1 ? 50 : 0,
+                    totalQuantity: 100,
+                    startTime: log.create_time,
+                    endTime: log.end_time || undefined,
+                    resultSummary: log.step_status === 2 ? `${log.step_name}执行完成` : undefined,
+                    errorMessage: log.step_status === 5 ? '执行失败' : undefined,
+                }))
+
+                setFlowDetail({
+                    taskId: String(summary.batch_id),
+                    types: taskTypes,
+                    status: summary.status,
+                    startTime: new Date(summary.start_time).getTime(),
+                    endTime: summary.end_time ? new Date(summary.end_time).getTime() : undefined,
+                    steps,
+                })
+            } else {
+                const errorMsg = response.msg || '获取日志详情失败'
+                logger.error('获取质控任务日志详情失败', errorMsg)
+                uiMessage.error(errorMsg)
+            }
+        } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : '获取日志详情时发生未知错误'
+            logger.error('获取质控任务日志详情异常', errorMsg)
+            uiMessage.error(errorMsg)
+        } finally {
+            setLoading(false)
+        }
+    }, [taskId])
+
+    // 初始化流程详情 - 调用接口获取数据
     useEffect(() => {
         if (!taskId) {
             uiMessage.error('任务ID不存在')
@@ -117,47 +215,9 @@ const QualityControlFlowDetail: React.FC = () => {
             return
         }
 
-        // 从localStorage获取历史记录
-        const key = 'qcExecutionHistory'
-        const prev = localStorage.getItem(key)
-        const list = prev ? JSON.parse(prev) : []
-        const historyItem = list.find((item: any) => item.id === taskId)
-
-        if (historyItem) {
-            // 初始化步骤状态
-            const steps: QCStepStatus[] = types.map((_, index) => ({
-                stepIndex: index,
-                status: index === 0 ? 1 : 0, // 第一个步骤默认执行中
-                completedQuantity: 0,
-                totalQuantity: 100,
-            }))
-
-            setFlowDetail({
-                taskId,
-                types: historyItem.types || types,
-                status: historyItem.status === 'completed' ? 2 : 1,
-                startTime: historyItem.start_time || Date.now(),
-                endTime: historyItem.end_time || undefined,
-                steps,
-            })
-        } else {
-            // 如果没有历史记录，创建新的流程详情
-            const steps: QCStepStatus[] = types.map((_, index) => ({
-                stepIndex: index,
-                status: index === 0 ? 1 : 0,
-                completedQuantity: 0,
-                totalQuantity: 100,
-            }))
-
-            setFlowDetail({
-                taskId,
-                types,
-                status: 1,
-                startTime: Date.now(),
-                steps,
-            })
-        }
-    }, [taskId, types, navigate])
+        // 调用接口获取日志详情
+        fetchLogDetail()
+    }, [taskId, navigate, fetchLogDetail])
 
     // 模拟执行步骤
     const executeStep = useCallback(async (stepIndex: number) => {
@@ -318,6 +378,58 @@ const QualityControlFlowDetail: React.FC = () => {
         }
     }, [])
 
+    // 建立SSE连接监听执行日志
+    useEffect(() => {
+        if (!taskId) return
+
+        // 建立SSE连接来监听执行日志
+        const manager = api.createSSE({
+            url: `/data/qc/task/process/log/${taskId}`,
+            method: 'GET',
+            maxReconnectAttempts: 3,
+            reconnectInterval: 5000,
+            onOpen: () => {
+                logger.info('SSE日志连接已建立')
+                setExecutionLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] SSE连接已建立，开始监听执行日志...`])
+            },
+            onMessage: (event: MessageEvent) => {
+                const message = event.data
+                logger.info('收到SSE日志消息:', message)
+                setExecutionLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`])
+            },
+            onError: (error: Event) => {
+                logger.error('SSE日志连接错误', error)
+                setExecutionLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] [错误] SSE连接错误`])
+            },
+            onClose: () => {
+                logger.info('SSE日志连接已关闭')
+                setExecutionLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] SSE连接已关闭`])
+            },
+            onMaxReconnectAttemptsReached: () => {
+                logger.error('SSE日志重连次数已达上限')
+                setExecutionLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] [错误] SSE重连次数已达上限`])
+            },
+        })
+
+        sseManagerRef.current = manager
+        manager.connect()
+
+        // 清理函数
+        return () => {
+            if (sseManagerRef.current) {
+                sseManagerRef.current.disconnect()
+                sseManagerRef.current = null
+            }
+        }
+    }, [taskId])
+
+    // 自动滚动日志到底部
+    useEffect(() => {
+        if (logsEndRef.current) {
+            logsEndRef.current.scrollIntoView({ behavior: 'smooth' })
+        }
+    }, [executionLogs])
+
     // 返回上一页
     const goBack = () => {
         if (window.history.length > 1) {
@@ -328,12 +440,9 @@ const QualityControlFlowDetail: React.FC = () => {
     }
 
     // 刷新
-    const handleRefresh = () => {
-        setLoading(true)
-        setTimeout(() => {
-            setLoading(false)
-            uiMessage.success('刷新成功')
-        }, 500)
+    const handleRefresh = async () => {
+        await fetchLogDetail()
+        uiMessage.success('刷新成功')
     }
 
     // 查看执行结果
@@ -458,40 +567,81 @@ const QualityControlFlowDetail: React.FC = () => {
                 >
                     <div>
                         <Text strong>任务ID：</Text>
-                        <Text copyable>{flowDetail.taskId || '无'}</Text>
+                        <Text copyable>
+                            {logDetailData?.logSummary?.batch_id
+                                ? String(logDetailData.logSummary.batch_id)
+                                : flowDetail?.taskId || '无'}
+                        </Text>
+                    </div>
+                    <div>
+                        <Text strong>任务名称：</Text>
+                        <Text>{logDetailData?.logSummary?.name || '无'}</Text>
                     </div>
                     <div>
                         <Text strong>质控类型：</Text>
                         <Space>
-                            {flowDetail.types.map(type => {
-                                const typeInfo = QC_TYPE_MAP[type]
-                                return (
-                                    <Tag key={type} color='blue'>
-                                        {typeInfo?.icon}
-                                        <span style={{ marginLeft: 4 }}>{typeInfo?.label || type}</span>
-                                    </Tag>
-                                )
-                            })}
+                            {logDetailData?.logList && logDetailData.logList.length > 0
+                                ? logDetailData.logList.map((log, index) => {
+                                      const nodeTypeToValue: Record<string, string> = {
+                                          TimelinessQC: 'comprehensive',
+                                          CompletenessQC: 'completeness',
+                                          ConsistencyQC: 'basic-medical-logic',
+                                          AccuracyQC: 'core-data',
+                                      }
+                                      const type = nodeTypeToValue[log.node_type] || log.node_type
+                                      const typeInfo = QC_TYPE_MAP[type]
+                                      return (
+                                          <Tag key={`${log.log_id}-${index}`} color='blue'>
+                                              {typeInfo?.icon}
+                                              <span style={{ marginLeft: 4 }}>
+                                                  {log.step_name || typeInfo?.label || log.node_type}
+                                              </span>
+                                          </Tag>
+                                      )
+                                  })
+                                : flowDetail?.types.map(type => {
+                                      const typeInfo = QC_TYPE_MAP[type]
+                                      return (
+                                          <Tag key={type} color='blue'>
+                                              {typeInfo?.icon}
+                                              <span style={{ marginLeft: 4 }}>{typeInfo?.label || type}</span>
+                                          </Tag>
+                                      )
+                                  }) || []}
                         </Space>
                     </div>
                     <div>
                         <Text strong>状态：</Text>
-                        {getStatusTag(flowDetail.status)}
+                        {getStatusTag(
+                            logDetailData?.logSummary?.status ?? flowDetail?.status ?? 0
+                        )}
                     </div>
                     <div>
                         <Text strong>开始时间：</Text>
                         <Text>
-                            {new Date(flowDetail.startTime).toLocaleString('zh-CN') || '未开始'}
+                            {logDetailData?.logSummary?.start_time
+                                ? new Date(logDetailData.logSummary.start_time).toLocaleString('zh-CN')
+                                : flowDetail?.startTime
+                                  ? new Date(flowDetail.startTime).toLocaleString('zh-CN')
+                                  : '未开始'}
                         </Text>
                     </div>
                     <div>
                         <Text strong>结束时间：</Text>
                         <Text>
-                            {flowDetail.endTime
-                                ? new Date(flowDetail.endTime).toLocaleString('zh-CN')
-                                : '进行中'}
+                            {logDetailData?.logSummary?.end_time
+                                ? new Date(logDetailData.logSummary.end_time).toLocaleString('zh-CN')
+                                : flowDetail?.endTime
+                                  ? new Date(flowDetail.endTime).toLocaleString('zh-CN')
+                                  : '进行中'}
                         </Text>
                     </div>
+                    {logDetailData?.logSummary?.remark && (
+                        <div style={{ gridColumn: '1 / -1' }}>
+                            <Text strong>备注：</Text>
+                            <Text>{logDetailData.logSummary.remark}</Text>
+                        </div>
+                    )}
                 </div>
             </Card>
 
@@ -570,6 +720,37 @@ const QualityControlFlowDetail: React.FC = () => {
                         </Tag>
                     </div>
                 )}
+            </Card>
+
+            {/* 执行日志 */}
+            <Card title='执行日志' style={{ marginBottom: 24 }}>
+                <div
+                    style={{
+                        maxHeight: 400,
+                        overflowY: 'auto',
+                        padding: '12px',
+                        background: '#f5f5f5',
+                        borderRadius: '4px',
+                        fontFamily: 'monospace',
+                        fontSize: '12px',
+                        minHeight: 200,
+                    }}
+                >
+                    {executionLogs.length > 0 ? (
+                        <>
+                            {executionLogs.map((log, index) => (
+                                <div key={index} style={{ marginBottom: '4px', color: '#333' }}>
+                                    {log}
+                                </div>
+                            ))}
+                            <div ref={logsEndRef} />
+                        </>
+                    ) : (
+                        <div style={{ textAlign: 'center', color: '#999', padding: '40px 0' }}>
+                            暂无执行日志
+                        </div>
+                    )}
+                </div>
             </Card>
 
             {/* 执行结果查看弹窗 */}

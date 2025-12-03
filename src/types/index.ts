@@ -216,6 +216,10 @@ export interface WorkflowStepLog {
     table_quantity?: number
     /** 描述信息 */
     descript?: string
+    /** 表名 (通过SSE动态更新) */
+    tableName?: string
+    /** 表 (通过SSE动态更新) */
+    table?: string
 }
 
 /**
@@ -426,6 +430,10 @@ export interface WorkflowExecutionMessage {
     taskId: number
     /** 状态码 */
     status: number
+    /** 表名 */
+    tableName?: string
+    /** 表 */
+    table?: string
 }
 
 export interface WorkflowConfigResponse {
@@ -542,6 +550,104 @@ export const ExecutionStepStatus = {
 } as const
 
 export type ExecutionStepStatus = (typeof ExecutionStepStatus)[keyof typeof ExecutionStepStatus]
+
+// ==================== 质控任务配置相关类型定义 ====================
+
+/** 质控任务配置项 */
+export interface QCTaskConfigItem {
+    /** 配置ID */
+    id: number
+    /** 节点名称 */
+    nodeName: string
+    /** 节点类型 */
+    nodeType: string
+    /** 节点步骤 */
+    nodeStep: number
+    /** 是否启用 */
+    enabled: boolean
+    /** 是否自动执行 */
+    isAuto: boolean
+    /** 节点描述 */
+    descript: string
+}
+
+/** 质控任务配置列表响应 */
+export interface QCTaskConfigListResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 配置数据列表 */
+    data: QCTaskConfigItem[]
+}
+
+/** 质控任务日志摘要 */
+export interface QCTaskLogSummary {
+    /** 任务ID */
+    id: number
+    /** 批次ID */
+    batch_id: number
+    /** 任务名称 */
+    name: string
+    /** 任务状态 0未执行, 1执行中, 2已完成, 3暂停, 4跳过, 5失败 */
+    status: number
+    /** 开始时间 */
+    start_time: string
+    /** 结束时间 */
+    end_time: string | null
+    /** 节点类型 */
+    node_type: string
+    /** 任务类型列表（逗号分隔） */
+    task_types: string
+    /** 概览信息 */
+    overview: string | null
+    /** 备注 */
+    remark: string | null
+}
+
+/** 质控任务日志项 */
+export interface QCTaskLogItem {
+    /** 日志ID */
+    log_id: number
+    /** 批次ID */
+    batch_id: number
+    /** 步骤序号 */
+    step_no: number
+    /** 步骤状态 0未执行, 1执行中, 2已完成, 3暂停, 4跳过, 5失败 */
+    step_status: number
+    /** 步骤名称 */
+    step_name: string
+    /** 创建时间 */
+    create_time: string
+    /** 结束时间 */
+    end_time: string | null
+    /** 更新时间 */
+    update_time: string | null
+    /** 是否启用 */
+    enabled: boolean
+    /** 是否自动执行 */
+    is_auto: boolean
+    /** 节点类型 */
+    node_type: string
+}
+
+/** 质控任务日志详情数据 */
+export interface QCTaskLogDetailData {
+    /** 日志摘要 */
+    logSummary: QCTaskLogSummary
+    /** 日志列表 */
+    logList: QCTaskLogItem[]
+}
+
+/** 质控任务日志详情响应 */
+export interface QCTaskLogDetailResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data: QCTaskLogDetailData
+}
 
 /** 步骤状态标签映射 */
 export const ExecutionStepStatusLabels = {

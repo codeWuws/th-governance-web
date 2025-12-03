@@ -6,48 +6,36 @@ import {
     LinkOutlined,
     HeartOutlined,
 } from '@ant-design/icons'
-import { Alert, Button, Card, Col, Row, Space, Statistic, Typography, Tag } from 'antd'
-import React, { useMemo, useState } from 'react'
+import { Alert, Button, Card, Col, Row, Space, Spin, Statistic, Typography, Tag } from 'antd'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
 import styles from './FlowManagement.module.scss'
 import { uiMessage } from '../../utils/uiMessage'
+import { dataGovernanceService } from '../../services/dataGovernanceService'
+import { logger } from '../../utils/logger'
+import type { QCTaskConfigItem } from '../../types'
+import { showDialog } from '../../utils/showDialog'
+import StartQCProcessDialog from './components/StartQCProcessDialog'
 
 const { Title, Text } = Typography
 
-type QcTypeOption = { label: string; value: string; description: string; icon?: React.ReactNode }
+type QcTypeOption = { label: string; value: string; description: string; icon?: React.ReactNode; enabled: boolean }
 
-const deriveQcOptions = (): QcTypeOption[] => {
-    return [
-        {
-            label: '及时性质控',
-            value: 'comprehensive',
-            description:
-                '关注数据时效与更新延迟、准点率与管道稳定性，支持结果解析与指标统计。',
-            icon: <BarChartOutlined />,
-        },
-        {
-            label: '完整性质控',
-            value: 'completeness',
-            description:
-                '针对表与字段的填充率进行检查，识别空值与缺失数据，输出表级与字段级完整性分析。',
-            icon: <PieChartOutlined />,
-        },
-        {
-            label: '一致性质控',
-            value: 'basic-medical-logic',
-            description:
-                '一致性校验，包含主附表关联与基础规则（时间、年龄、性别等）。',
-            icon: <LinkOutlined />,
-        },
-        {
-            label: '准确性质控',
-            value: 'core-data',
-            description:
-                '开展核心医疗数据的准确性评估，包含编码规范、字段值校验与对比分析。',
-            icon: <HeartOutlined />,
-        },
-    ]
+// nodeType 到 value 的映射（用于兼容现有流程）
+const NODE_TYPE_TO_VALUE_MAP: Record<string, string> = {
+    TimelinessQC: 'comprehensive',
+    CompletenessQC: 'completeness',
+    ConsistencyQC: 'basic-medical-logic',
+    AccuracyQC: 'core-data',
+}
+
+// nodeType 到图标的映射
+const NODE_TYPE_ICON_MAP: Record<string, React.ReactNode> = {
+    TimelinessQC: <BarChartOutlined />,
+    CompletenessQC: <PieChartOutlined />,
+    ConsistencyQC: <LinkOutlined />,
+    AccuracyQC: <HeartOutlined />,
 }
 
 const MAX_SELECT = 4
@@ -55,15 +43,50 @@ const MAX_SELECT = 4
 const FlowManagement: React.FC = () => {
     const navigate = useNavigate()
     const dispatch = useDispatch()
-    const [starting, setStarting] = useState(false)
     const [selectedTypes, setSelectedTypes] = useState<string[]>([])
+    const [loading, setLoading] = useState(true)
+    const [qcConfigList, setQcConfigList] = useState<QCTaskConfigItem[]>([])
 
-    const qcOptions = useMemo(deriveQcOptions, [])
+    // 从接口获取质控配置列表
+    useEffect(() => {
+        const fetchQcConfigList = async () => {
+            try {
+                setLoading(true)
+                const response = await dataGovernanceService.getQCTaskConfigList()
+                if (response.code === 200) {
+                    setQcConfigList(response.data || [])
+                    logger.info('成功获取质控任务配置列表', response.data)
+                } else {
+                    uiMessage.error(response.msg || '获取质控配置列表失败')
+                    logger.error('获取质控配置列表失败', response.msg)
+                }
+            } catch (error) {
+                logger.error('获取质控配置列表异常', error as Error)
+                uiMessage.error('获取质控配置列表失败，请稍后重试')
+            } finally {
+                setLoading(false)
+            }
+        }
+        fetchQcConfigList()
+    }, [])
+
+    // 将接口数据转换为选项格式
+    const qcOptions = useMemo((): QcTypeOption[] => {
+        return qcConfigList
+            .sort((a, b) => a.nodeStep - b.nodeStep) // 按步骤排序
+            .map(item => ({
+                label: item.nodeName,
+                value: NODE_TYPE_TO_VALUE_MAP[item.nodeType] || item.nodeType,
+                description: item.descript,
+                icon: NODE_TYPE_ICON_MAP[item.nodeType] || <CheckCircleOutlined />,
+                enabled: item.enabled,
+            }))
+    }, [qcConfigList])
 
     const selectedLabels = useMemo(() => {
         const map = new Map(qcOptions.map(o => [o.value, o.label]))
         return selectedTypes.map(v => map.get(v) || v)
-    }, [selectedTypes])
+    }, [selectedTypes, qcOptions])
 
     const handleStart = async () => {
         if (!selectedTypes.length) {
@@ -74,40 +97,68 @@ const FlowManagement: React.FC = () => {
             uiMessage.error(`最多可选择 ${MAX_SELECT} 个质控类型`)
             return
         }
-        setStarting(true)
-        try {
-            const taskId =
-                (window.crypto?.randomUUID && window.crypto.randomUUID()) ||
-                `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
-            const historyItem = {
-                id: taskId,
-                types: selectedTypes,
-                status: 'starting',
-                start_time: Date.now(),
-                end_time: null as number | null,
-            }
-
-            const key = 'qcExecutionHistory'
-            const prev = localStorage.getItem(key)
-            const list = prev ? JSON.parse(prev) : []
-            list.unshift(historyItem)
-            localStorage.setItem(key, JSON.stringify(list))
-
-            uiMessage.success('质控流程已启动并记录历史')
-
-            const typesParam = selectedTypes.join(',')
-            navigate(
-                `/data-quality-control/flow/${taskId}?types=${encodeURIComponent(typesParam)}`
+        // 将 selectedTypes（映射后的值）转换为原始的 nodeType 数组
+        const selectedNodeTypes = selectedTypes.map(value => {
+            // 从 qcConfigList 中找到对应的 nodeType
+            const config = qcConfigList.find(item => 
+                (NODE_TYPE_TO_VALUE_MAP[item.nodeType] || item.nodeType) === value
             )
-        } catch (e) {
+            return config?.nodeType || value
+        })
+
+        try {
+            const result = await showDialog(StartQCProcessDialog, {
+                title: '启动质控流程',
+                selectedTypes: selectedNodeTypes, // 传递原始的 nodeType 数组
+                onStartSuccess: (taskId: string, processName: string) => {
+                    // 保存到历史记录
+                    const historyItem = {
+                        id: taskId,
+                        name: processName,
+                        types: selectedTypes,
+                        status: 'starting',
+                        start_time: Date.now(),
+                        end_time: null as number | null,
+                    }
+
+                    const key = 'qcExecutionHistory'
+                    const prev = localStorage.getItem(key)
+                    const list = prev ? JSON.parse(prev) : []
+                    list.unshift(historyItem)
+                    localStorage.setItem(key, JSON.stringify(list))
+
+                    uiMessage.success('质控流程已启动并记录历史')
+
+                    // 导航到流程详情页
+                    const typesParam = selectedTypes.join(',')
+                    navigate(
+                        `/data-quality-control/flow/${taskId}?types=${encodeURIComponent(typesParam)}&name=${encodeURIComponent(processName)}`
+                    )
+                },
+            })
+
+            if (result) {
+                logger.info('用户确认启动质控流程')
+            } else {
+                logger.info('用户取消启动质控流程')
+            }
+        } catch (error) {
+            logger.error('启动质控流程失败:', error as Error)
             uiMessage.error('启动流程失败，请稍后重试')
-        } finally {
-            setStarting(false)
         }
     }
 
     const toggleType = (value: string) => {
+        const option = qcOptions.find(opt => opt.value === value)
+        if (!option) return
+        
+        // 如果选项被禁用，不允许选择
+        if (!option.enabled) {
+            uiMessage.warning(`${option.label} 当前未启用，无法选择`)
+            return
+        }
+        
         setSelectedTypes(prev => {
             if (prev.includes(value)) return prev.filter(v => v !== value)
             if (prev.length >= MAX_SELECT) {
@@ -138,30 +189,48 @@ const FlowManagement: React.FC = () => {
 
             <div className={styles.grid}>
                 <div className={styles.panel}>
-                    <div className={styles.optionsGrid}>
-                        {qcOptions.map(opt => {
-                            const selected = selectedTypes.includes(opt.value)
-                            return (
-                                <div
-                                    key={opt.value}
-                                    className={`${styles.optionCard} ${selected ? styles.optionSelected : ''}`}
-                                    onClick={() => toggleType(opt.value)}
-                                >
-                                    <div className={styles.optionHeader}>
-                                        {opt.icon || (
-                                            <CheckCircleOutlined style={{ color: '#0ea5e9' }} />
-                                        )}
-                                        <span className={styles.optionTitle}>{opt.label}</span>
-                                        <div style={{ flex: 1 }} />
-                                        {selected && (
-                                            <span className={styles.selectedBadge}>已选择</span>
-                                        )}
+                    <Spin spinning={loading}>
+                        <div className={styles.optionsGrid}>
+                            {qcOptions.length > 0 ? (
+                                qcOptions.map(opt => {
+                                    const selected = selectedTypes.includes(opt.value)
+                                    const isDisabled = !opt.enabled
+                                    return (
+                                        <div
+                                            key={opt.value}
+                                            className={`${styles.optionCard} ${selected ? styles.optionSelected : ''} ${isDisabled ? styles.optionDisabled : ''}`}
+                                            onClick={() => !isDisabled && toggleType(opt.value)}
+                                            style={{
+                                                opacity: isDisabled ? 0.6 : 1,
+                                                cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                            }}
+                                        >
+                                            <div className={styles.optionHeader}>
+                                                {opt.icon || (
+                                                    <CheckCircleOutlined style={{ color: '#0ea5e9' }} />
+                                                )}
+                                                <span className={styles.optionTitle}>{opt.label}</span>
+                                                <div style={{ flex: 1 }} />
+                                                {isDisabled && (
+                                                    <Tag color='default' size='small'>未启用</Tag>
+                                                )}
+                                                {selected && !isDisabled && (
+                                                    <span className={styles.selectedBadge}>已选择</span>
+                                                )}
+                                            </div>
+                                            <div className={styles.optionDesc}>{opt.description}</div>
+                                        </div>
+                                    )
+                                })
+                            ) : (
+                                !loading && (
+                                    <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
+                                        <Text type='secondary'>暂无质控类型配置</Text>
                                     </div>
-                                    <div className={styles.optionDesc}>{opt.description}</div>
-                                </div>
-                            )
-                        })}
-                    </div>
+                                )
+                            )}
+                        </div>
+                    </Spin>
                 </div>
                 <div className={styles.panel}>
                     <Space direction='vertical' style={{ width: '100%' }}>
@@ -197,7 +266,6 @@ const FlowManagement: React.FC = () => {
                                 <Button
                                     type='primary'
                                     onClick={handleStart}
-                                    loading={starting}
                                     disabled={!selectedTypes.length}
                                 >
                                     启动质控流程
