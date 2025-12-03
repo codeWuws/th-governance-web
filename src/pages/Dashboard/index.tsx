@@ -9,14 +9,14 @@ import {
     SyncOutlined,
     ThunderboltOutlined,
 } from '@ant-design/icons'
-import { Alert, Button, Card, Col, List, Progress, Row, Space, Statistic, Tag, Typography } from 'antd'
+import { Alert, Button, Card, Col, List, Progress, Row, Space, Statistic, Tag, Typography, Spin } from 'antd'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DataGovernanceService } from '@/services/dataGovernanceService'
 import { useAppSelector } from '@/store/hooks'
 import { selectWorkflowStats } from '@/store/slices/workflowExecutionSlice'
 import { statusConfig } from '@/pages/DataGovernance/const'
-import type { ExecutionLogItem } from '@/types'
+import type { ExecutionLogItem, DashboardStatistics } from '@/types'
 import { logger } from '@/utils/logger'
 import { getMockExecutionHistoryResponse, mockApiDelay } from '@/utils/mockData'
 import dayjs from 'dayjs'
@@ -26,15 +26,37 @@ const { Title, Text } = Typography
 const Dashboard: React.FC = () => {
     const navigate = useNavigate()
     
-    // 从Redux获取工作流执行统计
+    // 从Redux获取工作流执行统计（作为后备数据）
     const workflowStats = useAppSelector(selectWorkflowStats)
     
     // 从Redux获取工作流配置
     const workflowConfig = useAppSelector(state => state.dataGovernance.workflowConfig)
     
+    // 仪表盘统计数据
+    const [dashboardStats, setDashboardStats] = useState<DashboardStatistics | null>(null)
+    const [loadingStats, setLoadingStats] = useState(false)
+    
     // 最近执行记录
     const [recentRecords, setRecentRecords] = useState<ExecutionLogItem[]>([])
     const [loadingRecords, setLoadingRecords] = useState(false)
+
+    // 获取仪表盘统计数据
+    const fetchDashboardStatistics = useCallback(async () => {
+        try {
+            setLoadingStats(true)
+            const response = await DataGovernanceService.getDashboardStatistics()
+            
+            if (response.code === 200) {
+                setDashboardStats(response.data)
+            } else {
+                logger.warn('获取仪表盘统计数据失败', response.msg)
+            }
+        } catch (error) {
+            logger.error('获取仪表盘统计数据失败', error as Error)
+        } finally {
+            setLoadingStats(false)
+        }
+    }, [])
 
     // 获取最近执行记录
     const fetchRecentRecords = useCallback(async () => {
@@ -67,20 +89,48 @@ const Dashboard: React.FC = () => {
 
     // 初始化加载数据
     useEffect(() => {
+        fetchDashboardStatistics()
         fetchRecentRecords()
-    }, [fetchRecentRecords])
+    }, [fetchDashboardStatistics, fetchRecentRecords])
 
-    // 计算工作流成功率
+    // 使用接口数据或Redux数据作为后备
+    const displayStats = useMemo(() => {
+        if (dashboardStats) {
+            return {
+                total: dashboardStats.totalWorkflowCount,
+                active: dashboardStats.runningCount,
+                completed: dashboardStats.completedCount,
+                failed: dashboardStats.failedCount,
+            }
+        }
+        return workflowStats
+    }, [dashboardStats, workflowStats])
+
+    // 计算工作流成功率（优先使用接口数据）
     const successRate = useMemo(() => {
+        if (dashboardStats) {
+            return Math.round(dashboardStats.successRate * 100) / 100
+        }
         const { total, completed, failed } = workflowStats
         if (total === 0) return 100
         return Math.round((completed / (completed + failed)) * 100) || 0
-    }, [workflowStats])
+    }, [dashboardStats, workflowStats])
 
-    // 计算启用的工作流步骤数量
+    // 计算启用的工作流步骤数量（优先使用接口数据）
     const enabledStepsCount = useMemo(() => {
+        if (dashboardStats) {
+            return dashboardStats.stepEnabledCount
+        }
         return workflowConfig.filter(step => step.enabled).length
-    }, [workflowConfig])
+    }, [dashboardStats, workflowConfig])
+
+    // 步骤总数（优先使用接口数据）
+    const totalStepsCount = useMemo(() => {
+        if (dashboardStats) {
+            return dashboardStats.stepTotalCount
+        }
+        return workflowConfig.length
+    }, [dashboardStats, workflowConfig])
 
     // 渲染工作流步骤状态
     const renderWorkflowStep = (step: typeof workflowConfig[0]) => {
@@ -169,87 +219,91 @@ const Dashboard: React.FC = () => {
             />
 
             {/* 工作流执行统计 */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-                <Col xs={24} sm={12} lg={6}>
-                    <Card>
-                        <Statistic
-                            title='总工作流数'
-                            value={workflowStats.total}
-                            prefix={<DatabaseOutlined />}
-                            valueStyle={{ color: '#1890ff' }}
-                        />
-                    </Card>
-                </Col>
-                <Col xs={24} sm={12} lg={6}>
-                    <Card>
-                        <Statistic
-                            title='运行中'
-                            value={workflowStats.active}
-                            prefix={<SyncOutlined spin={workflowStats.active > 0} />}
-                            valueStyle={{ color: '#1890ff' }}
-                        />
-                    </Card>
-                </Col>
-                <Col xs={24} sm={12} lg={6}>
-                    <Card>
-                        <Statistic
-                            title='已完成'
-                            value={workflowStats.completed}
-                            prefix={<CheckCircleOutlined />}
-                            valueStyle={{ color: '#3f8600' }}
-                        />
-                    </Card>
-                </Col>
-                <Col xs={24} sm={12} lg={6}>
-                    <Card>
-                        <Statistic
-                            title='执行失败'
-                            value={workflowStats.failed}
-                            prefix={<CloseCircleOutlined />}
-                            valueStyle={{ color: '#cf1322' }}
-                        />
-                    </Card>
-                </Col>
-            </Row>
+            <Spin spinning={loadingStats}>
+                <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                    <Col xs={24} sm={12} lg={6}>
+                        <Card>
+                            <Statistic
+                                title='总工作流数'
+                                value={displayStats.total}
+                                prefix={<DatabaseOutlined />}
+                                valueStyle={{ color: '#1890ff' }}
+                            />
+                        </Card>
+                    </Col>
+                    <Col xs={24} sm={12} lg={6}>
+                        <Card>
+                            <Statistic
+                                title='运行中'
+                                value={displayStats.active}
+                                prefix={<SyncOutlined spin={displayStats.active > 0} />}
+                                valueStyle={{ color: '#1890ff' }}
+                            />
+                        </Card>
+                    </Col>
+                    <Col xs={24} sm={12} lg={6}>
+                        <Card>
+                            <Statistic
+                                title='已完成'
+                                value={displayStats.completed}
+                                prefix={<CheckCircleOutlined />}
+                                valueStyle={{ color: '#3f8600' }}
+                            />
+                        </Card>
+                    </Col>
+                    <Col xs={24} sm={12} lg={6}>
+                        <Card>
+                            <Statistic
+                                title='执行失败'
+                                value={displayStats.failed}
+                                prefix={<CloseCircleOutlined />}
+                                valueStyle={{ color: '#cf1322' }}
+                            />
+                        </Card>
+                    </Col>
+                </Row>
+            </Spin>
 
             {/* 工作流健康度指标 */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-                <Col xs={24} lg={12}>
-                    <Card title='工作流成功率' extra={`${successRate}%`}>
-                        <Progress
-                            percent={successRate}
-                            strokeColor={{
-                                '0%': '#ff4d4f',
-                                '50%': '#faad14',
-                                '100%': '#52c41a',
-                            }}
-                        />
-                        <div style={{ marginTop: 16 }}>
-                            <Space>
-                                <span>成功: {workflowStats.completed} 个</span>
-                                <span>失败: {workflowStats.failed} 个</span>
-                            </Space>
-                        </div>
-                    </Card>
-                </Col>
-                <Col xs={24} lg={12}>
-                    <Card title='工作流步骤配置' extra={`${enabledStepsCount}/${workflowConfig.length} 已启用`}>
-                        <Progress
-                            percent={Math.round((enabledStepsCount / workflowConfig.length) * 100)}
-                            strokeColor={{
-                                '0%': '#108ee9',
-                                '100%': '#87d068',
-                            }}
-                        />
-                        <div style={{ marginTop: 16 }}>
-                            <Space>
-                                <span>已启用: {enabledStepsCount} 个步骤</span>
-                                <span>已禁用: {workflowConfig.length - enabledStepsCount} 个步骤</span>
-                            </Space>
-                        </div>
-                    </Card>
-                </Col>
-            </Row>
+            <Spin spinning={loadingStats}>
+                <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                    <Col xs={24} lg={12}>
+                        <Card title='工作流成功率' extra={`${successRate}%`}>
+                            <Progress
+                                percent={successRate}
+                                strokeColor={{
+                                    '0%': '#ff4d4f',
+                                    '50%': '#faad14',
+                                    '100%': '#52c41a',
+                                }}
+                            />
+                            <div style={{ marginTop: 16 }}>
+                                <Space>
+                                    <span>成功: {displayStats.completed} 个</span>
+                                    <span>失败: {displayStats.failed} 个</span>
+                                </Space>
+                            </div>
+                        </Card>
+                    </Col>
+                    <Col xs={24} lg={12}>
+                        <Card title='工作流步骤配置' extra={`${enabledStepsCount}/${totalStepsCount} 已启用`}>
+                            <Progress
+                                percent={totalStepsCount > 0 ? Math.round((enabledStepsCount / totalStepsCount) * 100) : 0}
+                                strokeColor={{
+                                    '0%': '#108ee9',
+                                    '100%': '#87d068',
+                                }}
+                            />
+                            <div style={{ marginTop: 16 }}>
+                                <Space>
+                                    <span>已启用: {enabledStepsCount} 个步骤</span>
+                                    <span>已禁用: {totalStepsCount - enabledStepsCount} 个步骤</span>
+                                </Space>
+                            </div>
+                        </Card>
+                    </Col>
+                </Row>
+            </Spin>
 
             {/* 工作流步骤列表和最近执行记录 */}
             <Row gutter={[16, 16]}>

@@ -966,7 +966,7 @@ const DataAssetManagement: React.FC = () => {
                 <Sider width={400} className={styles.sider}>
                     <div className={styles.toolbar}>
                         <Search
-                            placeholder='搜索数据源、类别、表或字段'
+                            placeholder='搜索数据源、类别、表'
                             allowClear
                             value={searchText}
                             onChange={e => setSearchText(e.target.value)}

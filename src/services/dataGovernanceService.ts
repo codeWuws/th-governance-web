@@ -8,6 +8,7 @@ import type {
     DataGovernanceResult,
     DbConnectionPageParams,
     DbConnectionPageResponse,
+    DashboardStatisticsResponse,
     ExecutionLogPageParams,
     ExecutionLogPageResponse,
     WorkflowConfigResponse,
@@ -570,6 +571,23 @@ export class DataGovernanceService {
             )
         }
     }
+
+    /**
+     * 获取仪表盘统计数据
+     * @description 获取数据治理仪表盘的统计信息，包括工作流数量、执行状态、成功率、步骤配置等
+     * @returns Promise<DashboardStatisticsResponse>
+     */
+    static async getDashboardStatistics(): Promise<DashboardStatisticsResponse> {
+        try {
+            return await api.get<DashboardStatisticsResponse>(
+                '/data/governance/dashboard/statistics'
+            )
+        } catch (error) {
+            throw new Error(
+                `获取仪表盘统计数据失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
 }
 
 /**
@@ -612,6 +630,9 @@ export const dataGovernanceService = {
     getOrphanResult: DataGovernanceService.getOrphanResult,
     getSensitiveResult: DataGovernanceService.getSensitiveResult,
     syncTaskData: DataGovernanceService.syncTaskData,
+
+    // 仪表盘统计相关
+    getDashboardStatistics: DataGovernanceService.getDashboardStatistics,
 }
 
 export default dataGovernanceService

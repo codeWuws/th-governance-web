@@ -598,3 +598,35 @@ export interface OrphanCheckDetails {
     }>
     relatedFields: string[]
 }
+
+// ==================== 仪表盘统计相关类型定义 ====================
+
+/** 仪表盘统计数据 */
+export interface DashboardStatistics {
+    /** 总工作流数量 */
+    totalWorkflowCount: number
+    /** 运行中数量 */
+    runningCount: number
+    /** 已完成数量 */
+    completedCount: number
+    /** 失败数量 */
+    failedCount: number
+    /** 成功率 */
+    successRate: number
+    /** 步骤总数 */
+    stepTotalCount: number
+    /** 启用的步骤数 */
+    stepEnabledCount: number
+    /** 禁用的步骤数 */
+    stepDisabledCount: number
+}
+
+/** 仪表盘统计响应 */
+export interface DashboardStatisticsResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 统计数据 */
+    data: DashboardStatistics
+}
