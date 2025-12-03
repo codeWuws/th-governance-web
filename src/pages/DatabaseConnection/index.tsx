@@ -98,8 +98,14 @@ const DatabaseConnection: React.FC = () => {
     const handleEdit = (connection: DbConnection) => {
         setEditingConnection(connection)
         form.setFieldsValue({
-            ...connection,
-            password: '', // 出于安全考虑，不显示密码
+            connectionName: connection.connectionName,
+            type: connection.dbType,
+            host: connection.dbHost,
+            port: connection.dbPort,
+            database: connection.dbName,
+            username: connection.dbUsername,
+            password: connection.dbPassword || '', // 回显密码
+            remark: connection.remark,
         })
         setIsModalVisible(true)
     }
