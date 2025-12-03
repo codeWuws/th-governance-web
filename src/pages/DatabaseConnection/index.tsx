@@ -31,6 +31,11 @@ import uiMessage from '@/utils/uiMessage'
 const { Title } = Typography
 const { Option } = Select
 
+// 主机地址验证正则：支持IP地址、域名和localhost
+// IP地址格式：xxx.xxx.xxx.xxx (0-255)
+// 域名格式：支持标准域名格式
+const HOST_PATTERN = /^((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,})|localhost$/
+
 const DatabaseConnection: React.FC = () => {
     const [connections, setConnections] = useState<DbConnection[]>([])
     const [isModalVisible, setIsModalVisible] = useState(false)
@@ -518,9 +523,16 @@ const DatabaseConnection: React.FC = () => {
                     <Form.Item
                         name='host'
                         label='主机地址'
-                        rules={[{ required: true, message: '请输入主机地址' }]}
+                        rules={[
+                            { required: true, message: '请输入主机地址' },
+                            {
+                                pattern: HOST_PATTERN,
+                                message: '请输入有效的主机地址（IP地址或域名）',
+                            },
+                            { max: 255, message: '主机地址长度不能超过255个字符' },
+                        ]}
                     >
-                        <Input placeholder='请输入主机地址' />
+                        <Input placeholder='请输入主机地址（IP地址或域名）' />
                     </Form.Item>
 
                     <Form.Item
@@ -536,7 +548,15 @@ const DatabaseConnection: React.FC = () => {
                             <Form.Item
                                 name='username'
                                 label='用户名'
-                                rules={[{ required: true, message: '请输入用户名' }]}
+                                rules={[
+                                    { required: true, message: '请输入用户名' },
+                                    { min: 1, message: '用户名不能为空' },
+                                    { max: 64, message: '用户名长度不能超过64个字符' },
+                                    {
+                                        pattern: /^[a-zA-Z0-9_@.\-]+$/,
+                                        message: '用户名只能包含字母、数字、下划线、@、点和横线',
+                                    },
+                                ]}
                             >
                                 <Input placeholder='请输入用户名' />
                             </Form.Item>
@@ -545,7 +565,11 @@ const DatabaseConnection: React.FC = () => {
                             <Form.Item
                                 name='password'
                                 label='密码'
-                                rules={[{ required: true, message: '请输入密码' }]}
+                                rules={[
+                                    { required: true, message: '请输入密码' },
+                                    { min: 1, message: '密码不能为空' },
+                                    { max: 128, message: '密码长度不能超过128个字符' },
+                                ]}
                             >
                                 <Input.Password placeholder='请输入密码' />
                             </Form.Item>
