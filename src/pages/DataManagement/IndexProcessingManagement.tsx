@@ -27,14 +27,16 @@ import {
     ManOutlined,
     WomanOutlined,
 } from '@ant-design/icons'
-import { useDebounce } from '../../hooks/useDebounce'
 import type { ColumnsType } from 'antd/es/table'
+import { dataGovernanceService } from '../../services/dataGovernanceService'
+import type { PatientEmpiRecord } from '../../types'
+import { uiMessage } from '../../utils/uiMessage'
+import { logger } from '../../utils/logger'
 
 const { Title, Text } = Typography
-const { Search } = Input
 const { Option } = Select
 
-// 患者信息接口
+// 患者信息接口（保留用于兼容合并功能）
 interface PatientInfo {
     id: string
     name: string
@@ -409,80 +411,126 @@ const maskPhone = (phone?: string): string => {
 const IndexProcessingManagement: React.FC = () => {
     const [loading, setLoading] = useState(false)
     const [patients, setPatients] = useState<PatientInfo[]>([])
+    const [patientRecords, setPatientRecords] = useState<PatientEmpiRecord[]>([])
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
-    const [searchText, setSearchText] = useState('')
-    const [genderFilter, setGenderFilter] = useState<string>('')
+    // 四个独立的搜索条件
+    const [searchName, setSearchName] = useState('')
+    const [searchSexCode, setSearchSexCode] = useState<string>('')
+    const [searchIdNumber, setSearchIdNumber] = useState('')
+    const [searchHospitalNo, setSearchHospitalNo] = useState('')
     const [mergeModalVisible, setMergeModalVisible] = useState(false)
     const [mergePatients, setMergePatients] = useState<PatientInfo[]>([])
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
+    const [total, setTotal] = useState(0)
 
-    const debouncedSearchText = useDebounce(searchText, 300)
+    // 实际用于搜索的条件（点击搜索按钮时更新）
+    const [activeSearchName, setActiveSearchName] = useState('')
+    const [activeSearchSexCode, setActiveSearchSexCode] = useState<string>('')
+    const [activeSearchIdNumber, setActiveSearchIdNumber] = useState('')
+    const [activeSearchHospitalNo, setActiveSearchHospitalNo] = useState('')
 
     // 获取数据
     const fetchData = async () => {
         setLoading(true)
         try {
-            // 模拟API调用
-            await new Promise(resolve => setTimeout(resolve, 500))
-            setPatients(mockPatients)
-        } catch {
-            message.error('获取患者数据失败')
+            // 构建请求参数
+            const params: {
+                pageNum: number
+                pageSize: number
+                condition?: string
+                sortField?: string
+                sortOrder?: 'asc' | 'desc'
+                name?: string
+                sexCode?: string
+                idNumber?: string
+                hospitalNo?: string
+            } = {
+                pageNum: currentPage,
+                pageSize: pageSize,
+                sortField: 'create_time',
+                sortOrder: 'desc',
+            }
+
+            // 添加搜索条件（只传递有值的参数）
+            if (activeSearchName.trim()) {
+                params.name = activeSearchName.trim()
+            }
+            if (activeSearchSexCode) {
+                params.sexCode = activeSearchSexCode
+            }
+            if (activeSearchIdNumber.trim()) {
+                params.idNumber = activeSearchIdNumber.trim()
+            }
+            if (activeSearchHospitalNo.trim()) {
+                params.hospitalNo = activeSearchHospitalNo.trim()
+            }
+
+            const response = await dataGovernanceService.getPatientEmpiList(params)
+
+            if (response.code === 200) {
+                const records = response.data.records || []
+                setPatientRecords(records)
+                
+                // 处理total字段：如果后端返回了total，使用它；否则根据当前页数据估算
+                // 注意：如果后端没有返回total，分页可能不准确，建议后端返回total字段
+                if (response.data.total !== undefined && response.data.total !== null) {
+                    setTotal(response.data.total)
+                } else {
+                    // 如果当前页数据量等于页大小，可能还有更多数据，设置为当前页数*页大小+1
+                    // 否则设置为当前数据量
+                    const estimatedTotal = records.length === pageSize 
+                        ? currentPage * pageSize + 1 
+                        : (currentPage - 1) * pageSize + records.length
+                    setTotal(estimatedTotal)
+                    logger.warn('后端未返回total字段，使用估算值', { estimatedTotal })
+                }
+                
+                logger.info('成功获取患者索引列表', {
+                    recordsCount: records.length,
+                    total: response.data.total,
+                    currentPage,
+                    pageSize,
+                })
+            } else {
+                uiMessage.error(response.msg || '获取患者数据失败')
+                logger.error('获取患者索引列表失败', new Error(response.msg || '未知错误'))
+            }
+        } catch (error) {
+            logger.error('获取患者索引列表异常', error as Error)
+            uiMessage.error('获取患者数据失败，请稍后重试')
         } finally {
             setLoading(false)
         }
     }
 
+    // 当分页变化时，重新获取数据
     useEffect(() => {
         fetchData()
-    }, [])
+    }, [currentPage, pageSize, activeSearchName, activeSearchSexCode, activeSearchIdNumber, activeSearchHospitalNo])
 
-    // 过滤数据
-    const filteredPatients = useMemo(() => {
-        let filtered = [...patients]
-
-        // 搜索过滤
-        if (debouncedSearchText) {
-            const searchLower = debouncedSearchText.toLowerCase()
-            filtered = filtered.filter(
-                patient =>
-                    patient.name.toLowerCase().includes(searchLower) ||
-                    patient.idCard.includes(debouncedSearchText) ||
-                    patient.phone?.includes(debouncedSearchText) ||
-                    patient.empi?.toLowerCase().includes(searchLower)
-            )
-        }
-
-        // 性别过滤
-        if (genderFilter) {
-            filtered = filtered.filter(patient => patient.gender === genderFilter)
-        }
-
-        return filtered
-    }, [patients, debouncedSearchText, genderFilter])
-
-    // 按姓名分组，找出同名患者
-    const patientsByName = useMemo(() => {
-        const nameMap = new Map<string, PatientInfo[]>()
-        filteredPatients.forEach(patient => {
-            const name = patient.name
-            if (!nameMap.has(name)) {
-                nameMap.set(name, [])
-            }
-            nameMap.get(name)!.push(patient)
-        })
-        return nameMap
-    }, [filteredPatients])
-
-    // 获取同名患者列表
-    const getSameNamePatients = (name: string): PatientInfo[] => {
-        return patientsByName.get(name) || []
+    // 处理搜索按钮点击
+    const handleSearch = () => {
+        // 将当前输入框的值同步到实际搜索条件
+        setActiveSearchName(searchName)
+        setActiveSearchSexCode(searchSexCode)
+        setActiveSearchIdNumber(searchIdNumber)
+        setActiveSearchHospitalNo(searchHospitalNo)
+        setCurrentPage(1) // 重置到第一页
     }
 
-    // 处理搜索
-    const handleSearch = (value: string) => {
-        setSearchText(value)
-        setCurrentPage(1) // 重置到第一页
+    // 清空所有搜索条件
+    const handleClearSearch = () => {
+        setSearchName('')
+        setSearchSexCode('')
+        setSearchIdNumber('')
+        setSearchHospitalNo('')
+        // 同时清空实际搜索条件并触发搜索
+        setActiveSearchName('')
+        setActiveSearchSexCode('')
+        setActiveSearchIdNumber('')
+        setActiveSearchHospitalNo('')
+        setCurrentPage(1)
     }
 
     // 处理选择
@@ -496,35 +544,50 @@ const IndexProcessingManagement: React.FC = () => {
             message.warning('请至少选择2个患者进行合并')
             return
         }
-
-        const selectedPatients = patients.filter(p => selectedRowKeys.includes(p.id))
         
-        // 检查是否同名
-        const names = new Set(selectedPatients.map(p => p.name))
-        if (names.size > 1) {
-            message.warning('只能合并同名患者，请选择相同姓名的患者')
+        // 根据选中的rowKey获取对应的患者记录
+        const selectedPatients: PatientEmpiRecord[] = []
+        patientRecords.forEach((record, index) => {
+            const rowKey = `${record.patientName}-${record.idNumber}-${index}`
+            if (selectedRowKeys.includes(rowKey)) {
+                selectedPatients.push(record)
+            }
+        })
+        
+        if (selectedPatients.length < 2) {
+            message.warning('请至少选择2个患者进行合并')
             return
         }
-
-        // 检查身份证号情况
-        const idCards = selectedPatients
-            .map(p => p.idCard)
-            .filter(idCard => idCard && idCard.trim() !== '') // 过滤掉空值
         
-        if (idCards.length >= 2) {
-            // 如果至少有两个身份证号，检查是否都相同
-            const uniqueIdCards = new Set(idCards)
-            if (uniqueIdCards.size > 1) {
-                message.warning('同名患者中，如果身份证号都存在但不同，不能合并')
-                return
+        // 将PatientEmpiRecord转换为PatientInfo格式用于合并弹窗显示
+        const patientsToMerge: PatientInfo[] = selectedPatients.map((record, idx) => {
+            // 计算年龄
+            let age = 0
+            if (record.birthDate) {
+                const birthYear = parseInt(record.birthDate.trim().substring(0, 4))
+                if (!isNaN(birthYear)) {
+                    age = new Date().getFullYear() - birthYear
+                }
             }
-        }
-
-        // 可以合并的情况：
-        // 1. 身份证号都为空
-        // 2. 身份证号部分存在（有的有有的没有）
-        // 3. 身份证号都存在且相同
-        setMergePatients(selectedPatients)
+            
+            return {
+                id: `${record.patientName}-${record.idNumber}-${idx}`,
+                name: record.patientName?.trim() || '',
+                idCard: record.idNumber || '',
+                // 性别映射：1=男，0=女
+                gender: record.sexCode === '1' ? 'male' : record.sexCode === '0' ? 'female' : 'unknown',
+                age,
+                phone: record.phone || undefined,
+                address: record.address || undefined,
+                empi: record.empi || undefined,
+                hospitalId: record.hospitalNo || undefined,
+                department: record.deptName || undefined,
+                createTime: new Date().toISOString(),
+                updateTime: new Date().toISOString(),
+            }
+        })
+        
+        setMergePatients(patientsToMerge)
         setMergeModalVisible(true)
     }
 
@@ -537,7 +600,9 @@ const IndexProcessingManagement: React.FC = () => {
 
         try {
             setLoading(true)
-            // 模拟API调用
+            
+            // TODO: 调用后端合并接口
+            // 目前先模拟API调用
             await new Promise(resolve => setTimeout(resolve, 1000))
             
             // 合并逻辑：保留第一个，删除其他的
@@ -549,25 +614,48 @@ const IndexProcessingManagement: React.FC = () => {
 
             const mergedEmpi = targetPatient.empi || `EMPI${Date.now()}`
             
-            // 更新患者数据
-            const updatedPatients = patients.map(patient => {
-                if (mergePatients.some(p => p.id === patient.id && p.id !== targetPatient.id)) {
-                    // 标记为已合并
-                    return { ...patient, empi: mergedEmpi }
+            // 找到目标记录在patientRecords中的索引
+            const targetRecordIndex = patientRecords.findIndex((record, index) => {
+                const rowKey = `${record.patientName}-${record.idNumber}-${index}`
+                return selectedRowKeys.includes(rowKey) && index === 0 || 
+                       (record.patientName === targetPatient.name && record.idNumber === targetPatient.idCard)
+            })
+            
+            // 从patientRecords中移除被合并的记录（保留第一个选中的）
+            const remainingRecords = patientRecords.filter((record, index) => {
+                const rowKey = `${record.patientName}-${record.idNumber}-${index}`
+                // 保留第一个选中的记录，移除其他选中的记录
+                if (selectedRowKeys.includes(rowKey)) {
+                    return index === targetRecordIndex || targetRecordIndex === -1
                 }
-                return patient
+                return true
+            })
+            
+            // 更新目标记录的empi（如果存在）
+            const updatedRecords = remainingRecords.map((record, index) => {
+                const rowKey = `${record.patientName}-${record.idNumber}-${index}`
+                // 如果是目标记录，更新empi
+                if (targetRecordIndex >= 0 && index === targetRecordIndex) {
+                    return { ...record, empi: mergedEmpi }
+                }
+                // 如果找不到目标记录索引，但匹配目标患者信息，更新empi
+                if (targetRecordIndex === -1 && 
+                    record.patientName === targetPatient.name && 
+                    record.idNumber === targetPatient.idCard) {
+                    return { ...record, empi: mergedEmpi }
+                }
+                return record
             })
 
-            // 移除被合并的患者（保留第一个）
-            const remainingPatients = updatedPatients.filter(
-                patient => patient.id === targetPatient.id || !mergePatients.some(p => p.id === patient.id)
-            )
-
-            setPatients(remainingPatients)
+            setPatientRecords(updatedRecords)
             setSelectedRowKeys([])
             setMergeModalVisible(false)
             message.success(`成功合并 ${mergePatients.length} 个患者记录`)
-        } catch {
+            
+            // 刷新数据以获取最新状态
+            await fetchData()
+        } catch (error) {
+            logger.error('合并患者失败', error as Error)
             message.error('合并失败，请稍后重试')
         } finally {
             setLoading(false)
@@ -594,127 +682,223 @@ const IndexProcessingManagement: React.FC = () => {
         }
     }
 
-    // 表格列定义
-    const columns: ColumnsType<PatientInfo> = [
-        {
-            title: '姓名',
-            dataIndex: 'name',
-            key: 'name',
-            width: 120,
-            render: (text: string, record: PatientInfo) => {
-                const sameNameCount = getSameNamePatients(text).length
-                return (
-                    <Space>
-                        <Text strong>{text}</Text>
-                        {sameNameCount > 1 && (
-                            <Tag color='orange'>
-                                同名{sameNameCount}人
-                            </Tag>
-                        )}
-                </Space>
-                )
+    // 根据接口返回的数据结构定义固定的表格列
+    // 表头是固定的，即使没有数据也显示完整的列
+    const columns: ColumnsType<PatientEmpiRecord> = useMemo(() => {
+        // 定义所有可能的字段及其配置
+        const fieldMap: Record<string, { 
+            title: string
+            width?: number
+            render?: (value: any, record: PatientEmpiRecord) => React.ReactNode
+            ellipsis?: { showTitle: boolean }
+        }> = {
+            patientName: {
+                title: '患者姓名',
+                width: 120,
+                render: (text: string) => (
+                    <Text strong>{text?.trim() || '-'}</Text>
+                ),
             },
-        },
-        {
-            title: '身份证号',
-            dataIndex: 'idCard',
-            key: 'idCard',
-            width: 180,
-            render: (idCard: string) => {
-                if (!idCard || idCard.trim() === '') {
+            sexCode: {
+                title: '性别',
+                width: 80,
+                render: (value: string | null) => {
+                    if (!value) return <Text type='secondary'>-</Text>
+                    // 性别映射：1=男，0=女
+                    const genderMap: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
+                        '1': { icon: <ManOutlined />, color: 'blue', label: '男' },
+                        '0': { icon: <WomanOutlined />, color: 'pink', label: '女' },
+                    }
+                    const gender = genderMap[value] || { icon: null, color: 'default', label: value }
                     return (
-                        <Space>
-                            <IdcardOutlined />
-                            <Text type='secondary'>-</Text>
-                        </Space>
+                        <Tag icon={gender.icon} color={gender.color}>
+                            {gender.label}
+                        </Tag>
                     )
-                }
-                return (
-                    <Tooltip title={idCard}>
-                        <Space>
-                            <IdcardOutlined />
-                            <Text code>{maskIdCard(idCard)}</Text>
-                        </Space>
-                    </Tooltip>
-                )
+                },
             },
-        },
-        {
-            title: '性别',
-            dataIndex: 'gender',
-            key: 'gender',
-            width: 80,
-            render: renderGender,
-        },
-        {
-            title: '年龄',
-            dataIndex: 'age',
-            key: 'age',
-            width: 80,
-            render: (age: number) => `${age}岁`,
-        },
-        {
-            title: '手机号',
-            dataIndex: 'phone',
-            key: 'phone',
-            width: 140,
-            render: (phone?: string) => (
-                <Tooltip title={phone}>
-                    <Text>{maskPhone(phone)}</Text>
-                </Tooltip>
-            ),
-        },
-        {
-            title: '患者主索引',
-            dataIndex: 'empi',
-            key: 'empi',
-            width: 120,
-            render: (empi?: string) => (
-                <Text code style={{ fontSize: 12 }}>
-                    {empi || '-'}
-                </Text>
-            ),
-        },
-        {
-            title: '医院ID',
-            dataIndex: 'hospitalId',
-            key: 'hospitalId',
-            width: 100,
-        },
-        {
-            title: '科室',
-            dataIndex: 'department',
-            key: 'department',
-            width: 120,
-        },
-        {
-            title: '地址',
-            dataIndex: 'address',
-            key: 'address',
-            width: 200,
-            ellipsis: {
-                showTitle: false,
+            birthDate: {
+                title: '出生日期',
+                width: 120,
+                render: (value: string | null) => (
+                    <Text>{value?.trim() || '-'}</Text>
+                ),
             },
-            render: (address?: string) => (
-                <Tooltip placement='topLeft' title={address}>
-                    {address || '-'}
+            idNumber: {
+                title: '身份证号',
+                width: 180,
+                render: (value: string | null) => {
+                    if (!value || value.trim() === '') {
+                        return (
+                            <Space>
+                                <IdcardOutlined />
+                                <Text type='secondary'>-</Text>
+                            </Space>
+                        )
+                    }
+                    return (
+                        <Tooltip title={value}>
+                            <Space>
+                                <IdcardOutlined />
+                                <Text code>{maskIdCard(value)}</Text>
+                            </Space>
+                        </Tooltip>
+                    )
+                },
+            },
+            phone: {
+                title: '手机号',
+                width: 140,
+                render: (value: string | null) => {
+                    if (!value) return <Text type='secondary'>-</Text>
+                    return (
+                        <Tooltip title={value}>
+                            <Text>{maskPhone(value)}</Text>
+                        </Tooltip>
+                    )
+                },
+            },
+            hospitalNo: {
+                title: '医院编号',
+                width: 120,
+                render: (value: string | null) => (
+                    <Text>{value?.trim() || '-'}</Text>
+                ),
+            },
+            registrationNumber: {
+                title: '登记号',
+                width: 120,
+                render: (value: string | null) => (
+                    <Text code>{value?.trim() || '-'}</Text>
+                ),
+            },
+            consulationType: {
+                title: '就诊类型',
+                width: 100,
+                render: (value: string | null) => {
+                    if (!value) return <Text type='secondary'>-</Text>
+                    const typeMap: Record<string, { label: string; color: string }> = {
+                        'out': { label: '门诊', color: 'blue' },
+                        'in': { label: '住院', color: 'green' },
+                    }
+                    const type = typeMap[value] || { label: value, color: 'default' }
+                    return <Tag color={type.color}>{type.label}</Tag>
+                },
+            },
+            address: {
+                title: '地址',
+                width: 200,
+                ellipsis: {
+                    showTitle: false,
+                },
+                render: (value: string | null) => (
+                    <Tooltip placement='topLeft' title={value}>
+                        {value?.trim() || '-'}
                     </Tooltip>
-            ),
-        },
-        {
-            title: '创建时间',
-            dataIndex: 'createTime',
-            key: 'createTime',
-            width: 160,
-        },
-    ]
+                ),
+            },
+            deptName: {
+                title: '科室名称',
+                width: 150,
+                render: (value: string | null) => (
+                    <Text>{value?.trim() || '-'}</Text>
+                ),
+            },
+        }
 
-    // 计算分页数据
-    const paginatedPatients = useMemo(() => {
-        const start = (currentPage - 1) * pageSize
-        const end = start + pageSize
-        return filteredPatients.slice(start, end)
-    }, [filteredPatients, currentPage, pageSize])
+        // 定义固定的列顺序（基于接口返回的数据结构）
+        // 即使没有数据，也显示完整的表头
+        const fixedColumnOrder: (keyof PatientEmpiRecord)[] = [
+            'patientName',
+            'sexCode',
+            'birthDate',
+            'idNumber',
+            'phone',
+            'hospitalNo',
+            'registrationNumber',
+            'consulationType',
+            'address',
+            'deptName',
+        ]
+
+        // 如果有数据，检查是否有额外的字段
+        const allFields = new Set<keyof PatientEmpiRecord>(fixedColumnOrder)
+        if (patientRecords.length > 0) {
+            patientRecords.forEach(record => {
+                Object.keys(record).forEach(key => {
+                    allFields.add(key as keyof PatientEmpiRecord)
+                })
+            })
+        }
+
+        // 生成列：先按固定顺序，然后添加其他字段
+        const cols: ColumnsType<PatientEmpiRecord> = []
+        
+        // 添加固定顺序的列
+        fixedColumnOrder.forEach(key => {
+            const field = fieldMap[key]
+            if (field) {
+                cols.push({
+                    title: field.title,
+                    dataIndex: key,
+                    key: key,
+                    width: field.width,
+                    render: field.render,
+                    ellipsis: field.ellipsis,
+                })
+            }
+        })
+
+        // 如果有数据，添加其他未定义的字段
+        if (patientRecords.length > 0) {
+            const additionalFields = Array.from(allFields).filter(
+                key => !fixedColumnOrder.includes(key)
+            )
+            
+            additionalFields.forEach(key => {
+                const field = fieldMap[key]
+                if (field) {
+                    cols.push({
+                        title: field.title,
+                        dataIndex: key,
+                        key: key,
+                        width: field.width,
+                        render: field.render,
+                    })
+                } else {
+                    // 如果没有预定义的字段，使用默认渲染
+                    const title = String(key)
+                        .replace(/([A-Z])/g, ' $1')
+                        .replace(/^./, str => str.toUpperCase())
+                        .trim()
+                    cols.push({
+                        title: title || String(key),
+                        dataIndex: key,
+                        key: key,
+                        width: 150,
+                        render: (value: any) => {
+                            if (value === null || value === undefined) {
+                                return <Text type='secondary'>-</Text>
+                            }
+                            const strValue = String(value).trim()
+                            return <Text>{strValue || '-'}</Text>
+                        },
+                    })
+                }
+            })
+        }
+
+        return cols
+    }, [patientRecords])
+
+    // 处理分页变化
+    const handlePageChange = (page: number, size?: number) => {
+        setCurrentPage(page)
+        if (size && size !== pageSize) {
+            setPageSize(size)
+            setCurrentPage(1) // 改变页大小时重置到第一页
+        }
+    }
 
     return (
         <div style={{ padding: 0 }}>
@@ -745,25 +929,57 @@ const IndexProcessingManagement: React.FC = () => {
                 <div style={{ marginBottom: 24 }}>
                     <Row gutter={16} align='middle'>
                         <Col flex='auto'>
-                            <Space size='middle'>
-                                <Search
-                                    placeholder='搜索姓名、身份证号、手机号或主索引'
+                            <Space size='middle' wrap>
+                                <Input
+                                    placeholder='患者姓名'
                                     allowClear
-                                    onSearch={handleSearch}
-                                    onChange={e => setSearchText(e.target.value)}
-                                    style={{ width: 300 }}
-                                    prefix={<SearchOutlined />}
+                                    value={searchName}
+                                    onChange={e => setSearchName(e.target.value)}
+                                    onPressEnter={handleSearch}
+                                    style={{ width: 150 }}
+                                    prefix={<UserOutlined />}
                                 />
                                 <Select
-                                    placeholder='性别筛选'
+                                    placeholder='性别'
                                     style={{ width: 120 }}
                                     allowClear
-                                    onChange={setGenderFilter}
+                                    value={searchSexCode}
+                                    onChange={value => setSearchSexCode(value || '')}
                                 >
-                                    <Option value='male'>男</Option>
-                                    <Option value='female'>女</Option>
-                                    <Option value='unknown'>未知</Option>
+                                    <Option value='1'>男</Option>
+                                    <Option value='0'>女</Option>
                                 </Select>
+                                <Input
+                                    placeholder='身份证号'
+                                    allowClear
+                                    value={searchIdNumber}
+                                    onChange={e => setSearchIdNumber(e.target.value)}
+                                    onPressEnter={handleSearch}
+                                    style={{ width: 180 }}
+                                    prefix={<IdcardOutlined />}
+                                />
+                                <Input
+                                    placeholder='医院编号'
+                                    allowClear
+                                    value={searchHospitalNo}
+                                    onChange={e => setSearchHospitalNo(e.target.value)}
+                                    onPressEnter={handleSearch}
+                                    style={{ width: 150 }}
+                                />
+                                <Button
+                                    onClick={handleClearSearch}
+                                    disabled={!searchName && !searchSexCode && !searchIdNumber && !searchHospitalNo}
+                                >
+                                    清空
+                                </Button>
+                                <Button
+                                    type='primary'
+                                    icon={<SearchOutlined />}
+                                    onClick={handleSearch}
+                                    loading={loading}
+                                >
+                                    搜索
+                                </Button>
                                 <Button
                                     icon={<ReloadOutlined />}
                                     onClick={fetchData}
@@ -775,9 +991,11 @@ const IndexProcessingManagement: React.FC = () => {
                         </Col>
                         <Col>
                             <Space>
-                                <Text type='secondary'>
-                                    已选择 {selectedRowKeys.length} 个患者
-                                </Text>
+                                {selectedRowKeys.length > 0 && (
+                                    <Text type='secondary'>
+                                        已选择 {selectedRowKeys.length} 个患者
+                                    </Text>
+                                )}
                                 <Button
                                     type='primary'
                                     icon={<MergeCellsOutlined />}
@@ -794,30 +1012,26 @@ const IndexProcessingManagement: React.FC = () => {
                 {/* 患者表格 */}
                 <Table
                     columns={columns}
-                    dataSource={paginatedPatients}
+                    dataSource={patientRecords}
                     loading={loading}
-                    rowKey='id'
+                    rowKey={(record, index) => `${record.patientName}-${record.idNumber}-${index}`}
                     rowSelection={{
                         selectedRowKeys,
                         onChange: handleSelectChange,
-                        getCheckboxProps: (record: PatientInfo) => ({
-                            name: record.name,
-                        }),
+                        preserveSelectedRowKeys: false, // 切换页面时清除选择
                     }}
                     scroll={{ x: 1400 }}
                     pagination={{
                         current: currentPage,
                         pageSize: pageSize,
-                        total: filteredPatients.length,
+                        total: total,
                         showSizeChanger: true,
                         showQuickJumper: true,
                         showTotal: (total, range) =>
                             `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`,
                         pageSizeOptions: ['10', '20', '50', '100'],
-                        onChange: (page, size) => {
-                            setCurrentPage(page)
-                            setPageSize(size || 10)
-                        },
+                        onChange: handlePageChange,
+                        onShowSizeChange: handlePageChange,
                     }}
                 />
             </Card>

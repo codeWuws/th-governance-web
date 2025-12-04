@@ -18,6 +18,8 @@ import type {
     WorkflowLogDetailResponse,
     QCTaskConfigListResponse,
     QCTaskLogDetailResponse,
+    PatientEmpiListParams,
+    PatientEmpiListResponse,
 } from '@/types'
 import { api } from '@/utils/request'
 import { logger } from '@/utils/logger'
@@ -619,7 +621,7 @@ export class DataGovernanceService {
      * @param taskId 任务ID（批次ID）
      * @returns Promise<QCTaskLogDetailResponse>
      */
-    static async getQCTaskLogDetail(taskId: string): Promise<QCTaskLogDetailResponse> {
+static async getQCTaskLogDetail(taskId: string): Promise<QCTaskLogDetailResponse> {
         try {
             if (!taskId) {
                 throw new Error('任务ID不能为空')
@@ -635,6 +637,34 @@ export class DataGovernanceService {
             )
             throw new Error(
                 `获取质控任务日志详情失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 获取患者索引列表
+     * @description 分页查询患者索引数据
+     * @param params 查询参数
+     * @returns Promise<PatientEmpiListResponse>
+     */
+    static async getPatientEmpiList(
+        params: PatientEmpiListParams
+    ): Promise<PatientEmpiListResponse> {
+        try {
+            logger.debug('发送获取患者索引列表请求到: /data/primary-index/patient/empi/list', params)
+            const response = await api.post<PatientEmpiListResponse>(
+                '/data/primary-index/patient/empi/list',
+                params
+            )
+            logger.debug('获取患者索引列表API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取患者索引列表API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取患者索引列表失败: ${error instanceof Error ? error.message : '未知错误'}`
             )
         }
     }
@@ -687,6 +717,9 @@ export const dataGovernanceService = {
     // 质控任务配置相关
     getQCTaskConfigList: DataGovernanceService.getQCTaskConfigList,
     getQCTaskLogDetail: DataGovernanceService.getQCTaskLogDetail,
+
+    // 患者索引相关
+    getPatientEmpiList: DataGovernanceService.getPatientEmpiList,
 }
 
 export default dataGovernanceService

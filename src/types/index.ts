@@ -736,3 +736,71 @@ export interface DashboardStatisticsResponse {
     /** 统计数据 */
     data: DashboardStatistics
 }
+
+// ==================== 患者索引相关类型定义 ====================
+
+/** 患者索引记录 */
+export interface PatientEmpiRecord {
+    /** 患者姓名 */
+    patientName: string
+    /** 性别代码 */
+    sexCode: string | null
+    /** 出生日期 */
+    birthDate: string | null
+    /** 身份证号 */
+    idNumber: string | null
+    /** 手机号 */
+    phone: string | null
+    /** 医院编号 */
+    hospitalNo: string | null
+    /** 登记号 */
+    registrationNumber: string | null
+    /** 就诊类型 */
+    consulationType: string | null
+    /** 患者主索引 */
+    empi: string | null
+    /** 地址 */
+    address: string | null
+    /** 科室名称 */
+    deptName: string | null
+}
+
+/** 患者索引列表请求参数 */
+export interface PatientEmpiListParams {
+    /** 页码，从1开始 */
+    pageNum: number
+    /** 每页数量 */
+    pageSize: number
+    /** 关键字段模糊查询（可选） */
+    condition?: string
+    /** 排序字段（可选） */
+    sortField?: string
+    /** 排序顺序（可选） */
+    sortOrder?: 'asc' | 'desc'
+    /** 姓名（可选） */
+    name?: string
+    /** 性别代码（可选） */
+    sexCode?: string
+    /** 身份证号（可选） */
+    idNumber?: string
+    /** 医院编号（可选） */
+    hospitalNo?: string
+}
+
+/** 患者索引列表响应数据 */
+export interface PatientEmpiListData {
+    /** 记录列表 */
+    records: PatientEmpiRecord[]
+    /** 总条数（如果后端返回） */
+    total?: number
+}
+
+/** 患者索引列表响应 */
+export interface PatientEmpiListResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data: PatientEmpiListData
+}
