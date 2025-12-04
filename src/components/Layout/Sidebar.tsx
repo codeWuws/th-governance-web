@@ -103,9 +103,9 @@ export const menuItems: MenuItem[] = [
                 label: '标准数据集管理',
                 children: [
                     {
-                        key: '/data-management/standards',
+                        key: '/data-management/category-standards',
                         icon: <CheckCircleOutlined />,
-                        label: '数据标准管理',
+                        label: '类别标准管理',
                     },
                     {
                         key: '/data-management/business-datasets',

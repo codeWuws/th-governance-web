@@ -42,6 +42,7 @@ const StartQCProcessDialog: React.FC<StartQCProcessDialogProps> = ({
             const processName = values.processName?.trim()
             
             if (!processName) {
+                // 表单验证会处理这个错误，不需要额外处理
                 return
             }
 
@@ -92,14 +93,15 @@ const StartQCProcessDialog: React.FC<StartQCProcessDialogProps> = ({
                                 // 优先查找 taskId, task_id, batch_id
                                 const id = parsed.taskId || parsed.task_id || parsed.batch_id || parsed.batchId
                                 if (id) {
-                                    taskIdRef.current = String(id)
+                                    const taskId = String(id)
+                                    taskIdRef.current = taskId
                                     clearTimeout(timeout)
                                     // 断开SSE连接，详情页会重新建立
                                     if (sseManagerRef.current) {
                                         sseManagerRef.current.disconnect()
                                         sseManagerRef.current = null
                                     }
-                                    resolve(taskIdRef.current)
+                                    resolve(taskId)
                                     return
                                 }
                             }
@@ -112,14 +114,15 @@ const StartQCProcessDialog: React.FC<StartQCProcessDialogProps> = ({
                                 for (const pattern of patterns) {
                                     const match = data.match(pattern)
                                     if (match && match[1]) {
-                                        taskIdRef.current = match[1]
+                                        const matchedTaskId = match[1]
+                                        taskIdRef.current = matchedTaskId
                                         clearTimeout(timeout)
                                         // 断开SSE连接，详情页会重新建立
                                         if (sseManagerRef.current) {
                                             sseManagerRef.current.disconnect()
                                             sseManagerRef.current = null
                                         }
-                                        resolve(taskIdRef.current)
+                                        resolve(matchedTaskId)
                                         return
                                     }
                                 }
@@ -130,7 +133,7 @@ const StartQCProcessDialog: React.FC<StartQCProcessDialogProps> = ({
                     },
                     onError: (error: Event) => {
                         const msg = 'SSE连接错误'
-                        logger.error(msg, error)
+                        logger.error(msg, new Error(msg))
                         clearTimeout(timeout)
                         if (sseManagerRef.current) {
                             sseManagerRef.current.disconnect()
@@ -173,8 +176,14 @@ const StartQCProcessDialog: React.FC<StartQCProcessDialogProps> = ({
                 onStartSuccess(taskId, processName)
             }
 
+            // 函数正常返回，showDialog 会自动关闭弹窗
+            // 注意：不要在成功时调用 onOk，因为 onOk 已经在 showDialog 中被调用
+
         } catch (error) {
+            setLoading(false)
             logger.error('启动质控流程失败:', error as Error)
+            uiMessage.error('启动质控流程失败，请稍后重试')
+            // 抛出错误，让 showDialog 知道操作失败，弹窗保持打开以便用户重试
             throw error
         }
     }

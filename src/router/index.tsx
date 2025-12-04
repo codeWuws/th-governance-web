@@ -14,7 +14,7 @@ import QualityControlFlowDetail from '../pages/DataQualityControl/QualityControl
 
 import DataManagement from '../pages/DataManagement'
 import DataAssetManagement from '../pages/DataManagement/DataAssetManagement'
-import DataStandardManagement from '../pages/DataManagement/DataStandardManagement'
+import CategoryStandardManagement from '../pages/DataManagement/CategoryStandardManagement'
 import IndexGenerationRules from '../pages/DataManagement/IndexGenerationRules'
 import IndexMergeRules from '../pages/DataManagement/IndexMergeRules'
 import IndexProcessingManagement from '../pages/DataManagement/IndexProcessingManagement'
@@ -97,8 +97,8 @@ export const router = createBrowserRouter(
                         element: <DataAssetManagement />,
                     },
                     {
-                        path: 'standards',
-                        element: <DataStandardManagement />,
+                        path: 'category-standards',
+                        element: <CategoryStandardManagement />,
                     },
                     {
                         path: 'business-datasets',
