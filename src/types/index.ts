@@ -804,3 +804,123 @@ export interface PatientEmpiListResponse {
     /** 响应数据 */
     data: PatientEmpiListData
 }
+
+// ==================== 标准字典对照相关类型定义 ====================
+
+/** 标准字典对照记录 */
+export interface StandardDictionaryMappingRecord {
+    /** 记录ID */
+    id: string
+    /** 创建人 */
+    createBy: string | null
+    /** 创建时间 */
+    createTime: string
+    /** 更新人 */
+    updateBy: string | null
+    /** 更新时间 */
+    updateTime: string
+    /** 备注 */
+    remark: string | null
+    /** 删除标志 */
+    delFlag: number
+    /** 标准字典名称 */
+    standardDictName: string
+    /** 标准数据集名称 */
+    standardDataSetName: string
+    /** 标准数据集内容 */
+    standardDataSetContent: string
+    /** 原始表名称 */
+    originalTableName: string
+    /** 原始字段数据集 */
+    originalFieldDataSet: string
+    /** 原始数据字段 */
+    originalDataField: string
+}
+
+/** 标准字典对照分页查询参数 */
+export interface StandardDictionaryMappingPageParams {
+    /** 页码，从1开始 */
+    pageNum: number
+    /** 每页数量 */
+    pageSize: number
+    /** 字典名称（可选） */
+    dictName?: string
+    /** 数据集名称（可选） */
+    dataSetName?: string
+}
+
+/** 标准字典对照分页数据 */
+export interface StandardDictionaryMappingPageData {
+    /** 记录列表 */
+    records: StandardDictionaryMappingRecord[]
+    /** 总条数 */
+    total: string
+    /** 每页数量 */
+    size: string
+    /** 当前页码 */
+    current: string
+    /** 总页数 */
+    pages: string
+}
+
+/** 标准字典对照分页响应 */
+export interface StandardDictionaryMappingPageResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data: StandardDictionaryMappingPageData
+}
+
+/** 标准字典对照详情响应 */
+export interface StandardDictionaryMappingDetailResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data: StandardDictionaryMappingRecord
+}
+
+/** 标准字典对照保存请求参数 */
+export interface StandardDictionaryMappingSaveParams {
+    /** 记录ID，新增时为0 */
+    id?: number
+    /** 创建人 */
+    createBy?: string
+    /** 创建时间 */
+    createTime?: string
+    /** 更新人 */
+    updateBy?: string
+    /** 更新时间 */
+    updateTime?: string
+    /** 备注 */
+    remark?: string
+    /** 删除标志 */
+    delFlag?: number
+    /** 标准字典名称 */
+    standardDictName: string
+    /** 标准数据集名称 */
+    standardDataSetName: string
+    /** 标准数据集内容 */
+    standardDataSetContent: string
+    /** 标准数据集编码（可选） */
+    standardDataSetCode?: string
+    /** 原始表名称 */
+    originalTableName: string
+    /** 原始字段数据集 */
+    originalFieldDataSet: string
+    /** 原始数据字段 */
+    originalDataField: string
+}
+
+/** 标准字典对照保存响应 */
+export interface StandardDictionaryMappingSaveResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data?: unknown
+}

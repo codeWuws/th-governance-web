@@ -3,7 +3,17 @@
  * 提供数据管理相关的API接口（患者索引等）
  */
 
-import type { ApiResponse, PatientEmpiListParams, PatientEmpiListResponse, PatientEmpiRecord } from '@/types'
+import type {
+    ApiResponse,
+    PatientEmpiListParams,
+    PatientEmpiListResponse,
+    PatientEmpiRecord,
+    StandardDictionaryMappingPageParams,
+    StandardDictionaryMappingPageResponse,
+    StandardDictionaryMappingDetailResponse,
+    StandardDictionaryMappingSaveParams,
+    StandardDictionaryMappingSaveResponse,
+} from '@/types'
 import { api } from '@/utils/request'
 import { logger } from '@/utils/logger'
 
@@ -134,6 +144,91 @@ export class DataManagementService {
             )
         }
     }
+
+    /**
+     * 获取标准字典对照分页列表
+     * @description 分页查询标准字典对照数据
+     * @param params 查询参数
+     * @returns Promise<StandardDictionaryMappingPageResponse>
+     */
+    static async getStandardDictionaryMappingPage(
+        params: StandardDictionaryMappingPageParams
+    ): Promise<StandardDictionaryMappingPageResponse> {
+        try {
+            logger.debug('发送获取标准字典对照列表请求到: /data/standard/page', params)
+            const response = await api.get<StandardDictionaryMappingPageResponse>(
+                '/data/standard/page',
+                {
+                    params,
+                }
+            )
+            logger.debug('获取标准字典对照列表API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取标准字典对照列表API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取标准字典对照列表失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 获取标准字典对照详情
+     * @description 根据ID获取标准字典对照详情
+     * @param id 记录ID
+     * @returns Promise<StandardDictionaryMappingDetailResponse>
+     */
+    static async getStandardDictionaryMappingDetail(
+        id: string
+    ): Promise<StandardDictionaryMappingDetailResponse> {
+        try {
+            logger.debug('发送获取标准字典对照详情请求到: /data/standard/detail/' + id, { id })
+            const response = await api.get<StandardDictionaryMappingDetailResponse>(
+                `/data/standard/detail/${id}`
+            )
+            logger.debug('获取标准字典对照详情API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取标准字典对照详情API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取标准字典对照详情失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 保存标准字典对照
+     * @description 新增或更新标准字典对照数据
+     * @param params 保存参数
+     * @returns Promise<StandardDictionaryMappingSaveResponse>
+     */
+    static async saveStandardDictionaryMapping(
+        params: StandardDictionaryMappingSaveParams
+    ): Promise<StandardDictionaryMappingSaveResponse> {
+        try {
+            logger.debug('发送保存标准字典对照请求到: /data/standard/save', params)
+            const response = await api.post<StandardDictionaryMappingSaveResponse>(
+                '/data/standard/save',
+                params
+            )
+            logger.debug('保存标准字典对照API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '保存标准字典对照API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `保存标准字典对照失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
 }
 
 /**
@@ -144,6 +239,9 @@ export const dataManagementService = {
     getPatientEmpiList: DataManagementService.getPatientEmpiList,
     mergePatientEmpi: DataManagementService.mergePatientEmpi,
     getPatientEmpiDistributionRecordList: DataManagementService.getPatientEmpiDistributionRecordList,
+    getStandardDictionaryMappingPage: DataManagementService.getStandardDictionaryMappingPage,
+    getStandardDictionaryMappingDetail: DataManagementService.getStandardDictionaryMappingDetail,
+    saveStandardDictionaryMapping: DataManagementService.saveStandardDictionaryMapping,
 }
 
 export default dataManagementService
