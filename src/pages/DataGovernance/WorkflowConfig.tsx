@@ -21,7 +21,8 @@ import {
     updateWorkflowConfigLocal,
 } from '../../store/slices/dataGovernanceSlice'
 import type { DbConnection, WorkflowConfigUpdateItem } from '../../types'
-import { dataGovernanceService } from '../../services/dataGovernanceService'
+import { workflowService } from '../../services/workflowService'
+import { databaseConnectionService } from '../../services/databaseConnectionService'
 import { logger } from '../../utils/logger'
 import { startWorkflow } from '../../utils/workflowUtils'
 import { showDialog } from '@/utils/showDialog'
@@ -172,7 +173,7 @@ const WorkflowConfig: React.FC = () => {
         try {
             setLoadingDataSources(true)
             // 获取所有数据源，使用较大的 pageSize 来获取全部数据
-            const result = await dataGovernanceService.getDbConnectionPage({
+            const result = await databaseConnectionService.getDbConnectionPage({
                 pageNo: 1,
                 pageSize: 1000, // 假设不超过1000个数据源
             })

@@ -15,7 +15,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { logger } from '@/utils/logger'
 import { api } from '@/utils/request'
 import type { SSEManager } from '@/utils/request'
-import { dataGovernanceService } from '@/services/dataGovernanceService'
+import { dataQualityControlService } from '@/services/dataQualityControlService'
 import type { QCTaskLogDetailData } from '@/types'
 
 const { Title, Text } = Typography
@@ -148,7 +148,7 @@ const QualityControlFlowDetail: React.FC = () => {
         try {
             setLoading(true)
             logger.info('开始获取质控任务日志详情', { taskId })
-            const response = await dataGovernanceService.getQCTaskLogDetail(taskId)
+            const response = await dataQualityControlService.getQCTaskLogDetail(taskId)
 
             if (response.code === 200 && response.data) {
                 setLogDetailData(response.data)

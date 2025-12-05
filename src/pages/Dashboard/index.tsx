@@ -12,7 +12,7 @@ import {
 import { Alert, Button, Card, Col, List, Progress, Row, Space, Statistic, Tag, Typography, Spin } from 'antd'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { DataGovernanceService } from '@/services/dataGovernanceService'
+import { DashboardService } from '@/services/dashboardService'
 import { useAppSelector } from '@/store/hooks'
 import { selectWorkflowStats } from '@/store/slices/workflowExecutionSlice'
 import { statusConfig } from '@/pages/DataGovernance/const'
@@ -44,7 +44,7 @@ const Dashboard: React.FC = () => {
     const fetchDashboardStatistics = useCallback(async () => {
         try {
             setLoadingStats(true)
-            const response = await DataGovernanceService.getDashboardStatistics()
+            const response = await DashboardService.getDashboardStatistics()
             
             if (response.code === 200) {
                 setDashboardStats(response.data)
@@ -65,7 +65,7 @@ const Dashboard: React.FC = () => {
             await mockApiDelay(500)
             
             try {
-                const response = await DataGovernanceService.getExecutionLogPage({
+                const response = await DashboardService.getExecutionLogPage({
                     pageNo: 1,
                     pageSize: 5,
                 })

@@ -53,9 +53,27 @@ const CustomDialog: React.FC<CustomDialogProps> = ({
     children,
     okClose = true,
     cancelClose = true,
+    style,
+    bodyStyle,
     ...restProps
 }) => {
     const [loading, setLoading] = useState(false)
+    
+    // 计算最大高度：屏幕可视高度 - 200px
+    const maxHeight = typeof window !== 'undefined' ? window.innerHeight - 200 : 600
+    
+    // 合并样式，限制弹窗最大高度
+    const mergedStyle: React.CSSProperties = {
+        maxHeight: `${maxHeight}px`,
+        ...style,
+    }
+    
+    // 合并 body 样式，内容区域可滚动
+    const mergedBodyStyle: React.CSSProperties = {
+        maxHeight: `calc(${maxHeight}px - 110px)`, // 减去标题栏和底部按钮的高度
+        overflow: 'auto',
+        ...bodyStyle,
+    }
 
     // 处理确定按钮点击
     const handleOk = async (e: React.MouseEvent<HTMLElement>) => {
@@ -114,6 +132,8 @@ const CustomDialog: React.FC<CustomDialogProps> = ({
             cancelText={cancelText}
             confirmLoading={loading}
             footer={mergedFooter}
+            style={mergedStyle}
+            bodyStyle={mergedBodyStyle}
             {...restProps}
         >
             {children}

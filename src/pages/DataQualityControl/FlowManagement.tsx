@@ -12,7 +12,7 @@ import { useNavigate } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
 import styles from './FlowManagement.module.scss'
 import { uiMessage } from '../../utils/uiMessage'
-import { dataGovernanceService } from '../../services/dataGovernanceService'
+import { dataQualityControlService } from '../../services/dataQualityControlService'
 import { logger } from '../../utils/logger'
 import type { QCTaskConfigItem } from '../../types'
 import { showDialog } from '../../utils/showDialog'
@@ -52,7 +52,7 @@ const FlowManagement: React.FC = () => {
         const fetchQcConfigList = async () => {
             try {
                 setLoading(true)
-                const response = await dataGovernanceService.getQCTaskConfigList()
+                const response = await dataQualityControlService.getQCTaskConfigList()
                 if (response.code === 200) {
                     setQcConfigList(response.data || [])
                     logger.info('成功获取质控任务配置列表', response.data)

@@ -1,4 +1,4 @@
-import { DataGovernanceService } from '@/services/dataGovernanceService'
+import { WorkflowService } from '@/services/workflowService'
 import type { ExecutionLogItem } from '@/types'
 import { logger } from '@/utils/logger'
 import { getMockExecutionHistoryResponse, mockApiDelay } from '@/utils/mockData'
@@ -37,7 +37,7 @@ export const ExecutionHistory: React.FC = () => {
 
                 try {
                     // 尝试调用真实接口
-                    const response = await DataGovernanceService.getExecutionLogPage({
+                    const response = await WorkflowService.getExecutionLogPage({
                         pageNo: page,
                         pageSize: size,
                     })

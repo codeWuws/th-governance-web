@@ -15,7 +15,7 @@ import {
     selectExecutionByTaskId,
     initializeExecution,
 } from '../../store/slices/workflowExecutionSlice'
-import { DataGovernanceService } from '../../services/dataGovernanceService'
+import { WorkflowService } from '../../services/workflowService'
 import {
     WorkflowLogDetailResponse,
     WorkflowLogDetailData,
@@ -188,7 +188,7 @@ const WorkflowDetail: React.FC = () => {
         try {
             logger.info('开始获取工作流日志详情', { taskId })
             const response: WorkflowLogDetailResponse =
-                await DataGovernanceService.getLogDetail(taskId)
+                await WorkflowService.getLogDetail(taskId)
 
             if (response.code === 200 && response.data) {
                 setLogDetailData(response.data)
@@ -431,7 +431,7 @@ const WorkflowDetail: React.FC = () => {
     const fetchCleaningResult = async (batchId: string, pageNum: number, pageSize: number) => {
         setCleaningResultLoading(true)
         try {
-            const response = await DataGovernanceService.getCleaningResult(batchId, pageNum, pageSize)
+            const response = await WorkflowService.getCleaningResult(batchId, pageNum, pageSize)
             // 接口返回标准 ApiResponse 格式：{ code, msg, data: { records, total, size, current, pages } }
             if (response.code === 200 && response.data) {
                 setCleaningResultData(response.data.records || [])
@@ -461,7 +461,7 @@ const WorkflowDetail: React.FC = () => {
     const fetchDeduplicateResult = async (batchId: string, pageNum: number, pageSize: number) => {
         setDeduplicateResultLoading(true)
         try {
-            const response = await DataGovernanceService.getDeduplicateResult(batchId, pageNum, pageSize)
+            const response = await WorkflowService.getDeduplicateResult(batchId, pageNum, pageSize)
             // 接口返回标准 ApiResponse 格式：{ code, msg, data: { records, total, size, current, pages } }
             if (response.code === 200 && response.data) {
                 setDeduplicateResultData(response.data.records || [])
@@ -498,7 +498,7 @@ const WorkflowDetail: React.FC = () => {
     const fetchOrphanResult = async (batchId: string, pageNum: number, pageSize: number) => {
         setOrphanResultLoading(true)
         try {
-            const response = await DataGovernanceService.getOrphanResult(batchId, pageNum, pageSize)
+            const response = await WorkflowService.getOrphanResult(batchId, pageNum, pageSize)
             // 接口返回标准 ApiResponse 格式：{ code, msg, data: { records, total, size, current, pages } }
             if (response.code === 200 && response.data) {
                 setOrphanResultData(response.data.records || [])
@@ -535,7 +535,7 @@ const WorkflowDetail: React.FC = () => {
     const fetchSensitiveResult = async (batchId: string, pageNum: number, pageSize: number) => {
         setSensitiveResultLoading(true)
         try {
-            const response = await DataGovernanceService.getSensitiveResult(batchId, pageNum, pageSize)
+            const response = await WorkflowService.getSensitiveResult(batchId, pageNum, pageSize)
             // 接口返回标准 ApiResponse 格式：{ code, msg, data: { records, total, size, current, pages } }
             if (response.code === 200 && response.data) {
                 setSensitiveResultData(response.data.records || [])
@@ -700,7 +700,7 @@ const WorkflowDetail: React.FC = () => {
             setDataSyncLoading(true)
             logger.info('开始数据录入（数据同步）', { taskId })
 
-            const response = await DataGovernanceService.syncTaskData(taskId)
+            const response = await WorkflowService.syncTaskData(taskId)
 
             if (response.code === 200) {
                 const successMsg = (response as { msg?: string; message?: string }).msg || 

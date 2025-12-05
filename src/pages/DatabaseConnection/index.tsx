@@ -1,4 +1,4 @@
-import { dataGovernanceService } from '@/services/dataGovernanceService'
+import { databaseConnectionService } from '@/services/databaseConnectionService'
 import type { DbConnection } from '@/types'
 import {
     CheckCircleOutlined,
@@ -59,7 +59,7 @@ const DatabaseConnection: React.FC = () => {
     const fetchDbConnections = async (pageNo = 1, pageSize = 10) => {
         try {
             setTableLoading(true)
-            const result = await dataGovernanceService.getDbConnectionPage({
+            const result = await databaseConnectionService.getDbConnectionPage({
                 pageNo,
                 pageSize,
             })
@@ -120,7 +120,7 @@ const DatabaseConnection: React.FC = () => {
         try {
             // 获取当前用户，如果没有则使用默认值
             const updateUser = 'system' // 可以从 store 或 localStorage 获取实际用户
-            const result = await dataGovernanceService.deleteDbConnection(id, updateUser)
+            const result = await databaseConnectionService.deleteDbConnection(id, updateUser)
             if (result.code === 200) {
                 uiMessage.success('删除成功')
                 await fetchDbConnections(pagination.current, pagination.pageSize)
@@ -137,7 +137,7 @@ const DatabaseConnection: React.FC = () => {
     const handleTestConnection = async (id: string) => {
         try {
             setTestingConnections(prev => ({ ...prev, [id]: true }))
-            const result = await dataGovernanceService.testDbConnection(id)
+            const result = await databaseConnectionService.testDbConnection(id)
 
             if (result.code === 200) {
                 uiMessage.success('连接测试成功')
@@ -311,7 +311,7 @@ const DatabaseConnection: React.FC = () => {
                     updateUser: 'current_user', // 这里应该从用户上下文获取
                 }
                 try {
-                    const result = await dataGovernanceService.updateDbConnection(
+                    const result = await databaseConnectionService.updateDbConnection(
                         editingConnection.id,
                         connectionData
                     )
@@ -355,7 +355,7 @@ const DatabaseConnection: React.FC = () => {
                 }
 
                 try {
-                    const result = await dataGovernanceService.addDbConnection(connectionData)
+                    const result = await databaseConnectionService.addDbConnection(connectionData)
 
                     if (result.code === 200) {
                         uiMessage.success('数据库连接已成功添加')

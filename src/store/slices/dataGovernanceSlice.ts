@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit'
 import type { WorkflowNode } from '@/types'
-import { dataGovernanceService } from '@/services/dataGovernanceService'
+import { workflowService } from '@/services/workflowService'
 
 // 连接测试错误接口
 interface ConnectionTestError {
@@ -189,7 +189,7 @@ export const fetchWorkflowConfig = createAsyncThunk(
     'dataGovernance/fetchWorkflowConfig',
     async (_, { rejectWithValue }) => {
         try {
-            const response = await dataGovernanceService.getWorkflowConfig()
+            const response = await workflowService.getWorkflowConfig()
             return response.data
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : '获取工作流配置失败'
@@ -206,7 +206,7 @@ export const updateWorkflowConfig = createAsyncThunk(
         { rejectWithValue, dispatch }
     ) => {
         try {
-            await dataGovernanceService.updateWorkflowConfig(updates)
+            await workflowService.updateWorkflowConfig(updates)
             // 更新成功后重新获取数据
             dispatch(fetchWorkflowConfig())
             return updates
