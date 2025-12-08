@@ -36,6 +36,10 @@ import {
     ArrowLeftOutlined,
 } from '@ant-design/icons'
 import { useDebounce } from '../../hooks/useDebounce'
+import { dataManagementService } from '../../services/dataManagementService'
+import type { AssetTreeNode, AssetTableInfo, AssetTableColumnDetailsData, AssetDataSourceOption, AssetTableInfoOption } from '../../types'
+import { logger } from '../../utils/logger'
+import { Spin } from 'antd'
 import styles from './DataAssetManagement.module.scss'
 
 const { Sider, Content } = Layout
@@ -407,8 +411,8 @@ const mockTables: Record<string, TableInfo> = {
 type ViewMode = 'empty' | 'category' | 'tableFields'
 
 const DataAssetManagement: React.FC = () => {
-    const [dataSources, setDataSources] = useState<DataSource[]>(mockDataSources)
-    const [categories, setCategories] = useState<AssetCategory[]>(mockCategories)
+    const [dataSources, setDataSources] = useState<DataSource[]>([])
+    const [categories, setCategories] = useState<AssetCategory[]>([])
     const [selectedKeys, setSelectedKeys] = useState<React.Key[]>([])
     const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([])
     const [searchText, setSearchText] = useState('')
@@ -422,9 +426,108 @@ const DataAssetManagement: React.FC = () => {
     // 视图状态管理
     const [viewMode, setViewMode] = useState<ViewMode>('empty')
     const [selectedCategory, setSelectedCategory] = useState<AssetCategory | null>(null)
-    const [selectedTable, setSelectedTable] = useState<TableInfo | null>(null)
+    const [loading, setLoading] = useState(false)
+    // 表列表相关状态
+    const [tableList, setTableList] = useState<AssetTableInfo[]>([])
+    const [tableListLoading, setTableListLoading] = useState(false)
+    // 字段详情相关状态
+    const [tableColumnsDetail, setTableColumnsDetail] = useState<AssetTableColumnDetailsData | null>(null)
+    const [tableColumnsLoading, setTableColumnsLoading] = useState(false)
+    // 数据源选项相关状态
+    const [dataSourceOptions, setDataSourceOptions] = useState<AssetDataSourceOption[]>([])
+    const [dataSourceOptionsLoading, setDataSourceOptionsLoading] = useState(false)
+    // 表信息选项相关状态
+    const [tableInfoOptions, setTableInfoOptions] = useState<AssetTableInfoOption[]>([])
+    const [tableInfoOptionsLoading, setTableInfoOptionsLoading] = useState(false)
 
     const debouncedSearchText = useDebounce(searchText, 300)
+
+    // 将接口返回的资产树数据转换为页面需要的数据格式
+    const convertAssetTreeToData = useCallback((treeData: AssetTreeNode[]) => {
+        const dataSourcesList: DataSource[] = []
+        const categoriesList: AssetCategory[] = []
+
+        // 递归处理节点
+        const processNode = (node: AssetTreeNode, parentDataSourceId?: string) => {
+            if (node.nodeType === 0) {
+                // 数据源节点
+                const dataSource: DataSource = {
+                    id: node.id,
+                    name: node.name,
+                    type: 'mysql', // 默认类型，如果接口后续提供可以更新
+                    host: '', // 接口未提供，使用空值
+                    port: 3306, // 默认端口
+                    database: '', // 接口未提供，使用空值
+                    status: node.status === 1 ? 'connected' : 'disconnected',
+                }
+                dataSourcesList.push(dataSource)
+
+                // 递归处理子节点
+                if (node.children && node.children.length > 0) {
+                    node.children.forEach(child => {
+                        processNode(child, node.id)
+                    })
+                }
+            } else if (node.nodeType === 1 && parentDataSourceId) {
+                // 资产类别节点
+                const category: AssetCategory = {
+                    id: node.id,
+                    name: node.name,
+                    dataSourceId: parentDataSourceId,
+                    database: '', // 接口未提供，使用空值
+                    tables: node.tables || [],
+                }
+                categoriesList.push(category)
+
+                // 递归处理子节点（如果有嵌套的资产类别）
+                if (node.children && node.children.length > 0) {
+                    node.children.forEach(child => {
+                        processNode(child, parentDataSourceId)
+                    })
+                }
+            }
+        }
+
+        // 处理所有根节点
+        treeData.forEach(node => {
+            processNode(node)
+        })
+
+        return { dataSourcesList, categoriesList }
+    }, [])
+
+    // 获取资产树数据
+    const fetchAssetTree = useCallback(async (name?: string) => {
+        try {
+            setLoading(true)
+            const params = name ? { name } : undefined
+            const response = await dataManagementService.getAssetTree(params)
+            
+            if (response.code === 200 && response.data) {
+                const { dataSourcesList, categoriesList } = convertAssetTreeToData(response.data)
+                setDataSources(dataSourcesList)
+                setCategories(categoriesList)
+            } else {
+                message.error(response.msg || '获取资产树数据失败')
+            }
+        } catch (error) {
+            logger.error('获取资产树数据失败:', error instanceof Error ? error : new Error(String(error)))
+            message.error(error instanceof Error ? error.message : '获取资产树数据失败')
+        } finally {
+            setLoading(false)
+        }
+    }, [convertAssetTreeToData])
+
+    // 初始加载数据
+    useEffect(() => {
+        fetchAssetTree()
+    }, [fetchAssetTree])
+
+    // 搜索功能：当搜索文本变化时重新获取数据
+    useEffect(() => {
+        // 使用防抖后的搜索文本
+        fetchAssetTree(debouncedSearchText || undefined)
+    }, [debouncedSearchText, fetchAssetTree])
 
     // 模拟数据：每个数据源下的数据库列表
     const getDatabasesByDataSource = (dataSourceId: string): string[] => {
@@ -453,16 +556,12 @@ const DataAssetManagement: React.FC = () => {
     const handleAddCategoryClick = useCallback((dataSource: DataSource) => {
         // 直接打开表单弹窗
         setSelectedDataSourceId(dataSource.id)
-        const databases = getDatabasesByDataSource(dataSource.id)
-        const defaultDatabase = databases.length > 0 ? databases[0] : dataSource.database
-        setSelectedDatabase(defaultDatabase || '')
         categoryForm.setFieldsValue({
             dataSourceId: dataSource.id,
-            database: defaultDatabase || dataSource.database,
             tables: [],
         })
         setAddCategoryModalVisible(true)
-    }, [categoryForm, dataSources])
+    }, [categoryForm])
 
     // 构建树形数据
     const treeData = useMemo(() => {
@@ -518,34 +617,82 @@ const DataAssetManagement: React.FC = () => {
         return buildTree()
     }, [dataSources, categories, handleAddCategoryClick])
 
-    // 过滤树形数据
+    // 树形数据（搜索由接口处理，这里直接使用 treeData）
     const filteredTreeData = useMemo(() => {
-        if (!debouncedSearchText) return treeData
+        return treeData
+    }, [treeData])
 
-        const filterTree = (nodes: ExtendedDataNode[]): ExtendedDataNode[] => {
-            return nodes
-                .map(node => {
-                    const title = String(node.title)
-                    const matches = title.toLowerCase().includes(debouncedSearchText.toLowerCase())
-
-                    let filteredChildren: ExtendedDataNode[] = []
-                    if (node.children) {
-                        filteredChildren = filterTree(node.children as ExtendedDataNode[])
+    // 获取数据源选项列表
+    const fetchDataSourceOptions = useCallback(async () => {
+        try {
+            setDataSourceOptionsLoading(true)
+            const response = await dataManagementService.getAssetDataSourceOptions()
+            
+            if (response.code === 200 && response.data) {
+                setDataSourceOptions(response.data)
+                // 如果已选中数据源，检查是否在数据源选项中存在
+                if (selectedDataSourceId && addCategoryModalVisible) {
+                    const exists = response.data.some(opt => opt.id === selectedDataSourceId)
+                    if (!exists) {
+                        // 如果不存在，清空选择
+                        setSelectedDataSourceId('')
+                        categoryForm.setFieldsValue({ dataSourceId: undefined })
                     }
-
-                    if (matches || filteredChildren.length > 0) {
-                        return {
-                            ...node,
-                            children: filteredChildren.length > 0 ? filteredChildren : node.children,
-                        }
-                    }
-                    return null
-                })
-                .filter(Boolean) as ExtendedDataNode[]
+                }
+            } else {
+                message.error(response.msg || '获取数据源选项失败')
+                setDataSourceOptions([])
+            }
+        } catch (error) {
+            logger.error('获取数据源选项失败:', error instanceof Error ? error : new Error(String(error)))
+            message.error(error instanceof Error ? error.message : '获取数据源选项失败')
+            setDataSourceOptions([])
+        } finally {
+            setDataSourceOptionsLoading(false)
         }
+    }, [selectedDataSourceId, addCategoryModalVisible, categoryForm])
 
-        return filterTree(treeData)
-    }, [treeData, debouncedSearchText])
+    // 获取表信息列表
+    const fetchTableInfo = useCallback(async () => {
+        try {
+            setTableInfoOptionsLoading(true)
+            const response = await dataManagementService.getTableInfo()
+            
+            if (response.code === 200 && response.data) {
+                setTableInfoOptions(response.data)
+            } else {
+                message.error(response.msg || '获取表信息失败')
+                setTableInfoOptions([])
+            }
+        } catch (error) {
+            logger.error('获取表信息失败:', error instanceof Error ? error : new Error(String(error)))
+            message.error(error instanceof Error ? error.message : '获取表信息失败')
+            setTableInfoOptions([])
+        } finally {
+            setTableInfoOptionsLoading(false)
+        }
+    }, [])
+
+    // 获取资产类别表列表
+    const fetchCategoryTableList = useCallback(async (categoryId: string) => {
+        try {
+            setTableListLoading(true)
+            const response = await dataManagementService.getAssetTableList(categoryId)
+            
+            if (response.code === 200 && response.data) {
+                setTableList(response.data)
+            } else {
+                message.error(response.msg || '获取表列表失败')
+                setTableList([])
+            }
+        } catch (error) {
+            logger.error('获取表列表失败:', error instanceof Error ? error : new Error(String(error)))
+            message.error(error instanceof Error ? error.message : '获取表列表失败')
+            setTableList([])
+        } finally {
+            setTableListLoading(false)
+        }
+    }, [])
 
     // 查找选中的节点并更新视图状态
     useEffect(() => {
@@ -576,54 +723,64 @@ const DataAssetManagement: React.FC = () => {
                         const cat = node.data as AssetCategory
                         setSelectedCategory(cat)
                         setViewMode('category')
-                        setSelectedTable(null) // 重置选中的表
+                        setTableColumnsDetail(null) // 重置字段详情
+                        // 获取表列表
+                        fetchCategoryTableList(cat.id)
                     } else if (node.nodeType === 'dataSource') {
                         setViewMode('empty')
                         setSelectedCategory(null)
-                        setSelectedTable(null)
+                        setTableColumnsDetail(null) // 清空字段详情
+                        setTableList([]) // 清空表列表
                     }
                 }
             } else {
                 setSelectedNode(null)
                 setViewMode('empty')
                 setSelectedCategory(null)
-                setSelectedTable(null)
+                setTableColumnsDetail(null) // 清空字段详情
+                setTableList([]) // 清空表列表
             }
         } else {
             setSelectedNode(null)
             setViewMode('empty')
             setSelectedCategory(null)
-            setSelectedTable(null)
+            setTableColumnsDetail(null) // 清空字段详情
+            setTableList([]) // 清空表列表
         }
-    }, [selectedKeys, treeData])
+    }, [selectedKeys, treeData, fetchCategoryTableList])
 
     // 处理新增资产
     const handleAddAsset = async () => {
         try {
             const values = await form.validateFields()
-            // 从选中的数据源获取信息
-            const selectedDataSource = dataSources.find(ds => ds.id === values.dataSourceId)
-            if (!selectedDataSource) {
-                message.error('请选择数据源')
+            
+            // 转换 sourceId 为数字类型
+            const sourceId = parseInt(values.dataSourceId, 10)
+            if (isNaN(sourceId)) {
+                message.error('数据源ID无效')
                 return
             }
             
-            // 创建新的资产（使用资产名称，但关联到选中的数据源）
-            const newDataSource: DataSource = {
-                id: `ds${Date.now()}`,
-                name: values.name, // 使用资产名称
-                type: selectedDataSource.type,
-                host: selectedDataSource.host,
-                port: selectedDataSource.port,
-                database: selectedDataSource.database,
-                status: selectedDataSource.status,
+            // 调用接口新增资产
+            const response = await dataManagementService.addAsset({
+                parentId: 0, // 根节点
+                assetName: values.name,
+                nodeType: 0, // 数据源类型
+                sourceId: sourceId,
+            })
+            
+            if (response.code === 200) {
+                message.success(response.msg || '资产添加成功')
+                setAddAssetModalVisible(false)
+                form.resetFields()
+                // 刷新资产树数据
+                await fetchAssetTree(debouncedSearchText || undefined)
+            } else {
+                message.error(response.msg || '资产添加失败')
             }
-            setDataSources([...dataSources, newDataSource])
-            message.success('资产添加成功')
-            setAddAssetModalVisible(false)
-            form.resetFields()
         } catch (error) {
-            console.error('添加失败:', error)
+            logger.error('新增资产失败:', error instanceof Error ? error : new Error(String(error)))
+            message.error(error instanceof Error ? error.message : '新增资产失败')
         }
     }
 
@@ -644,48 +801,77 @@ const DataAssetManagement: React.FC = () => {
                 return
             }
 
-            // 直接保存，不再显示确认弹窗
-            const newCategory: AssetCategory = {
-                id: `cat${Date.now()}`,
-                name: values.name,
-                dataSourceId: dataSourceId, // 确保使用正确的数据源ID
-                database: values.database,
-                tables: values.tables || [],
+            // 转换 parentId 为数字类型
+            const parentId = parseInt(dataSourceId, 10)
+            if (isNaN(parentId)) {
+                message.error('数据源ID无效')
+                return
             }
+
+            // 调用接口新增资产类别
+            const response = await dataManagementService.addAssetCategory({
+                parentId: parentId, // 数据源节点ID
+                assetName: values.name,
+                nodeType: 1, // 资产类别类型
+                tableNames: values.tables || [],
+            })
             
-            setCategories([...categories, newCategory])
-            message.success('资产类别添加成功')
-            setAddCategoryModalVisible(false)
-            setSelectedDataSourceId('')
-            setSelectedDatabase('')
-            categoryForm.resetFields()
-            
-            // 自动展开对应的数据源节点，确保新添加的类别可见
-            const dsKey = `ds-${dataSourceId}`
-            if (!expandedKeys.includes(dsKey)) {
-                setExpandedKeys([...expandedKeys, dsKey])
+            if (response.code === 200) {
+                message.success(response.msg || '资产类别添加成功')
+                setAddCategoryModalVisible(false)
+                setSelectedDataSourceId('')
+                categoryForm.resetFields()
+                // 刷新资产树数据
+                await fetchAssetTree(debouncedSearchText || undefined)
+            } else {
+                message.error(response.msg || '资产类别添加失败')
             }
         } catch (error) {
-            console.error('添加失败:', error)
+            logger.error('新增资产类别失败:', error instanceof Error ? error : new Error(String(error)))
             // 显示表单验证错误
             if (error && typeof error === 'object' && 'errorFields' in error) {
                 message.error('请检查表单填写是否正确')
+            } else {
+                message.error(error instanceof Error ? error.message : '新增资产类别失败')
             }
         }
     }
 
     // 处理表行点击
-    const handleTableRowClick = (tableName: string) => {
-        const tableInfo = mockTables[tableName]
-        if (tableInfo) {
-            setSelectedTable(tableInfo)
-            setViewMode('tableFields')
+    const handleTableRowClick = useCallback(async (tableName: string) => {
+        if (!selectedCategory) {
+            return
         }
-    }
+
+        try {
+            setTableColumnsLoading(true)
+            setViewMode('tableFields')
+            
+            const response = await dataManagementService.getAssetTableColumnDetails(
+                selectedCategory.id,
+                tableName
+            )
+            
+            if (response.code === 200 && response.data) {
+                setTableColumnsDetail(response.data)
+            } else {
+                message.error(response.msg || '获取字段详情失败')
+                setTableColumnsDetail(null)
+                setViewMode('category') // 返回表列表视图
+            }
+        } catch (error) {
+            logger.error('获取字段详情失败:', error instanceof Error ? error : new Error(String(error)))
+            message.error(error instanceof Error ? error.message : '获取字段详情失败')
+            setTableColumnsDetail(null)
+            setViewMode('category') // 返回表列表视图
+        } finally {
+            setTableColumnsLoading(false)
+        }
+    }, [selectedCategory])
 
     // 返回到表列表
     const handleBackToTableList = () => {
-        setSelectedTable(null)
+        setTableColumnsDetail(null)
         setViewMode('category')
     }
 
@@ -704,58 +890,104 @@ const DataAssetManagement: React.FC = () => {
         }
 
         // 字段详情视图
-        if (viewMode === 'tableFields' && selectedTable) {
+        if (viewMode === 'tableFields') {
+            // 如果正在加载，显示loading状态
+            if (tableColumnsLoading || !tableColumnsDetail) {
+                return (
+                    <>
+                        <div className={styles.detailHeader}>
+                            <Button
+                                type='text'
+                                icon={<ArrowLeftOutlined />}
+                                onClick={handleBackToTableList}
+                                style={{ marginRight: 8 }}
+                            >
+                                返回
+                            </Button>
+                            <TableOutlined style={{ fontSize: 20, color: '#0c63e4' }} />
+                            <Title level={4} className={styles.detailTitle}>
+                                加载中...
+                            </Title>
+                        </div>
+                        <div className={styles.detailContent}>
+                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+                                <Spin size='large' tip='正在加载字段详情...' />
+                            </div>
+                        </div>
+                    </>
+                )
+            }
             const columns = [
                 {
                     title: '字段名',
-                    dataIndex: 'name',
-                    key: 'name',
+                    dataIndex: 'columnName',
+                    key: 'columnName',
                     width: 180,
                     fixed: 'left' as const,
-                    render: (text: string, record: FieldInfo) => (
-                        <span style={{ fontWeight: record.primaryKey ? 600 : 400 }}>
+                    render: (text: string) => (
+                        <span style={{ fontWeight: 400 }}>
                             {text}
-                            {record.primaryKey && (
-                                <Tag color='gold' style={{ marginLeft: 8, fontSize: 11 }}>PK</Tag>
-                            )}
                         </span>
                     ),
                 },
                 {
                     title: '数据类型',
-                    dataIndex: 'type',
-                    key: 'type',
+                    dataIndex: 'dataType',
+                    key: 'dataType',
                     width: 150,
-                    render: (type: string, record: FieldInfo) => {
-                        const length = record.length ? `(${record.length})` : ''
-                        return <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 3 }}>{`${type}${length}`}</code>
-                    },
+                    render: (dataType: string) => (
+                        <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 3 }}>
+                            {dataType}
+                        </code>
+                    ),
                 },
                 {
                     title: '允许为空',
-                    dataIndex: 'nullable',
-                    key: 'nullable',
+                    dataIndex: 'isNullable',
+                    key: 'isNullable',
                     width: 100,
                     align: 'center' as const,
-                    render: (nullable: boolean) => (
-                        nullable ? <span style={{ color: '#52c41a' }}>✓</span> : <span style={{ color: '#ff4d4f' }}>✗</span>
+                    render: (isNullable: string) => (
+                        isNullable === 'YES' ? (
+                            <span style={{ color: '#52c41a' }}>✓</span>
+                        ) : (
+                            <span style={{ color: '#ff4d4f' }}>✗</span>
+                        )
                     ),
                 },
                 {
                     title: '默认值',
-                    dataIndex: 'default',
-                    key: 'default',
+                    dataIndex: 'columnDefault',
+                    key: 'columnDefault',
                     width: 150,
-                    render: (value: string) => value ? <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 3 }}>{value}</code> : <span style={{ color: '#bfbfbf' }}>-</span>,
+                    render: (value: string | null) => (
+                        value ? (
+                            <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 3 }}>
+                                {value}
+                            </code>
+                        ) : (
+                            <span style={{ color: '#bfbfbf' }}>-</span>
+                        )
+                    ),
                 },
                 {
                     title: '说明',
-                    dataIndex: 'comment',
-                    key: 'comment',
+                    dataIndex: 'columnComment',
+                    key: 'columnComment',
                     ellipsis: true,
                     render: (text: string) => text || <span style={{ color: '#bfbfbf' }}>-</span>,
                 },
             ]
+
+            // 格式化表大小
+            const formatSize = (size: string) => {
+                const num = parseInt(size, 10)
+                if (isNaN(num)) return size
+                if (num < 1024) return `${num} B`
+                if (num < 1024 * 1024) return `${(num / 1024).toFixed(2)} KB`
+                if (num < 1024 * 1024 * 1024) return `${(num / (1024 * 1024)).toFixed(2)} MB`
+                return `${(num / (1024 * 1024 * 1024)).toFixed(2)} GB`
+            }
 
             return (
                 <>
@@ -770,35 +1002,30 @@ const DataAssetManagement: React.FC = () => {
                         </Button>
                         <TableOutlined style={{ fontSize: 20, color: '#0c63e4' }} />
                         <Title level={4} className={styles.detailTitle}>
-                            {selectedTable.name}
+                            {tableColumnsDetail.tableName}
                         </Title>
-                        {selectedTable.comment && (
-                            <span style={{ color: '#6b7280', fontSize: 13, marginLeft: 12 }}>
-                                {selectedTable.comment}
-                            </span>
-                        )}
                     </div>
                     <div className={styles.detailContent}>
                         <div className={styles.infoSection}>
                             <div className={styles.sectionTitle}>基本信息</div>
                             <Descriptions bordered column={3} size='small' style={{ marginBottom: 20 }}>
-                                <Descriptions.Item label='表名'>{selectedTable.name}</Descriptions.Item>
-                                <Descriptions.Item label='模式'>{selectedTable.schema}</Descriptions.Item>
-                                <Descriptions.Item label='记录数'>
-                                    {selectedTable.rowCount?.toLocaleString() || '-'}
+                                <Descriptions.Item label='表名'>{tableColumnsDetail.tableName}</Descriptions.Item>
+                                <Descriptions.Item label='模式/数据库'>{tableColumnsDetail.schema}</Descriptions.Item>
+                                <Descriptions.Item label='表大小'>
+                                    {formatSize(tableColumnsDetail.size)}
                                 </Descriptions.Item>
                             </Descriptions>
                         </div>
                         <div className={styles.infoSection}>
-                            <div className={styles.sectionTitle}>字段列表 ({selectedTable.fields.length})</div>
+                            <div className={styles.sectionTitle}>字段列表 ({tableColumnsDetail.list.length})</div>
                             <Table
                                 className={styles.infoTable}
-                                dataSource={selectedTable.fields}
+                                dataSource={tableColumnsDetail.list}
                                 columns={columns}
-                                rowKey='name'
+                                rowKey='columnName'
                                 pagination={false}
                                 size='small'
-                                scroll={{ x: 800 }}
+                                scroll={{ x: 800, y: 400 }}
                             />
                         </div>
                     </div>
@@ -810,6 +1037,24 @@ const DataAssetManagement: React.FC = () => {
         if (viewMode === 'category' && selectedCategory) {
             const cat = selectedCategory
             const ds = dataSources.find(d => d.id === cat.dataSourceId)
+            
+            // 格式化日期时间
+            const formatDateTime = (dateTime: string | null) => {
+                if (!dateTime) return '-'
+                try {
+                    const date = new Date(dateTime)
+                    return date.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                    })
+                } catch {
+                    return dateTime
+                }
+            }
             
             return (
                 <>
@@ -825,100 +1070,103 @@ const DataAssetManagement: React.FC = () => {
                             items={[
                                 {
                                     key: 'tables',
-                                    label: `表 (${cat.tables.length})`,
+                                    label: `表 (${tableList.length})`,
                                     children: (
                                         <div className={styles.infoSection}>
-                                            <Table
-                                                className={styles.infoTable}
-                                                dataSource={cat.tables.map((table, index) => {
-                                                    const tableInfo = mockTables[table]
-                                                    return {
+                                            <Spin spinning={tableListLoading}>
+                                                <Table
+                                                    className={styles.infoTable}
+                                                    dataSource={tableList.map((table, index) => ({
                                                         key: index,
-                                                        name: table,
-                                                        schema: tableInfo?.schema || cat.database,
-                                                        comment: tableInfo?.comment || '-',
-                                                        rowCount: tableInfo?.rowCount || 0,
-                                                        fieldCount: tableInfo?.fields?.length || 0,
-                                                        createTime: '2024-01-15 10:00:00',
-                                                        updateTime: '2024-01-20 14:30:00',
-                                                        tableType: 'BASE TABLE',
-                                                        engine: 'InnoDB',
-                                                        tableInfo: tableInfo, // 保存表信息用于点击
-                                                    }
-                                                })}
-                                                columns={[
-                                                    { 
-                                                        title: '表名', 
-                                                        dataIndex: 'name', 
-                                                        key: 'name',
-                                                        width: 180,
-                                                        fixed: 'left' as const,
-                                                    },
-                                                    { 
-                                                        title: '模式/数据库', 
-                                                        dataIndex: 'schema', 
-                                                        key: 'schema',
-                                                        width: 150,
-                                                    },
-                                                    { 
-                                                        title: '说明', 
-                                                        dataIndex: 'comment', 
-                                                        key: 'comment',
-                                                        ellipsis: true,
-                                                        width: 200,
-                                                    },
-                                                    {
-                                                        title: '记录数',
-                                                        dataIndex: 'rowCount',
-                                                        key: 'rowCount',
-                                                        width: 120,
-                                                        align: 'right' as const,
-                                                        render: (count: number) => count.toLocaleString(),
-                                                    },
-                                                    {
-                                                        title: '字段数',
-                                                        dataIndex: 'fieldCount',
-                                                        key: 'fieldCount',
-                                                        width: 100,
-                                                        align: 'right' as const,
-                                                    },
-                                                    {
-                                                        title: '表类型',
-                                                        dataIndex: 'tableType',
-                                                        key: 'tableType',
-                                                        width: 120,
-                                                    },
-                                                    {
-                                                        title: '存储引擎',
-                                                        dataIndex: 'engine',
-                                                        key: 'engine',
-                                                        width: 120,
-                                                    },
-                                                    {
-                                                        title: '创建时间',
-                                                        dataIndex: 'createTime',
-                                                        key: 'createTime',
-                                                        width: 160,
-                                                    },
-                                                    {
-                                                        title: '更新时间',
-                                                        dataIndex: 'updateTime',
-                                                        key: 'updateTime',
-                                                        width: 160,
-                                                    },
-                                                ]}
-                                                pagination={false}
-                                                size='small'
-                                                scroll={{ x: 1200 }}
-                                                onRow={(record) => ({
-                                                    onClick: () => {
-                                                        handleTableRowClick(record.name)
-                                                    },
-                                                    style: {
-                                                        cursor: 'pointer',
-                                                    },
-                                                })}
-                                            />
+                                                        tableName: table.tableName,
+                                                        databaseName: table.databaseName,
+                                                        tableComment: table.tableComment,
+                                                        rowCount: table.rowCount,
+                                                        columnCount: table.columnCount,
+                                                        tableType: table.tableType,
+                                                        storageEngine: table.storageEngine,
+                                                        createTime: table.createTime,
+                                                        updateTime: table.updateTime,
+                                                    }))}
+                                                    columns={[
+                                                        { 
+                                                            title: '表名', 
+                                                            dataIndex: 'tableName', 
+                                                            key: 'tableName',
+                                                            width: 180,
+                                                            fixed: 'left' as const,
+                                                        },
+                                                        { 
+                                                            title: '数据库', 
+                                                            dataIndex: 'databaseName', 
+                                                            key: 'databaseName',
+                                                            width: 150,
+                                                        },
+                                                        { 
+                                                            title: '说明', 
+                                                            dataIndex: 'tableComment', 
+                                                            key: 'tableComment',
+                                                            ellipsis: true,
+                                                            width: 200,
+                                                        },
+                                                        {
+                                                            title: '记录数',
+                                                            dataIndex: 'rowCount',
+                                                            key: 'rowCount',
+                                                            width: 120,
+                                                            align: 'right' as const,
+                                                            render: (count: string) => {
+                                                                const num = parseInt(count, 10)
+                                                                return isNaN(num) ? count : num.toLocaleString()
+                                                            },
+                                                        },
+                                                        {
+                                                            title: '字段数',
+                                                            dataIndex: 'columnCount',
+                                                            key: 'columnCount',
+                                                            width: 100,
+                                                            align: 'right' as const,
+                                                        },
+                                                        {
+                                                            title: '表类型',
+                                                            dataIndex: 'tableType',
+                                                            key: 'tableType',
+                                                            width: 120,
+                                                        },
+                                                        {
+                                                            title: '存储引擎',
+                                                            dataIndex: 'storageEngine',
+                                                            key: 'storageEngine',
+                                                            width: 120,
+                                                        },
+                                                        {
+                                                            title: '创建时间',
+                                                            dataIndex: 'createTime',
+                                                            key: 'createTime',
+                                                            width: 160,
+                                                            render: (time: string | null) => formatDateTime(time),
+                                                        },
+                                                        {
+                                                            title: '更新时间',
+                                                            dataIndex: 'updateTime',
+                                                            key: 'updateTime',
+                                                            width: 160,
+                                                            render: (time: string | null) => formatDateTime(time),
+                                                        },
+                                                    ]}
+                                                    pagination={false}
+                                                    size='small'
+                                                    scroll={{ x: 1200, y: 400 }}
+                                                    onRow={(record) => ({
+                                                        onClick: () => {
+                                                            handleTableRowClick(record.tableName)
+                                                        },
+                                                        style: {
+                                                            cursor: 'pointer',
+                                                        },
+                                                    })}
+                                                />
+                                            </Spin>
                                         </div>
                                     ),
                                 },
@@ -974,6 +1222,12 @@ const DataAssetManagement: React.FC = () => {
                             style={{ flex: 1 }}
                         />
                         <Button
+                            icon={<ReloadOutlined />}
+                            onClick={() => fetchAssetTree(debouncedSearchText || undefined)}
+                            style={{ marginLeft: 8 }}
+                            title='刷新'
+                        />
+                        <Button
                             type='primary'
                             icon={<PlusOutlined />}
                             onClick={() => setAddAssetModalVisible(true)}
@@ -983,15 +1237,16 @@ const DataAssetManagement: React.FC = () => {
                         </Button>
                     </div>
                     <div className={styles.treeContainer}>
-                        <Tree
-                            treeData={filteredTreeData as DataNode[]}
-                            selectedKeys={selectedKeys}
-                            expandedKeys={expandedKeys}
-                            onSelect={keys => setSelectedKeys(keys)}
-                            onExpand={keys => setExpandedKeys(keys)}
-                            showLine={{ showLeafIcon: false }}
-                            defaultExpandAll={false}
-                            blockNode
+                        <Spin spinning={loading}>
+                            <Tree
+                                treeData={filteredTreeData as DataNode[]}
+                                selectedKeys={selectedKeys}
+                                expandedKeys={expandedKeys}
+                                onSelect={keys => setSelectedKeys(keys)}
+                                onExpand={keys => setExpandedKeys(keys)}
+                                showLine={{ showLeafIcon: false }}
+                                defaultExpandAll={false}
+                                blockNode
                             titleRender={(nodeData): React.ReactNode => {
                                 const node = nodeData as ExtendedDataNode
                                 if (node.nodeType === 'dataSource') {
@@ -1061,6 +1316,7 @@ const DataAssetManagement: React.FC = () => {
                                 return node.title as React.ReactNode
                             }}
                         />
+                        </Spin>
                     </div>
                 </Sider>
                 <Content className={styles.content}>
@@ -1080,6 +1336,12 @@ const DataAssetManagement: React.FC = () => {
                     form.resetFields()
                 }}
                 width={500}
+                afterOpenChange={(open) => {
+                    // 弹窗打开时获取数据源选项
+                    if (open) {
+                        fetchDataSourceOptions()
+                    }
+                }}
             >
                 <Form form={form} layout='vertical'>
                     <Form.Item
@@ -1094,13 +1356,18 @@ const DataAssetManagement: React.FC = () => {
                         label='数据源'
                         rules={[{ required: true, message: '请选择数据源' }]}
                     >
-                        <Select placeholder='请选择数据源' showSearch filterOption={(input, option) => {
-                            const label = String(option?.label ?? '')
-                            return label.toLowerCase().includes(input.toLowerCase())
-                        }}>
-                            {dataSources.map(ds => (
-                                <Option key={ds.id} value={ds.id} label={ds.name}>
-                                    {ds.name} ({ds.type.toUpperCase()})
+                        <Select 
+                            placeholder='请选择数据源' 
+                            showSearch 
+                            loading={dataSourceOptionsLoading}
+                            filterOption={(input, option) => {
+                                const label = String(option?.label ?? '')
+                                return label.toLowerCase().includes(input.toLowerCase())
+                            }}
+                        >
+                            {dataSourceOptions.map(option => (
+                                <Option key={option.id} value={option.id} label={`${option.dbName} (${option.dbType})`}>
+                                    {option.dbName} ({option.dbType.toUpperCase()})
                                 </Option>
                             ))}
                         </Select>
@@ -1115,10 +1382,17 @@ const DataAssetManagement: React.FC = () => {
                 onOk={handleAddCategory}
                 onCancel={() => {
                     setAddCategoryModalVisible(false)
-                    setSelectedDatabase('')
+                    setSelectedDataSourceId('')
                     categoryForm.resetFields()
                 }}
                 width={600}
+                afterOpenChange={async (open) => {
+                    // 弹窗打开时获取表信息和数据源选项
+                    if (open) {
+                        fetchTableInfo()
+                        await fetchDataSourceOptions()
+                    }
+                }}
             >
                 <Form form={categoryForm} layout='vertical'>
                     <Form.Item
@@ -1136,31 +1410,16 @@ const DataAssetManagement: React.FC = () => {
                         <Select 
                             placeholder='请选择数据源' 
                             disabled={!!selectedDataSourceId}
-                        >
-                            {dataSources.map(ds => (
-                                <Option key={ds.id} value={ds.id}>
-                                    {ds.name}
-                                </Option>
-                            ))}
-                        </Select>
-                    </Form.Item>
-                    <Form.Item
-                        name='database'
-                        label='数据库'
-                        rules={[{ required: true, message: '请选择数据库' }]}
-                    >
-                        <Select 
-                            placeholder='请选择数据库'
-                            onChange={(value) => {
-                                setSelectedDatabase(value)
-                                // 切换数据库时清空已选表
-                                categoryForm.setFieldsValue({ tables: [] })
+                            loading={dataSourceOptionsLoading}
+                            showSearch
+                            filterOption={(input, option) => {
+                                const label = String(option?.label ?? '')
+                                return label.toLowerCase().includes(input.toLowerCase())
                             }}
-                            value={selectedDatabase}
                         >
-                            {selectedDataSourceId && getDatabasesByDataSource(selectedDataSourceId).map(db => (
-                                <Option key={db} value={db}>
-                                    {db}
+                            {dataSourceOptions.map(option => (
+                                <Option key={option.id} value={option.id} label={`${option.dbName} (${option.dbType})`}>
+                                    {option.dbName} ({option.dbType.toUpperCase()})
                                 </Option>
                             ))}
                         </Select>
@@ -1172,19 +1431,24 @@ const DataAssetManagement: React.FC = () => {
                     >
                         <Select
                             mode='multiple'
-                            placeholder={selectedDatabase ? '请选择表（可多选）' : '请先选择数据库'}
-                            disabled={!selectedDatabase}
+                            placeholder='请选择表（可多选）'
+                            loading={tableInfoOptionsLoading}
                             showSearch
                             filterOption={(input, option) => {
                                 const label = String(option?.label ?? '')
                                 return label.toLowerCase().includes(input.toLowerCase())
                             }}
                         >
-                            {selectedDatabase && getTablesByDatabase(selectedDatabase).map(tableName => {
-                                const table = mockTables[tableName]
+                            {tableInfoOptions.map(table => {
+                                // 处理表注释中的换行符
+                                const cleanComment = (table.tableComment || '').replace(/\r\n/g, ' ').replace(/\n/g, ' ').trim()
                                 return (
-                                    <Option key={tableName} value={tableName} label={tableName}>
-                                        {tableName} - {table?.comment || '-'}
+                                    <Option 
+                                        key={table.tableName} 
+                                        value={table.tableName} 
+                                        label={`${table.tableName} - ${cleanComment}`}
+                                    >
+                                        {table.tableName} - {cleanComment || '-'}
                                     </Option>
                                 )
                             })}

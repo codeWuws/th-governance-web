@@ -33,12 +33,12 @@ export default defineConfig(({ mode }) => {
             }),
             // 打包分析
             isProduction &&
-                visualizer({
-                    filename: 'dist/stats.html',
-                    open: true,
-                    gzipSize: true,
-                    brotliSize: true,
-                }),
+            visualizer({
+                filename: 'dist/stats.html',
+                open: true,
+                gzipSize: true,
+                brotliSize: true,
+            }),
         ].filter(Boolean),
         resolve: {
             alias: {
@@ -81,46 +81,24 @@ export default defineConfig(({ mode }) => {
             },
         },
         build: {
-            target: 'es2015',
-            outDir: 'dist',
-            assetsDir: 'assets',
-            sourcemap: false,
-            minify: 'terser',
-            terserOptions: {
-                compress: {
-                    drop_console: isProduction,
-                    drop_debugger: isProduction,
-                },
-            },
             rollupOptions: {
                 output: {
-                    chunkFileNames: 'js/[name]-[hash].js',
-                    entryFileNames: 'js/[name]-[hash].js',
-                    assetFileNames: assetInfo => {
-                        const info = assetInfo.name?.split('.') || []
-                        let extType = info[info.length - 1]
-                        if (
-                            /\.(mp4|webm|ogg|mp3|wav|flac|aac)(\?.*)?$/i.test(assetInfo.name || '')
-                        ) {
-                            extType = 'media'
-                        } else if (/\.(png|jpe?g|gif|svg)(\?.*)?$/i.test(assetInfo.name || '')) {
-                            extType = 'img'
-                        } else if (/\.(woff2?|eot|ttf|otf)(\?.*)?$/i.test(assetInfo.name || '')) {
-                            extType = 'fonts'
+                    chunkFileNames: 'assets/js/[name]-[hash].js',
+                    entryFileNames: 'assets/js/[name]-[hash].js',
+                    assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',
+                    manualChunks(id) {
+                        // id为文件的绝对路径
+                        if (id.includes('node_modules/.pnpm')) {
+                            return id.toString().split('node_modules/.pnpm/')[1].split('/')[0].toString();
                         }
-                        return `${extType}/[name]-[hash].[ext]`
-                    },
-                    manualChunks: {
-                        vendor: ['react', 'react-dom'],
-                        utils: ['axios'],
+                        if (id.includes('node_modules')) {
+                            return id.toString().split('node_modules/')[1].split('/')[0].toString();
+                        }
                     },
                 },
             },
-            // 启用 CSS 代码分割
-            cssCodeSplit: true,
-            // 设置 chunk 大小警告限制
-            chunkSizeWarningLimit: 1000,
         },
+        esbuild: isProduction ? { drop: ['console', 'debugger'] } : undefined,
         // 优化依赖
         optimizeDeps: {
             include: ['react', 'react-dom'],

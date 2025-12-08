@@ -124,35 +124,24 @@
 
 .detailContent {
     flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     padding: $spacing-xl;
     min-height: 0;
     background: $background-color;
-    
-    &::-webkit-scrollbar {
-        width: 8px;
-    }
-    
-    &::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    
-    &::-webkit-scrollbar-thumb {
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 4px;
-        
-        &:hover {
-            background: rgba(0, 0, 0, 0.3);
-        }
-    }
+    display: flex;
+    flex-direction: column;
 }
 
 .infoSection {
     margin-bottom: $spacing-xxxl;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     
     &:last-child {
         margin-bottom: 0;
+        flex: 1;
+        overflow: hidden;
     }
     
     :global(.ant-descriptions) {
@@ -209,6 +198,27 @@
         color: $text-color;
         border-bottom: 1px solid #e5e7eb;
         padding: $spacing-md $spacing-lg;
+    }
+    
+    // 自定义表格滚动条样式
+    :global(.ant-table-body) {
+        &::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        &::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        &::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            
+            &:hover {
+                background: rgba(0, 0, 0, 0.3);
+            }
+        }
     }
     
     :global(.ant-table-tbody > tr) {

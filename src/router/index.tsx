@@ -1,38 +1,62 @@
+import { lazy, Suspense } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
+import { Spin } from 'antd'
 import MainLayout from '../components/Layout/MainLayout'
-import Dashboard from '../pages/Dashboard'
-import DatabaseConnection from '../pages/DatabaseConnection'
-import DataGovernance from '../pages/DataGovernance'
-import { ExecutionHistory } from '../pages/DataGovernance/ExecutionHistory'
-import WorkflowConfig from '../pages/DataGovernance/WorkflowConfig'
-import WorkflowDetail from '../pages/DataGovernance/WorkflowDetail'
-import DataQualityControl from '../pages/DataQualityControl'
-import IntegratedQualityControlManagement from '../pages/DataQualityControl/IntegratedQualityControlManagement'
-import FlowManagement from '../pages/DataQualityControl/FlowManagement'
-import QCExecutionHistory from '../pages/DataQualityControl/ExecutionHistory'
-import QualityControlFlowDetail from '../pages/DataQualityControl/QualityControlFlowDetail'
 
-import DataManagement from '../pages/DataManagement'
-import DataAssetManagement from '../pages/DataManagement/DataAssetManagement'
-import CategoryStandardManagement from '../pages/DataManagement/CategoryStandardManagement'
-import IndexGenerationRules from '../pages/DataManagement/IndexGenerationRules'
-import IndexMergeRules from '../pages/DataManagement/IndexMergeRules'
-import IndexProcessingManagement from '../pages/DataManagement/IndexProcessingManagement'
+// 懒加载组件
+const Dashboard = lazy(() => import('../pages/Dashboard'))
+const DatabaseConnection = lazy(() => import('../pages/DatabaseConnection'))
+const DataGovernance = lazy(() => import('../pages/DataGovernance'))
+const ExecutionHistory = lazy(() => import('../pages/DataGovernance/ExecutionHistory').then(module => ({ default: module.ExecutionHistory })))
+const WorkflowConfig = lazy(() => import('../pages/DataGovernance/WorkflowConfig'))
+const WorkflowDetail = lazy(() => import('../pages/DataGovernance/WorkflowDetail'))
+const DataQualityControl = lazy(() => import('../pages/DataQualityControl'))
+const IntegratedQualityControlManagement = lazy(() => import('../pages/DataQualityControl/IntegratedQualityControlManagement'))
+const FlowManagement = lazy(() => import('../pages/DataQualityControl/FlowManagement'))
+const QCExecutionHistory = lazy(() => import('../pages/DataQualityControl/ExecutionHistory'))
+const QualityControlFlowDetail = lazy(() => import('../pages/DataQualityControl/QualityControlFlowDetail'))
 
-import BusinessDatasetManagement from '../pages/DataManagement/BusinessDatasetManagement'
-import MedicalDictionaryManagement from '../pages/DataManagement/MedicalDictionaryManagement'
-import StateDictionaryManagement from '../pages/DataManagement/StateDictionaryManagement'
-import StandardDictionaryMapping from '../pages/DataManagement/StandardDictionaryMapping'
-import DataParsing, { DataAnnotation, MedicalRecordParsing } from '../pages/DataParsing'
-import FullTextSearch from '../pages/DataRetrieval/FullTextSearch'
-import AdvancedSearch from '../pages/DataRetrieval/AdvancedSearch'
-import ConditionTreeSearch from '../pages/DataRetrieval/ConditionTreeSearch'
-import SearchAnalysis from '../pages/DataRetrieval/SearchAnalysis'
-import VisualizationView from '../pages/DataRetrieval/VisualizationView'
-import SystemSettings from '../pages/SystemSettings'
-import UserSettings from '../pages/SystemSettings/UserSettings'
-import RoleSettings from '../pages/SystemSettings/RoleSettings'
-import PermissionSettings from '../pages/SystemSettings/PermissionSettings'
+const DataManagement = lazy(() => import('../pages/DataManagement'))
+const DataAssetManagement = lazy(() => import('../pages/DataManagement/DataAssetManagement'))
+const CategoryStandardManagement = lazy(() => import('../pages/DataManagement/CategoryStandardManagement'))
+const IndexGenerationRules = lazy(() => import('../pages/DataManagement/IndexGenerationRules'))
+const IndexMergeRules = lazy(() => import('../pages/DataManagement/IndexMergeRules'))
+const IndexProcessingManagement = lazy(() => import('../pages/DataManagement/IndexProcessingManagement'))
+const BusinessDatasetManagement = lazy(() => import('../pages/DataManagement/BusinessDatasetManagement'))
+const MedicalDictionaryManagement = lazy(() => import('../pages/DataManagement/MedicalDictionaryManagement'))
+const StateDictionaryManagement = lazy(() => import('../pages/DataManagement/StateDictionaryManagement'))
+const StandardDictionaryMapping = lazy(() => import('../pages/DataManagement/StandardDictionaryMapping'))
+
+const DataParsing = lazy(() => import('../pages/DataParsing'))
+const DataAnnotation = lazy(() => import('../pages/DataParsing/DataAnnotation'))
+const MedicalRecordParsing = lazy(() => import('../pages/DataParsing/MedicalRecordParsing'))
+
+const FullTextSearch = lazy(() => import('../pages/DataRetrieval/FullTextSearch'))
+const AdvancedSearch = lazy(() => import('../pages/DataRetrieval/AdvancedSearch'))
+const ConditionTreeSearch = lazy(() => import('../pages/DataRetrieval/ConditionTreeSearch'))
+const SearchAnalysis = lazy(() => import('../pages/DataRetrieval/SearchAnalysis'))
+const VisualizationView = lazy(() => import('../pages/DataRetrieval/VisualizationView'))
+
+const SystemSettings = lazy(() => import('../pages/SystemSettings'))
+const UserSettings = lazy(() => import('../pages/SystemSettings/UserSettings'))
+const RoleSettings = lazy(() => import('../pages/SystemSettings/RoleSettings'))
+const PermissionSettings = lazy(() => import('../pages/SystemSettings/PermissionSettings'))
+
+// 加载中组件
+const LoadingFallback = () => (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <Spin size="large" tip="加载中..." />
+    </div>
+)
+
+// 包装懒加载组件为 React 元素
+const withSuspense = (Component: React.LazyExoticComponent<React.ComponentType<any>>) => {
+    return (
+        <Suspense fallback={<LoadingFallback />}>
+            <Component />
+        </Suspense>
+    )
+}
 
 export const router = createBrowserRouter(
     [
@@ -42,105 +66,105 @@ export const router = createBrowserRouter(
             children: [
             {
                 index: true,
-                element: <Dashboard />,
+                element: withSuspense(Dashboard),
             },
             {
                 path: 'dashboard',
-                element: <Dashboard />,
+                element: withSuspense(Dashboard),
             },
             {
                 path: 'database-connection',
-                element: <DatabaseConnection />,
+                element: withSuspense(DatabaseConnection),
             },
             {
                 path: 'data-governance',
-                element: <DataGovernance />,
+                element: withSuspense(DataGovernance),
             },
             {
                 path: 'data-governance/workflow-config',
-                element: <WorkflowConfig />,
+                element: withSuspense(WorkflowConfig),
             },
             {
                 path: 'data-governance/execution-history',
-                element: <ExecutionHistory />,
+                element: withSuspense(ExecutionHistory),
             },
             {
                 path: 'data-governance/workflow/:taskId',
-                element: <WorkflowDetail />,
+                element: withSuspense(WorkflowDetail),
             },
             {
                 path: 'data-quality-control',
-                element: <DataQualityControl />,
+                element: withSuspense(DataQualityControl),
             },
             {
                 path: 'data-quality-control/flow-management',
-                element: <FlowManagement />,
+                element: withSuspense(FlowManagement),
             },
             {
                 path: 'data-quality-control/execution-history',
-                element: <QCExecutionHistory />,
+                element: withSuspense(QCExecutionHistory),
             },
             {
                 path: 'data-quality-control/integrated',
-                element: <IntegratedQualityControlManagement />,
+                element: withSuspense(IntegratedQualityControlManagement),
             },
             {
                 path: 'data-quality-control/flow/:taskId',
-                element: <QualityControlFlowDetail />,
+                element: withSuspense(QualityControlFlowDetail),
             },
             {
                 path: 'data-management',
-                element: <DataManagement />,
+                element: withSuspense(DataManagement),
                 children: [
                     {
                         path: 'data-asset',
-                        element: <DataAssetManagement />,
+                        element: withSuspense(DataAssetManagement),
                     },
                     {
                         path: 'category-standards',
-                        element: <CategoryStandardManagement />,
+                        element: withSuspense(CategoryStandardManagement),
                     },
                     {
                         path: 'business-datasets',
-                        element: <BusinessDatasetManagement />,
+                        element: withSuspense(BusinessDatasetManagement),
                     },
                     {
                         path: 'medical-dictionaries',
-                        element: <MedicalDictionaryManagement />,
+                        element: withSuspense(MedicalDictionaryManagement),
                     },
                     {
                         path: 'state-dictionaries',
-                        element: <StateDictionaryManagement />,
+                        element: withSuspense(StateDictionaryManagement),
                     },
                     {
                         path: 'standard-dictionary-mapping',
-                        element: <StandardDictionaryMapping />,
+                        element: withSuspense(StandardDictionaryMapping),
                     },
                     {
                         path: 'index-rules',
-                        element: <IndexGenerationRules />,
+                        element: withSuspense(IndexGenerationRules),
                     },
                     {
                         path: 'merge-rules',
-                        element: <IndexMergeRules />,
+                        element: withSuspense(IndexMergeRules),
                     },
                     {
                         path: 'index-processing',
-                        element: <IndexProcessingManagement />,
+                        element: withSuspense(IndexProcessingManagement),
                     },
                 ],
             },
             {
                 path: 'data-parsing',
-                element: <DataParsing />,
+                element: withSuspense(DataParsing),
             },
             {
                 path: 'data-parsing/annotation',
-                element: <DataAnnotation />,
+                element: withSuspense(DataAnnotation),
             },
             {
                 path: 'data-parsing/medical-record',
-                element: <MedicalRecordParsing />,
+                element: withSuspense(MedicalRecordParsing),
             },
             // 数据检索模块
             {
@@ -148,55 +172,55 @@ export const router = createBrowserRouter(
                 children: [
                     {
                         index: true,
-                        element: <FullTextSearch />,
+                        element: withSuspense(FullTextSearch),
                     },
                     {
                         path: 'fulltext',
-                        element: <FullTextSearch />,
+                        element: withSuspense(FullTextSearch),
                     },
                     {
                         path: 'advanced',
-                        element: <AdvancedSearch />,
+                        element: withSuspense(AdvancedSearch),
                     },
                     {
                         path: 'condition-tree',
-                        element: <ConditionTreeSearch />,
+                        element: withSuspense(ConditionTreeSearch),
                     },
                     {
                         path: 'analysis',
-                        element: <SearchAnalysis />,
+                        element: withSuspense(SearchAnalysis),
                     },
                     // 支持无 ID 的可视化路由，用于演示或回退到模拟数据
                     {
                         path: 'visualization',
-                        element: <VisualizationView />,
+                        element: withSuspense(VisualizationView),
                     },
                     {
                         path: 'visualization/:id',
-                        element: <VisualizationView />,
+                        element: withSuspense(VisualizationView),
                     },
                 ],
             },
             // 系统设置模块
             {
                 path: 'system-settings',
-                element: <SystemSettings />,
+                element: withSuspense(SystemSettings),
                 children: [
                     {
                         index: true,
-                        element: <UserSettings />,
+                        element: withSuspense(UserSettings),
                     },
                     {
                         path: 'users',
-                        element: <UserSettings />,
+                        element: withSuspense(UserSettings),
                     },
                     {
                         path: 'roles',
-                        element: <RoleSettings />,
+                        element: withSuspense(RoleSettings),
                     },
                     {
                         path: 'permissions',
-                        element: <PermissionSettings />,
+                        element: withSuspense(PermissionSettings),
                     },
                 ],
             },

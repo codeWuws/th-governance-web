@@ -924,3 +924,191 @@ export interface StandardDictionaryMappingSaveResponse {
     /** 响应数据 */
     data?: unknown
 }
+
+// ==================== 数据资产管理相关类型定义 ====================
+
+/** 资产树节点 */
+export interface AssetTreeNode {
+    /** 节点ID */
+    id: string
+    /** 节点名称 */
+    name: string
+    /** 节点类型：0-数据源，1-资产类别 */
+    nodeType: 0 | 1
+    /** 状态：0-禁用，1-启用 */
+    status: 0 | 1
+    /** 子节点列表 */
+    children: AssetTreeNode[]
+    /** 表名列表（仅在资产类别节点存在） */
+    tables: string[]
+}
+
+/** 资产树查询参数 */
+export interface AssetTreeParams {
+    /** 名称筛选条件（可选） */
+    name?: string
+}
+
+/** 资产树响应 */
+export interface AssetTreeResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 资产树数据 */
+    data: AssetTreeNode[]
+}
+
+/** 资产表信息 */
+export interface AssetTableInfo {
+    /** 表名 */
+    tableName: string
+    /** 数据库名 */
+    databaseName: string
+    /** 表注释 */
+    tableComment: string
+    /** 记录数 */
+    rowCount: string
+    /** 字段数 */
+    columnCount: number
+    /** 表类型 */
+    tableType: string
+    /** 存储引擎 */
+    storageEngine: string
+    /** 创建时间 */
+    createTime: string | null
+    /** 更新时间 */
+    updateTime: string | null
+}
+
+/** 资产表列表响应 */
+export interface AssetTableListResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 表列表数据 */
+    data: AssetTableInfo[]
+}
+
+/** 资产表字段信息 */
+export interface AssetTableColumn {
+    /** 字段名 */
+    columnName: string
+    /** 数据类型 */
+    dataType: string
+    /** 是否允许为空：YES/NO */
+    isNullable: string
+    /** 默认值 */
+    columnDefault: string | null
+    /** 字段注释 */
+    columnComment: string
+}
+
+/** 资产表字段详情数据 */
+export interface AssetTableColumnDetailsData {
+    /** 模式/数据库名 */
+    schema: string
+    /** 表大小 */
+    size: string
+    /** 字段列表 */
+    list: AssetTableColumn[]
+    /** 表名 */
+    tableName: string
+}
+
+/** 资产表字段详情响应 */
+export interface AssetTableColumnDetailsResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 字段详情数据 */
+    data: AssetTableColumnDetailsData
+}
+
+// ==================== 新增资产相关类型定义 ====================
+
+/** 新增资产请求参数 */
+export interface AddAssetParams {
+    /** 父节点ID，0表示根节点 */
+    parentId: number
+    /** 资产名称 */
+    assetName: string
+    /** 节点类型：0-数据源，1-资产类别 */
+    nodeType: 0 | 1
+    /** 数据源ID */
+    sourceId: number
+}
+
+/** 新增资产响应 */
+export interface AddAssetResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data?: unknown
+}
+
+/** 数据源选项 */
+export interface AssetDataSourceOption {
+    /** 数据源ID */
+    id: string
+    /** 数据库名称 */
+    dbName: string
+    /** 数据库类型 */
+    dbType: string
+}
+
+/** 数据源选项响应 */
+export interface AssetDataSourceOptionsResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 数据源选项列表 */
+    data: AssetDataSourceOption[]
+}
+
+/** 表信息 */
+export interface AssetTableInfoOption {
+    /** 表名 */
+    tableName: string
+    /** 表注释 */
+    tableComment: string
+}
+
+/** 表信息响应 */
+export interface AssetTableInfoResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 表信息列表 */
+    data: AssetTableInfoOption[]
+}
+
+// ==================== 新增资产类别相关类型定义 ====================
+
+/** 新增资产类别请求参数 */
+export interface AddAssetCategoryParams {
+    /** 父节点ID，指向数据源节点ID */
+    parentId: number
+    /** 类别名称 */
+    assetName: string
+    /** 节点类型：1-资产类别 */
+    nodeType: 1
+    /** 多选表节点名称数组 */
+    tableNames: string[]
+}
+
+/** 新增资产类别响应 */
+export interface AddAssetCategoryResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data?: unknown
+}
