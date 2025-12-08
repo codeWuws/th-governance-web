@@ -18,7 +18,7 @@ const QualityControlFlowDetail = lazy(() => import('../pages/DataQualityControl/
 
 const DataManagement = lazy(() => import('../pages/DataManagement'))
 const DataAssetManagement = lazy(() => import('../pages/DataManagement/DataAssetManagement'))
-const CategoryStandardManagement = lazy(() => import('../pages/DataManagement/CategoryStandardManagement'))
+const CategoryManagement = lazy(() => import('../pages/DataManagement/CategoryManagement'))
 const IndexGenerationRules = lazy(() => import('../pages/DataManagement/IndexGenerationRules'))
 const IndexMergeRules = lazy(() => import('../pages/DataManagement/IndexMergeRules'))
 const IndexProcessingManagement = lazy(() => import('../pages/DataManagement/IndexProcessingManagement'))
@@ -121,8 +121,8 @@ export const router = createBrowserRouter(
                         element: withSuspense(DataAssetManagement),
                     },
                     {
-                        path: 'category-standards',
-                        element: withSuspense(CategoryStandardManagement),
+                        path: 'category-management',
+                        element: withSuspense(CategoryManagement),
                     },
                     {
                         path: 'business-datasets',
