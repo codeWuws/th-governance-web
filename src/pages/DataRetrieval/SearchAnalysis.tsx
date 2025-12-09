@@ -29,7 +29,6 @@ import {
     EyeOutlined,
     ReloadOutlined,
     FilterOutlined,
-    DownloadOutlined,
 } from '@ant-design/icons'
 import { useApi } from '../../hooks/useApi'
 import { StatisticalAnalysis, PatientRecord, SearchAggregations, SearchType } from './types'
@@ -168,29 +167,6 @@ const SearchAnalysis: React.FC = () => {
         navigate(`/data-retrieval/visualization/${record.id}`)
     }
 
-    // 导出分析结果
-    const handleExportAnalysis = () => {
-        if (!analysisData) return
-
-        const exportData = {
-            analysis: analysisData,
-            exportTime: moment().format('YYYY-MM-DD HH:mm:ss'),
-            filters: {
-                timeRange: selectedTimeRange,
-                department: selectedDepartment,
-            },
-        }
-
-        const dataStr = JSON.stringify(exportData, null, 2)
-        const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr)
-
-        const exportFileDefaultName = `search_analysis_${moment().format('YYYYMMDDHHmmss')}.json`
-
-        const linkElement = document.createElement('a')
-        linkElement.setAttribute('href', dataUri)
-        linkElement.setAttribute('download', exportFileDefaultName)
-        linkElement.click()
-    }
 
     // 表格列定义
     const columns = [
@@ -502,13 +478,6 @@ const SearchAnalysis: React.FC = () => {
                             </Button>
                             <Button icon={<ReloadOutlined />} onClick={handleResetFilter}>
                                 重置
-                            </Button>
-                            <Button
-                                icon={<DownloadOutlined />}
-                                onClick={handleExportAnalysis}
-                                disabled={!analysisData}
-                            >
-                                导出
                             </Button>
                         </Space>
                     </Col>

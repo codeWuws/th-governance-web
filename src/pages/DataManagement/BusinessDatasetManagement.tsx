@@ -18,9 +18,6 @@ import {
     PlusOutlined,
     EditOutlined,
     DeleteOutlined,
-    EyeOutlined,
-    DownloadOutlined,
-    UploadOutlined,
 } from '@ant-design/icons'
 
 const { Option } = Select
@@ -163,56 +160,7 @@ const BusinessDatasetManagement: React.FC = () => {
         form.resetFields()
     }
 
-    const handleExport = (record: BusinessDataset) => {
-        message.info(`正在导出 ${record.name} 的模板...`)
-        // 模拟导出操作
-        setTimeout(() => {
-            message.success('模板导出成功')
-        }, 1000)
-    }
 
-    const handleImport = () => {
-        message.info('导入功能开发中...')
-    }
-
-    const handlePreview = (record: BusinessDataset) => {
-        Modal.info({
-            title: '数据集预览',
-            width: 800,
-            content: (
-                <div>
-                    <p>
-                        <strong>数据集名称：</strong>
-                        {record.name}
-                    </p>
-                    <p>
-                        <strong>编码：</strong>
-                        {record.code}
-                    </p>
-                    <p>
-                        <strong>疾病类型：</strong>
-                        {record.diseaseType}
-                    </p>
-                    <p>
-                        <strong>数据源：</strong>
-                        {record.dataSource}
-                    </p>
-                    <p>
-                        <strong>字段数量：</strong>
-                        {record.fieldCount}
-                    </p>
-                    <p>
-                        <strong>描述：</strong>
-                        {record.description}
-                    </p>
-                    <p>
-                        <strong>版本：</strong>
-                        {record.version}
-                    </p>
-                </div>
-            ),
-        })
-    }
 
     const columns = [
         {
@@ -288,26 +236,10 @@ const BusinessDatasetManagement: React.FC = () => {
                     <Button
                         type='link'
                         size='small'
-                        icon={<EyeOutlined />}
-                        onClick={() => handlePreview(record)}
-                    >
-                        预览
-                    </Button>
-                    <Button
-                        type='link'
-                        size='small'
                         icon={<EditOutlined />}
                         onClick={() => handleEdit(record)}
                     >
                         编辑
-                    </Button>
-                    <Button
-                        type='link'
-                        size='small'
-                        icon={<DownloadOutlined />}
-                        onClick={() => handleExport(record)}
-                    >
-                        导出
                     </Button>
                     <Popconfirm
                         title='确定要删除这个数据集吗？'
@@ -338,9 +270,6 @@ const BusinessDatasetManagement: React.FC = () => {
                     业务数据集管理
                 </Typography.Title>
                 <Space>
-                    <Button type='default' icon={<UploadOutlined />} onClick={handleImport}>
-                        导入模板
-                    </Button>
                     <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
                         新建数据集
                     </Button>
@@ -348,7 +277,7 @@ const BusinessDatasetManagement: React.FC = () => {
             </div>
             <Alert
                 message='管理面向业务的专病数据集'
-                description='支持创建、编辑、导入导出与预览，确保数据集规范与完整。'
+                description='支持创建、编辑，确保数据集规范与完整。'
                 type='info'
                 showIcon
                 style={{ marginBottom: 24 }}

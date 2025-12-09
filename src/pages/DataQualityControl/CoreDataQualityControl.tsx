@@ -266,67 +266,6 @@ const CoreDataQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) 
         }
     }
 
-    const exportCsv = (rows: Record<string, unknown>[], filename: string) => {
-        try {
-            if (!rows || rows.length === 0) {
-                uiMessage.warning('暂无可导出的数据')
-                return
-            }
-            const firstRow = rows[0]
-            if (!firstRow) {
-                uiMessage.warning('暂无可导出的数据')
-                return
-            }
-            const headers = Object.keys(firstRow)
-            const escape = (val: unknown) => {
-                const s = String(val ?? '')
-                const needQuote = /[",\n]/.test(s)
-                const escaped = s.replace(/"/g, '""')
-                return needQuote ? `"${escaped}"` : escaped
-            }
-            const csv = [
-                headers.join(','),
-                ...rows.map(r => headers.map(h => escape(r[h])).join(',')),
-            ].join('\n')
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-            const url = window.URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = filename
-            a.click()
-            window.URL.revokeObjectURL(url)
-            uiMessage.success('导出成功')
-        } catch (e) {
-            logger.error('导出失败', e instanceof Error ? e : new Error(String(e)))
-            uiMessage.error('导出失败，请重试')
-        }
-    }
-
-    const handleExportMetrics = () => {
-        const rows = coreMetrics.map(m => ({
-            dataType: m.dataType,
-            totalRecords: m.totalRecords,
-            qualifiedRecords: m.qualifiedRecords,
-            qualityScore: m.qualityScore,
-            trend: m.trend,
-            status: m.status,
-            issues: m.issues.join(' | '),
-        }))
-        exportCsv(rows, '核心数据质控_质量指标.csv')
-    }
-
-    const handleExportComparisons = () => {
-        const rows = comparisonResults.map(c => ({
-            metric: c.metric,
-            currentPeriod: c.currentPeriod,
-            previousPeriod: c.previousPeriod,
-            changeRate: c.changeRate,
-            changeType: c.changeType,
-            benchmark: c.benchmark,
-            meetsBenchmark: c.meetsBenchmark ? '是' : '否',
-        }))
-        exportCsv(rows, '核心数据质控_对比分析.csv')
-    }
 
     useEffect(() => {
         let cancelled = false
@@ -682,13 +621,6 @@ const CoreDataQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) 
                                 核心数据质量指标
                             </>
                         }
-                        extra={
-                            coreMetrics.length > 0 ? (
-                                <Button type='link' onClick={handleExportMetrics}>
-                                    导出CSV
-                                </Button>
-                            ) : undefined
-                        }
                         style={{ marginBottom: 16 }}
                     >
                         {coreMetrics.length > 0 ? (
@@ -718,13 +650,6 @@ const CoreDataQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) 
                                     <TrophyOutlined style={{ marginRight: 8 }} />
                                     对比分析结果
                                 </>
-                            }
-                            extra={
-                                comparisonResults.length > 0 ? (
-                                    <Button type='link' onClick={handleExportComparisons}>
-                                        导出CSV
-                                    </Button>
-                                ) : undefined
                             }
                         >
                             <Table

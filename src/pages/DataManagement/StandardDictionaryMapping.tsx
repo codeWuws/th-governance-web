@@ -22,8 +22,6 @@ import {
     EditOutlined,
     DeleteOutlined,
     SearchOutlined,
-    ImportOutlined,
-    ExportOutlined,
     EyeOutlined,
     ReloadOutlined,
 } from '@ant-design/icons'
@@ -527,13 +525,6 @@ const StandardDictionaryMapping: React.FC = () => {
         setEditingRecord(null)
     }
 
-    const handleImport = () => {
-        message.info('导入功能开发中...')
-    }
-
-    const handleExport = () => {
-        message.success('导出成功')
-    }
 
     /**
      * 处理分页变化
@@ -657,12 +648,6 @@ const StandardDictionaryMapping: React.FC = () => {
                 <Space>
                     <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
                         新增对照
-                    </Button>
-                    <Button icon={<ImportOutlined />} onClick={handleImport}>
-                        导入
-                    </Button>
-                    <Button icon={<ExportOutlined />} onClick={handleExport}>
-                        导出
                     </Button>
                     <Button icon={<ReloadOutlined />} onClick={fetchData}>
                         刷新

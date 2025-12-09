@@ -28,7 +28,6 @@ import {
     SearchOutlined,
     UploadOutlined,
     EyeOutlined,
-    DownloadOutlined,
     PlayCircleOutlined,
     SettingOutlined,
     CheckCircleOutlined,
@@ -212,10 +211,6 @@ const MedicalRecordParsing: React.FC = () => {
         }, 1000)
     }, [])
 
-    // 处理导出结果
-    const handleExport = useCallback((record: MedicalRecordParsingRecord) => {
-        message.success(`导出解析结果: ${record.fileName}`)
-    }, [])
 
     // 处理删除
     const handleDelete = useCallback((record: MedicalRecordParsingRecord) => {
@@ -366,16 +361,6 @@ const MedicalRecordParsing: React.FC = () => {
                     >
                         查看
                     </Button>
-                    {record.status === 'completed' && (
-                        <Button
-                            type='text'
-                            icon={<DownloadOutlined />}
-                            size='small'
-                            onClick={() => handleExport(record)}
-                        >
-                            导出
-                        </Button>
-                    )}
                     {record.status === 'pending' && (
                         <Button
                             type='text'

@@ -264,69 +264,7 @@ const BasicMedicalLogicQualityControl: React.FC<AutoProps> = ({ autoStart, onAut
         }
     }
 
-    const exportCsv = (rows: Record<string, unknown>[], filename: string) => {
-        try {
-            if (!rows || rows.length === 0) {
-                uiMessage.warning('暂无可导出的数据')
-                return
-            }
-            const firstRow = rows[0]
-            if (!firstRow) {
-                uiMessage.warning('暂无可导出的数据')
-                return
-            }
-            const headers = Object.keys(firstRow)
-            const escape = (val: unknown) => {
-                const s = String(val ?? '')
-                const needQuote = /[",\n]/.test(s)
-                const escaped = s.replace(/"/g, '""')
-                return needQuote ? `"${escaped}"` : escaped
-            }
-            const csv = [
-                headers.join(','),
-                ...rows.map(r => headers.map(h => escape(r[h])).join(',')),
-            ].join('\n')
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-            const url = window.URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = filename
-            a.click()
-            window.URL.revokeObjectURL(url)
-            uiMessage.success('导出成功')
-        } catch (e) {
-            logger.error('导出失败', e instanceof Error ? e : new Error(String(e)))
-            uiMessage.error('导出失败，请重试')
-        }
-    }
 
-    const handleExportRelations = () => {
-        const rows = tableRelations.map(r => ({
-            mainTable: r.mainTable,
-            subTable: r.subTable,
-            relationField: r.relationField,
-            mainCount: r.mainCount,
-            subCount: r.subCount,
-            matchedCount: r.matchedCount,
-            unmatchedCount: r.unmatchedCount,
-            matchRate: r.matchRate,
-            status: r.status,
-        }))
-        exportCsv(rows, '医疗逻辑质控_主附表关联.csv')
-    }
-
-    const handleExportLogic = () => {
-        const rows = logicResults.map(l => ({
-            checkType: l.checkType,
-            description: l.description,
-            totalChecked: l.totalChecked,
-            passedCount: l.passedCount,
-            failedCount: l.failedCount,
-            passRate: l.passRate,
-            errorDetails: l.errorDetails.join(' | '),
-        }))
-        exportCsv(rows, '医疗逻辑质控_业务逻辑.csv')
-    }
 
     useEffect(() => {
         let cancelled = false
@@ -687,13 +625,6 @@ const BasicMedicalLogicQualityControl: React.FC<AutoProps> = ({ autoStart, onAut
                                 主附表关联检查
                             </>
                         }
-                        extra={
-                            tableRelations.length > 0 ? (
-                                <Button type='link' onClick={handleExportRelations}>
-                                    导出CSV
-                                </Button>
-                            ) : undefined
-                        }
                         style={{ marginBottom: 16 }}
                     >
                         {tableRelations.length > 0 ? (
@@ -723,13 +654,6 @@ const BasicMedicalLogicQualityControl: React.FC<AutoProps> = ({ autoStart, onAut
                                     <CheckCircleOutlined style={{ marginRight: 8 }} />
                                     业务逻辑检查
                                 </>
-                            }
-                            extra={
-                                logicResults.length > 0 ? (
-                                    <Button type='link' onClick={handleExportLogic}>
-                                        导出CSV
-                                    </Button>
-                                ) : undefined
                             }
                         >
                             <Table

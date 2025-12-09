@@ -25,7 +25,6 @@ import {
     EditOutlined,
     EyeOutlined,
     DeleteOutlined,
-    DownloadOutlined,
     CheckCircleOutlined,
     ClockCircleOutlined,
     ExclamationCircleOutlined,
@@ -128,10 +127,6 @@ const DataAnnotation: React.FC = () => {
         message.info(`开始标注: ${record.fileName}`)
     }, [])
 
-    // 处理导出
-    const handleExport = useCallback((record: DataAnnotationRecord) => {
-        message.success(`导出标注结果: ${record.fileName}`)
-    }, [])
 
     // 处理删除
     const handleDelete = useCallback((record: DataAnnotationRecord) => {
@@ -273,14 +268,6 @@ const DataAnnotation: React.FC = () => {
                             标注
                         </Button>
                     )}
-                    <Button
-                        type='text'
-                        icon={<DownloadOutlined />}
-                        size='small'
-                        onClick={() => handleExport(record)}
-                    >
-                        导出
-                    </Button>
                     <Button
                         type='text'
                         danger

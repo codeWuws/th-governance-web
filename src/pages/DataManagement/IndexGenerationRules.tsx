@@ -29,7 +29,6 @@ import {
     ReloadOutlined,
     EyeOutlined,
     CopyOutlined,
-    PlayCircleOutlined,
 } from '@ant-design/icons'
 import { useDebounce } from '../../hooks/useDebounce'
 
@@ -242,16 +241,6 @@ const IndexGenerationRules: React.FC = () => {
         message.success('复制成功')
     }
 
-    const handleExecute = async (_record: IndexGenerationRule) => {
-        try {
-            // 模拟执行操作
-            message.loading('正在执行规则...', 2)
-            await new Promise(resolve => setTimeout(resolve, 2000))
-            message.success('规则执行成功')
-        } catch {
-            message.error('规则执行失败')
-        }
-    }
 
     const handleDelete = async (id: string) => {
         try {
@@ -499,15 +488,6 @@ const IndexGenerationRules: React.FC = () => {
                             icon={<CopyOutlined />}
                             size='small'
                             onClick={() => handleCopy(record)}
-                        />
-                    </Tooltip>
-                    <Tooltip title='执行规则'>
-                        <Button
-                            type='text'
-                            icon={<PlayCircleOutlined />}
-                            size='small'
-                            onClick={() => handleExecute(record)}
-                            disabled={record.status !== 'active'}
                         />
                     </Tooltip>
                     <Tooltip title='编辑'>

@@ -256,67 +256,6 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
         setFieldCompleteness(mockFieldData)
     }
 
-    const exportCsv = (rows: Record<string, unknown>[], filename: string) => {
-        try {
-            if (!rows || rows.length === 0) {
-                uiMessage.warning('暂无可导出的数据')
-                return
-            }
-            const firstRow = rows[0]
-            if (!firstRow) {
-                uiMessage.warning('暂无可导出的数据')
-                return
-            }
-            const headers = Object.keys(firstRow)
-            const escape = (val: unknown) => {
-                const s = String(val ?? '')
-                const needQuote = /[",\n]/.test(s)
-                const escaped = s.replace(/"/g, '""')
-                return needQuote ? `"${escaped}"` : escaped
-            }
-            const csv = [
-                headers.join(','),
-                ...rows.map(r => headers.map(h => escape(r[h])).join(',')),
-            ].join('\n')
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-            const url = window.URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = filename
-            a.click()
-            window.URL.revokeObjectURL(url)
-            uiMessage.success('导出成功')
-        } catch (e) {
-            logger.error('导出失败', e instanceof Error ? e : new Error(String(e)))
-            uiMessage.error('导出失败，请重试')
-        }
-    }
-
-    const handleExportTables = () => {
-        const rows = tableCompleteness.map(t => ({
-            tableName: t.tableName,
-            tableComment: t.tableComment,
-            totalRecords: t.totalRecords,
-            completenessRate: t.completenessRate,
-            incompleteRecords: t.incompleteRecords,
-            status: t.status,
-        }))
-        exportCsv(rows, '完整性质控_表级.csv')
-    }
-
-    const handleExportFields = () => {
-        const rows = fieldCompleteness.map(f => ({
-            fieldName: f.fieldName,
-            fieldComment: f.fieldComment,
-            dataType: f.dataType,
-            totalRecords: f.totalRecords,
-            filledRecords: f.filledRecords,
-            emptyRecords: f.emptyRecords,
-            fillRate: f.fillRate,
-            isRequired: f.isRequired ? '是' : '否',
-        }))
-        exportCsv(rows, `完整性质控_字段_${selectedTable || '未选择'}.csv`)
-    }
 
     useEffect(() => {
         let cancelled = false
@@ -644,13 +583,6 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
                                 表级完整性
                             </>
                         }
-                        extra={
-                            tableCompleteness.length > 0 ? (
-                                <Button type='link' onClick={handleExportTables}>
-                                    导出CSV
-                                </Button>
-                            ) : undefined
-                        }
                         style={{ marginBottom: 16 }}
                     >
                         {tableCompleteness.length > 0 ? (
@@ -681,17 +613,12 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
                             }
                             extra={
                                 fieldCompleteness.length > 0 ? (
-                                    <Space>
-                                        <Button
-                                            type='link'
-                                            onClick={() => setShowRequiredOnly(s => !s)}
-                                        >
-                                            {showRequiredOnly ? '显示全部字段' : '仅显示必填字段'}
-                                        </Button>
-                                        <Button type='link' onClick={handleExportFields}>
-                                            导出CSV
-                                        </Button>
-                                    </Space>
+                                    <Button
+                                        type='link'
+                                        onClick={() => setShowRequiredOnly(s => !s)}
+                                    >
+                                        {showRequiredOnly ? '显示全部字段' : '仅显示必填字段'}
+                                    </Button>
                                 ) : undefined
                             }
                         >

@@ -27,7 +27,6 @@ import {
 import {
     EyeOutlined,
     ReloadOutlined,
-    DownloadOutlined,
     SettingOutlined,
     CalendarOutlined,
     MedicineBoxOutlined,
@@ -280,13 +279,6 @@ const VisualizationView: React.FC = () => {
         }
     }
 
-    // 导出可视化数据
-    const handleExportData = () => {
-        if (!patientData) return
-
-        const exportData = {
-            patientInfo: patientData,
-            timelineEvents,
             timeSeriesData,
             exportTime: moment().format('YYYY-MM-DD HH:mm:ss'),
             config: visualizationConfig,
@@ -735,9 +727,6 @@ const VisualizationView: React.FC = () => {
                 <Space>
                     <Button icon={<ReloadOutlined />} onClick={handleRefresh}>
                         刷新
-                    </Button>
-                    <Button icon={<DownloadOutlined />} onClick={handleExportData}>
-                        导出
                     </Button>
                     <Button icon={<SettingOutlined />} onClick={() => setConfigModalVisible(true)}>
                         配置

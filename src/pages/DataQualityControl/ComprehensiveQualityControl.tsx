@@ -161,41 +161,6 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
         },
     }
 
-    const exportCsv = (rows: Record<string, unknown>[], filename: string) => {
-        try {
-            if (!rows || rows.length === 0) {
-                uiMessage.warning('暂无可导出的数据')
-                return
-            }
-            const firstRow = rows[0]
-            if (!firstRow) {
-                uiMessage.warning('暂无可导出的数据')
-                return
-            }
-            const headers = Object.keys(firstRow)
-            const escape = (val: unknown) => {
-                const s = String(val ?? '')
-                const needQuote = /[",\n]/.test(s)
-                const escaped = s.replace(/"/g, '""')
-                return needQuote ? `"${escaped}"` : escaped
-            }
-            const csv = [
-                headers.join(','),
-                ...rows.map(r => headers.map(h => escape(r[h])).join(',')),
-            ].join('\n')
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-            const url = window.URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = filename
-            a.click()
-            window.URL.revokeObjectURL(url)
-            uiMessage.success('导出成功')
-        } catch (e) {
-            logger.error('导出失败', e instanceof Error ? e : new Error(String(e)))
-            uiMessage.error('导出失败，请重试')
-        }
-    }
 
     useEffect(() => {
         let cancelled = false
@@ -213,28 +178,6 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
         }
     }, [autoStart])
 
-    const handleExportMetrics = () => {
-        const rows = qualityMetrics.map(m => ({
-            metric: m.metric,
-            score: m.score,
-            status: m.status,
-            description: m.description,
-        }))
-        exportCsv(rows, '综合质控_指标.csv')
-    }
-
-    const handleExportReports = () => {
-        const rows = qualityReports.map(r => ({
-            category: r.category,
-            totalItems: r.totalItems,
-            passedItems: r.passedItems,
-            failedItems: r.failedItems,
-            passRate: r.passRate,
-            status: r.status ?? '',
-            details: r.details ?? '',
-        }))
-        exportCsv(rows, '综合质控_Excel解析结果.csv')
-    }
 
     // 执行综合质控
     const handleComprehensiveCheck = async (_values: ComprehensiveFormValues) => {
@@ -577,13 +520,6 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
                                 时效指标
                             </>
                         }
-                        extra={
-                            qualityMetrics.length > 0 ? (
-                                <Button type='link' onClick={handleExportMetrics}>
-                                    导出CSV
-                                </Button>
-                            ) : undefined
-                        }
                         style={{ marginBottom: 16 }}
                     >
                         {qualityMetrics.length > 0 ? (
@@ -612,13 +548,6 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
                                     <FileExcelOutlined style={{ marginRight: 8 }} />
                                     时效结果解析（Excel）
                                 </>
-                            }
-                            extra={
-                                qualityReports.length > 0 ? (
-                                    <Button type='link' onClick={handleExportReports}>
-                                        导出CSV
-                                    </Button>
-                                ) : undefined
                             }
                         >
                             <Table

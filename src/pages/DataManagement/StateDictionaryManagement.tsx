@@ -20,8 +20,6 @@ import {
     EditOutlined,
     DeleteOutlined,
     SearchOutlined,
-    ImportOutlined,
-    ExportOutlined,
     EyeOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
@@ -229,15 +227,8 @@ const StateDictionaryManagement: React.FC = () => {
         form.resetFields()
     }
 
-    const handleImport = () => {
-        message.info('导入功能开发中...')
-    }
 
-    const handleExport = () => {
-        message.success('导出成功')
-    }
-
-    const handlePreview = (record: StateDictionary) => {
+    const handleView = (record: StateDictionary) => {
         Modal.info({
             title: '状态字典详情',
             width: 600,
@@ -360,7 +351,7 @@ const StateDictionaryManagement: React.FC = () => {
                         type='link'
                         size='small'
                         icon={<EyeOutlined />}
-                        onClick={() => handlePreview(record)}
+                        onClick={() => handleView(record)}
                     >
                         查看
                     </Button>
@@ -403,17 +394,11 @@ const StateDictionaryManagement: React.FC = () => {
                     <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
                         新增状态字典
                     </Button>
-                    <Button icon={<ImportOutlined />} onClick={handleImport}>
-                        导入
-                    </Button>
-                    <Button icon={<ExportOutlined />} onClick={handleExport}>
-                        导出
-                    </Button>
                 </Space>
             </div>
             <Alert
                 message='状态字典管理'
-                description='支持新增、导入、导出与搜索，维护标准化状态字典。'
+                description='支持新增与搜索，维护标准化状态字典。'
                 type='info'
                 showIcon
                 style={{ marginBottom: 24 }}

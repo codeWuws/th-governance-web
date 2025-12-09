@@ -29,7 +29,6 @@ import {
     SearchOutlined,
     ReloadOutlined,
     EyeOutlined,
-    PlayCircleOutlined,
 } from '@ant-design/icons'
 import { useDebounce } from '../../hooks/useDebounce'
 
@@ -237,15 +236,6 @@ const IndexMergeRules: React.FC = () => {
         setDetailModalVisible(true)
     }
 
-    const handleExecute = async (_record: IndexMergeRule) => {
-        try {
-            message.loading('正在执行合并规则...', 2)
-            await new Promise(resolve => setTimeout(resolve, 2000))
-            message.success('规则执行成功')
-        } catch {
-            message.error('规则执行失败')
-        }
-    }
 
     const _handleCopy = (_record: IndexMergeRule) => {
         const newRecord = {
@@ -516,15 +506,6 @@ const IndexMergeRules: React.FC = () => {
                             icon={<EyeOutlined />}
                             size='small'
                             onClick={() => handleView(record)}
-                        />
-                    </Tooltip>
-                    <Tooltip title='执行规则'>
-                        <Button
-                            type='text'
-                            icon={<PlayCircleOutlined />}
-                            size='small'
-                            onClick={() => handleExecute(record)}
-                            disabled={record.status !== 'active'}
                         />
                     </Tooltip>
                     <Tooltip title='编辑'>
