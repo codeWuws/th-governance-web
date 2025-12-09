@@ -1,4 +1,4 @@
-import { ClockCircleOutlined } from '@ant-design/icons'
+import { ClockCircleOutlined, EyeOutlined } from '@ant-design/icons'
 import {
     Alert,
     Button,
@@ -11,23 +11,39 @@ import {
     Tag,
     Tooltip,
     Typography,
+    Spin,
 } from 'antd'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import dayjs, { type Dayjs } from 'dayjs'
 import styles from './ExecutionHistory.module.scss'
-import { generateMockExecutionHistory } from './utils/mock'
+import { dataQualityControlService } from '@/services/dataQualityControlService'
+import { logger } from '@/utils/logger'
+import { uiMessage } from '@/utils/uiMessage'
+import type { QCTaskHistoryItem, QCTaskHistoryPageParams } from '@/types'
 
 const { Title } = Typography
 const { RangePicker } = DatePicker
 
-export interface HistoryItem {
-    id: string
-    types: string[]
-    status: 'starting' | 'running' | 'completed' | 'error' | 'cancelled'
-    start_time: number
-    end_time: number | null
+// 状态映射
+const statusConfig: Record<number, { label: string; color: string }> = {
+    0: { label: '未执行', color: 'default' },
+    1: { label: '执行中', color: 'processing' },
+    2: { label: '已完成', color: 'success' },
+    3: { label: '暂停', color: 'warning' },
+    4: { label: '跳过', color: 'default' },
+    5: { label: '失败', color: 'error' },
 }
 
+// nodeType 到内部类型的映射
+const NODE_TYPE_TO_VALUE_MAP: Record<string, string> = {
+    TimelinessQC: 'comprehensive',
+    CompletenessQC: 'completeness',
+    ConsistencyQC: 'basic-medical-logic',
+    AccuracyQC: 'core-data',
+}
+
+// 内部类型到标签的映射
 const typeLabel = (t: string) => {
     const map: Record<string, string> = {
         text: '可靠性质控',
@@ -39,76 +55,17 @@ const typeLabel = (t: string) => {
     return map[t] || t
 }
 
-const typeDescMap: Record<string, string> = {
-    text: '评估文本规范、完整性与字符合规，保障数据可信与稳定',
-    comprehensive: '关注刷新延迟、准点率与实时管道稳定性，提升数据时效',
-    completeness: '表与字段填充率检查，识别空值与缺失，输出完整性分析',
-    'basic-medical-logic': '主附表关联与基础规则一致性校验，排查不一致与异常',
-    'core-data': '核心数据编码与字段值准确性评估，并进行对比分析',
-}
-
-const seedFor = (record: HistoryItem, t: string) =>
-    Array.from(`${record.id}-${record.start_time}-${t}`).reduce(
-        (s, c) => (s * 31 + c.charCodeAt(0)) >>> 0,
-        1315423911
-    )
-const metricsForType = (record: HistoryItem, t: string) => {
-    const s = seedFor(record, t)
-    const pct = (base: number, gain: number, mod: number) => Math.min(100, base + gain + (s % mod))
-    if (t === 'text') {
-        const cleanup = pct(60, 0, 15)
-        const violations = s % 12
-        const cover = pct(70, 0, 20)
-        return [
-            { label: '清理率', value: `${cleanup}%` },
-            { label: '违规字符', value: `${violations}` },
-            { label: '覆盖率', value: `${cover}%` },
-        ]
-    }
-    if (t === 'comprehensive') {
-        const delay = 5 + (s % 25)
-        const punctual = pct(80, 0, 20)
-        const coverage = pct(75, 0, 25)
-        return [
-            { label: '延迟', value: `${delay}分` },
-            { label: '准点率', value: `${punctual}%` },
-            { label: '覆盖率', value: `${coverage}%` },
-        ]
-    }
-    if (t === 'completeness') {
-        const fill = pct(60, 0, 20)
-        const reqMissing = s % 20
-        const nullFields = s % 8
-        return [
-            { label: '填充率', value: `${fill}%` },
-            { label: '必填缺失率', value: `${reqMissing}%` },
-            { label: '空值字段', value: `${nullFields}` },
-        ]
-    }
-    if (t === 'basic-medical-logic') {
-        const match = pct(70, 0, 20)
-        const depth = 1 + (s % 5)
-        const cover = pct(75, 0, 25)
-        return [
-            { label: '匹配率', value: `${match}%` },
-            { label: '关联深度', value: `${depth}` },
-            { label: '覆盖率', value: `${cover}%` },
-        ]
-    }
-    const acc = pct(75, 0, 20)
-    const diff = pct(40, 0, 30)
-    const cover = pct(75, 0, 25)
-    return [
-        { label: '准确率', value: `${acc}%` },
-        { label: '差异比', value: `${diff}%` },
-        { label: '覆盖率', value: `${cover}%` },
-    ]
-}
-
 const ExecutionHistory: React.FC = () => {
     const navigate = useNavigate()
-    const [data, setData] = useState<HistoryItem[]>([])
     const [form] = Form.useForm()
+    const [loading, setLoading] = useState(false)
+    const [data, setData] = useState<QCTaskHistoryItem[]>([])
+    const [pagination, setPagination] = useState({
+        current: 1,
+        pageSize: 10,
+        total: 0,
+    })
+
     const qcOptions = [
         { label: typeLabel('text'), value: 'text' },
         { label: typeLabel('comprehensive'), value: 'comprehensive' },
@@ -117,138 +74,237 @@ const ExecutionHistory: React.FC = () => {
         { label: typeLabel('core-data'), value: 'core-data' },
     ]
 
-    const reload = () => {
-        const key = 'qcExecutionHistory'
-        const prev = localStorage.getItem(key)
-        let list: HistoryItem[] = prev ? JSON.parse(prev) : []
-        
-        // 如果没有数据，生成模拟数据
-        if (list.length === 0) {
-            list = generateMockExecutionHistory(25)
-            try {
-                localStorage.setItem(key, JSON.stringify(list))
-            } catch (err) {
-                console.warn('Failed to save mock data to localStorage', err)
+    // 获取执行历史数据
+    const fetchHistory = useCallback(async () => {
+        try {
+            setLoading(true)
+            const values = form.getFieldsValue()
+
+            // 构建请求参数
+            const params: QCTaskHistoryPageParams = {
+                pageNum: pagination.current,
+                pageSize: pagination.pageSize,
+                sortField: 'create_time',
+                sortOrder: 'desc',
             }
+
+            // 添加筛选条件
+            if (values.idOrName) {
+                params.idOrName = values.idOrName.trim()
+            }
+
+            if (values.status !== undefined && values.status !== null) {
+                params.status = values.status
+            }
+
+            if (values.taskTypes && values.taskTypes.length > 0) {
+                // 将内部类型值转换为 nodeType
+                const nodeTypes = values.taskTypes.map((value: string) => {
+                    // 反向查找 nodeType
+                    for (const [nodeType, mappedValue] of Object.entries(NODE_TYPE_TO_VALUE_MAP)) {
+                        if (mappedValue === value) {
+                            return nodeType
+                        }
+                    }
+                    return value // 如果找不到映射，直接使用原值
+                })
+                params.taskTypes = nodeTypes
+            }
+
+            // 处理时间范围
+            if (values.timeRange && values.timeRange.length === 2) {
+                const [start, end] = values.timeRange as [Dayjs, Dayjs]
+                if (start) {
+                    params.startTimeFrom = start.format('YYYY-MM-DD HH:mm:ss')
+                }
+                if (end) {
+                    params.startTimeTo = end.format('YYYY-MM-DD HH:mm:ss')
+                }
+            }
+
+            logger.info('获取质控执行历史列表', params)
+            const response = await dataQualityControlService.getQCTaskHistoryPage(params)
+
+            if (response.code === 200 && response.data) {
+                setData(response.data.records || [])
+                setPagination(prev => ({
+                    ...prev,
+                    total: parseInt(response.data.total || '0', 10),
+                }))
+                logger.info('成功获取质控执行历史列表', {
+                    count: response.data.records?.length || 0,
+                    total: response.data.total,
+                })
+            } else {
+                const errorMsg = response.msg || '获取执行历史失败'
+                uiMessage.error(errorMsg)
+                logger.error('获取质控执行历史列表失败', errorMsg)
+                setData([])
+            }
+        } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : '获取执行历史时发生未知错误'
+            logger.error('获取质控执行历史列表异常', error instanceof Error ? error : new Error(errorMsg))
+            uiMessage.error(errorMsg)
+            setData([])
+        } finally {
+            setLoading(false)
         }
-        
-        setData(list)
+    }, [form, pagination.current, pagination.pageSize])
+
+    // 初始加载和筛选条件变化时重新获取数据
+    useEffect(() => {
+        fetchHistory()
+    }, [pagination.current, pagination.pageSize])
+
+    // 处理搜索
+    const handleSearch = () => {
+        setPagination(prev => ({ ...prev, current: 1 }))
+        fetchHistory()
     }
 
-    useEffect(() => {
-        // 注释掉自动清空，保留历史数据
-        // try {
-        //     localStorage.removeItem('qcExecutionHistory')
-        // } catch {}
-        reload()
-    }, [])
+    // 处理清空
+    const handleReset = () => {
+        form.resetFields()
+        setPagination(prev => ({ ...prev, current: 1 }))
+        // 延迟执行，确保表单已重置
+        setTimeout(() => {
+            fetchHistory()
+        }, 0)
+    }
+
+    // 处理分页变化
+    const handleTableChange = (page: number, pageSize: number) => {
+        setPagination(prev => ({
+            ...prev,
+            current: page,
+            pageSize: pageSize,
+        }))
+    }
+
+    // 解析任务类型
+    const parseTaskTypes = (taskTypes: string): string[] => {
+        if (!taskTypes) return []
+        return taskTypes.split(',').map(type => {
+            const trimmed = type.trim()
+            // 将 nodeType 转换为内部类型值
+            return NODE_TYPE_TO_VALUE_MAP[trimmed] || trimmed
+        })
+    }
 
     const columns = useMemo(
         () => [
             {
                 title: '任务ID',
-                dataIndex: 'id',
-                key: 'id',
-                width: 240,
-            },
-            {
-                title: '质控类型',
-                dataIndex: 'types',
-                key: 'types',
-                render: (types: string[]) => (
-                    <>
-                        {types.map(t => (
-                            <Tooltip key={t} title={typeDescMap[t] || typeLabel(t)}>
-                                <Tag color='blue' style={{ marginBottom: 4 }}>
-                                    {typeLabel(t)}
-                                </Tag>
-                            </Tooltip>
-                        ))}
-                    </>
+                dataIndex: 'batchId',
+                key: 'batchId',
+                width: 200,
+                render: (text: string, record: QCTaskHistoryItem) => (
+                    <span
+                        style={{ cursor: 'pointer', color: '#1890ff' }}
+                        onClick={() => {
+                            const types = parseTaskTypes(record.taskTypes)
+                            const typesParam = types.join(',')
+                            navigate(
+                                `/data-quality-control/flow/${record.batchId}?types=${encodeURIComponent(typesParam)}`
+                            )
+                        }}
+                    >
+                        {text}
+                    </span>
                 ),
             },
             {
-                title: '概览',
-                key: 'summary',
-                render: (_: unknown, record: HistoryItem) => {
-                    const parts = record.types.slice(0, 3).map(t => {
-                        const mt = metricsForType(record, t)
-                        const keyMetric = mt[0]
-                        if (!keyMetric) return typeLabel(t)
-                        return `${typeLabel(t)} ${keyMetric.label}${keyMetric.value}`
-                    })
-                    const more = record.types.length > 3 ? ` · 等${record.types.length}项` : ''
-                    return parts.join(' · ') + more
+                title: '任务名称',
+                dataIndex: 'name',
+                key: 'name',
+                width: 200,
+            },
+            {
+                title: '质控类型',
+                dataIndex: 'typeNames',
+                key: 'typeNames',
+                render: (typeNames: string, record: QCTaskHistoryItem) => {
+                    const types = parseTaskTypes(record.taskTypes)
+                    const names = typeNames ? typeNames.split(',') : []
+                    return (
+                        <>
+                            {types.map((type, index) => (
+                                <Tag key={type} color='blue' style={{ marginBottom: 4 }}>
+                                    {names[index] || typeLabel(type)}
+                                </Tag>
+                            ))}
+                        </>
+                    )
                 },
+            },
+            {
+                title: '概览',
+                dataIndex: 'overview',
+                key: 'overview',
+                render: (overview: string | null) => overview || '-',
             },
             {
                 title: '状态',
                 dataIndex: 'status',
                 key: 'status',
-                render: (s: HistoryItem['status']) => {
-                    const colorMap: Record<HistoryItem['status'], string> = {
-                        starting: 'processing',
-                        running: 'processing',
-                        completed: 'success',
-                        error: 'error',
-                        cancelled: 'default',
-                    }
-                    const labelMap: Record<HistoryItem['status'], string> = {
-                        starting: '启动中',
-                        running: '进行中',
-                        completed: '已完成',
-                        error: '异常',
-                        cancelled: '已取消',
-                    }
-                    return <Tag color={colorMap[s]}>{labelMap[s]}</Tag>
+                width: 100,
+                render: (status: number) => {
+                    const config = statusConfig[status] || statusConfig[0]
+                    return <Tag color={config.color}>{config.label}</Tag>
                 },
             },
-
             {
                 title: '开始时间',
-                dataIndex: 'start_time',
-                key: 'start_time',
-                render: (ts: number) => new Date(ts).toLocaleString(),
+                dataIndex: 'startTime',
+                key: 'startTime',
+                width: 180,
+                render: (time: string) => (time ? dayjs(time).format('YYYY-MM-DD HH:mm:ss') : '-'),
             },
             {
                 title: '结束时间',
-                dataIndex: 'end_time',
-                key: 'end_time',
-                render: (ts: number | null) => (ts ? new Date(ts).toLocaleString() : '-'),
+                dataIndex: 'endTime',
+                key: 'endTime',
+                width: 180,
+                render: (time: string | null) => (time ? dayjs(time).format('YYYY-MM-DD HH:mm:ss') : '-'),
             },
             {
                 title: '时长',
                 key: 'duration',
-                render: (_: unknown, record: HistoryItem) =>
-                    record.end_time
-                        ? `${Math.max(1, Math.round((record.end_time - record.start_time) / 60000))} 分钟`
-                        : '-',
+                width: 120,
+                render: (_: unknown, record: QCTaskHistoryItem) => {
+                    if (!record.startTime) return '-'
+                    const start = dayjs(record.startTime)
+                    const end = record.endTime ? dayjs(record.endTime) : dayjs()
+                    const duration = end.diff(start, 'minute')
+                    return duration > 0 ? `${duration} 分钟` : '< 1 分钟'
+                },
+            },
+            {
+                title: '操作',
+                key: 'action',
+                width: 120,
+                fixed: 'right' as const,
+                render: (_: unknown, record: QCTaskHistoryItem) => {
+                    const types = parseTaskTypes(record.taskTypes)
+                    const typesParam = types.join(',')
+                    return (
+                        <Button
+                            type='link'
+                            icon={<EyeOutlined />}
+                            onClick={() => {
+                                navigate(
+                                    `/data-quality-control/flow/${record.batchId}?types=${encodeURIComponent(typesParam)}`
+                                )
+                            }}
+                        >
+                            查看详情
+                        </Button>
+                    )
+                },
             },
         ],
         [navigate]
     )
-
-    const filteredData = useMemo(() => {
-        const values = form.getFieldsValue()
-        let list = [...data]
-        if (values.taskId) {
-            const q = String(values.taskId).trim().toLowerCase()
-            list = list.filter(i => i.id.toLowerCase().includes(q))
-        }
-        if (values.status && values.status.length) {
-            list = list.filter(i => values.status.includes(i.status))
-        }
-        if (values.types && values.types.length) {
-            list = list.filter(i => values.types.every((t: string) => i.types.includes(t)))
-        }
-        if (values.timeRange && values.timeRange.length === 2) {
-            const [start, end] = values.timeRange
-            const s = start?.valueOf?.() ?? 0
-            const e = end?.valueOf?.() ?? Number.MAX_SAFE_INTEGER
-            list = list.filter(i => i.start_time >= s && i.start_time <= e)
-        }
-        return list
-    }, [data, form])
 
     return (
         <div className={styles.pageWrapper}>
@@ -265,32 +321,32 @@ const ExecutionHistory: React.FC = () => {
                 <Form
                     form={form}
                     layout='inline'
-                    onValuesChange={() => setData([...data])}
                     className={styles.filtersForm}
                 >
-                    <Form.Item name='taskId' label='任务ID' className={styles.filterItem}>
+                    <Form.Item name='idOrName' label='任务ID/名称' className={styles.filterItem}>
                         <Input
-                            placeholder='输入任务ID关键词'
+                            placeholder='输入任务ID或名称关键词'
                             allowClear
                             style={{ width: '100%' }}
+                            onPressEnter={handleSearch}
                         />
                     </Form.Item>
                     <Form.Item name='status' label='状态' className={styles.filterItem}>
                         <Select
-                            mode='multiple'
                             allowClear
                             placeholder='选择状态'
                             options={[
-                                { label: '启动中', value: 'starting' },
-                                { label: '进行中', value: 'running' },
-                                { label: '已完成', value: 'completed' },
-                                { label: '异常', value: 'error' },
-                                { label: '已取消', value: 'cancelled' },
+                                { label: '未执行', value: 0 },
+                                { label: '执行中', value: 1 },
+                                { label: '已完成', value: 2 },
+                                { label: '暂停', value: 3 },
+                                { label: '跳过', value: 4 },
+                                { label: '失败', value: 5 },
                             ]}
                             style={{ width: '100%' }}
                         />
                     </Form.Item>
-                    <Form.Item name='types' label='质控类型' className={styles.filterItem}>
+                    <Form.Item name='taskTypes' label='质控类型' className={styles.filterItem}>
                         <Select
                             mode='multiple'
                             allowClear
@@ -300,12 +356,16 @@ const ExecutionHistory: React.FC = () => {
                         />
                     </Form.Item>
                     <Form.Item name='timeRange' label='时间范围' className={styles.filterItem}>
-                        <RangePicker showTime style={{ width: '100%' }} />
+                        <RangePicker
+                            showTime
+                            format='YYYY-MM-DD HH:mm:ss'
+                            style={{ width: '100%' }}
+                        />
                     </Form.Item>
                     <Form.Item className={styles.filterActions}>
                         <Space>
-                            <Button onClick={() => form.resetFields()}>清空</Button>
-                            <Button type='primary' onClick={() => setData([...data])}>
+                            <Button onClick={handleReset}>清空</Button>
+                            <Button type='primary' onClick={handleSearch} loading={loading}>
                                 搜索
                             </Button>
                         </Space>
@@ -313,12 +373,24 @@ const ExecutionHistory: React.FC = () => {
                 </Form>
             </div>
             <div className={styles.tableWrapper}>
-                <Table
-                    rowKey='id'
-                    dataSource={filteredData}
-                    columns={columns}
-                    pagination={{ pageSize: 10 }}
-                />
+                <Spin spinning={loading}>
+                    <Table
+                        rowKey='id'
+                        dataSource={data}
+                        columns={columns}
+                        pagination={{
+                            current: pagination.current,
+                            pageSize: pagination.pageSize,
+                            total: pagination.total,
+                            showSizeChanger: true,
+                            showQuickJumper: true,
+                            showTotal: (total, range) =>
+                                `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`,
+                            onChange: handleTableChange,
+                            onShowSizeChange: handleTableChange,
+                        }}
+                    />
+                </Spin>
             </div>
         </div>
     )

@@ -1,39 +1,32 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useRef } from 'react'
 import { Form, Input } from 'antd'
 import CustomDialog, { CustomDialogProps } from '@/components/CustomDialog'
 import { api } from '@/utils/request'
 import { logger } from '@/utils/logger'
 import { uiMessage } from '@/utils/uiMessage'
 import type { SSEManager } from '@/utils/request'
+import { useAppDispatch } from '@/store/hooks'
+import { initializeExecution, addMessage } from '@/store/slices/qcExecutionSlice'
+import type { WorkflowExecutionMessage } from '@/types'
 
-interface StartQCProcessDialogProps extends Omit<CustomDialogProps, 'children'> {
+interface StartQCProcessDialogProps extends Omit<CustomDialogProps, 'children' | 'open'> {
     selectedTypes: string[] // 原始的 nodeType 数组，如 ['TimelinessQC', 'CompletenessQC']
     onStartSuccess?: (taskId: string, processName: string) => void
 }
 
 const StartQCProcessDialog: React.FC<StartQCProcessDialogProps> = ({
-    open,
     onOk,
     onCancel,
     selectedTypes,
     onStartSuccess,
     ...restProps
 }) => {
+    const dispatch = useAppDispatch()
     const [form] = Form.useForm()
     const [loading, setLoading] = useState(false)
     const sseManagerRef = useRef<SSEManager | null>(null)
     const taskIdRef = useRef<string | null>(null)
     const processNameRef = useRef<string>('')
-
-    // 清理SSE连接
-    useEffect(() => {
-        return () => {
-            if (sseManagerRef.current) {
-                sseManagerRef.current.disconnect()
-                sseManagerRef.current = null
-            }
-        }
-    }, [])
 
     // 处理确定按钮
     const handleOk = async (e: React.MouseEvent<HTMLElement>) => {
@@ -79,56 +72,62 @@ const StartQCProcessDialog: React.FC<StartQCProcessDialogProps> = ({
                         const message = event.data
                         logger.info('收到SSE消息:', message)
                         
-                        // 只处理第一条消息来获取taskId
-                        if (taskIdRef.current) {
-                            return // 已经获取到taskId，不再处理后续消息
-                        }
-                        
-                        // 尝试从消息中解析taskId（根据实际消息格式调整）
                         try {
-                            const data = event.data
-                            // 如果消息是JSON格式，尝试解析
-                            if (data.startsWith('{')) {
-                                const parsed = JSON.parse(data)
-                                // 优先查找 taskId, task_id, batch_id
-                                const id = parsed.taskId || parsed.task_id || parsed.batch_id || parsed.batchId
-                                if (id) {
-                                    const taskId = String(id)
+                            // 解析SSE消息
+                            const data = typeof message === 'string' ? JSON.parse(message) : message
+                            
+                            // 获取taskId（从消息中或已存储的ref中）
+                            const currentTaskId = data.taskId ? String(data.taskId) : taskIdRef.current
+                            
+                            // 如果是第一条消息且包含taskId，初始化执行状态
+                            if (!taskIdRef.current && currentTaskId) {
+                                taskIdRef.current = currentTaskId
+                                // 初始化质控任务执行状态
+                                dispatch(initializeExecution({ taskId: currentTaskId }))
+                                clearTimeout(timeout)
+                                resolve(currentTaskId)
+                            }
+                            
+                            // 如果已经获取到taskId，将消息存储到全局状态
+                            if (currentTaskId && data.taskId) {
+                                // 构造 WorkflowExecutionMessage 格式的消息
+                                const executionMessage: WorkflowExecutionMessage = {
+                                    tableQuantity: data.tableQuantity || 0,
+                                    node: {
+                                        id: data.node?.id || 0,
+                                        nodeName: data.node?.nodeName || '',
+                                        nodeType: data.node?.nodeType || '',
+                                        nodeStep: data.node?.nodeStep || 0,
+                                        enabled: data.node?.enabled ?? true,
+                                        isAuto: data.node?.isAuto ?? true,
+                                        descript: data.node?.descript || '',
+                                    },
+                                    executionStatus: data.executionStatus || 'running',
+                                    progress: data.progress || 0,
+                                    completedQuantity: data.completedQuantity || 0,
+                                    taskId: data.taskId,
+                                    status: data.status || 1,
+                                    tableName: data.tableName,
+                                    table: data.table,
+                                }
+                                
+                                // 存储消息到全局状态
+                                dispatch(addMessage({ taskId: currentTaskId, message: executionMessage }))
+                                logger.info('质控消息已存储到全局状态', { taskId: currentTaskId, message: executionMessage })
+                            }
+                        } catch (error) {
+                            logger.error('解析SSE消息失败', error as Error)
+                            // 如果解析失败，尝试从字符串中提取taskId
+                            if (typeof message === 'string') {
+                                const taskIdMatch = message.match(/taskId["\s:]+(\d+)/)
+                                if (taskIdMatch && taskIdMatch[1] && !taskIdRef.current) {
+                                    const taskId = taskIdMatch[1]
                                     taskIdRef.current = taskId
+                                    dispatch(initializeExecution({ taskId }))
                                     clearTimeout(timeout)
-                                    // 断开SSE连接，详情页会重新建立
-                                    if (sseManagerRef.current) {
-                                        sseManagerRef.current.disconnect()
-                                        sseManagerRef.current = null
-                                    }
                                     resolve(taskId)
-                                    return
                                 }
                             }
-                            // 如果消息包含taskId、task_id或batch_id字段
-                            if (data.includes('taskId') || data.includes('task_id') || data.includes('batch_id') || data.includes('batchId')) {
-                                const patterns = [
-                                    /task[Ii]d["\s:]+([^"}\s,]+)/,
-                                    /batch[Ii]d["\s:]+([^"}\s,]+)/,
-                                ]
-                                for (const pattern of patterns) {
-                                    const match = data.match(pattern)
-                                    if (match && match[1]) {
-                                        const matchedTaskId = match[1]
-                                        taskIdRef.current = matchedTaskId
-                                        clearTimeout(timeout)
-                                        // 断开SSE连接，详情页会重新建立
-                                        if (sseManagerRef.current) {
-                                            sseManagerRef.current.disconnect()
-                                            sseManagerRef.current = null
-                                        }
-                                        resolve(matchedTaskId)
-                                        return
-                                    }
-                                }
-                            }
-                        } catch {
-                            // 解析失败，忽略
                         }
                     },
                     onError: (error: Event) => {
@@ -190,11 +189,6 @@ const StartQCProcessDialog: React.FC<StartQCProcessDialogProps> = ({
 
     // 处理取消按钮
     const handleCancel = (e: React.MouseEvent<HTMLElement>) => {
-        // 断开SSE连接
-        if (sseManagerRef.current) {
-            sseManagerRef.current.disconnect()
-            sseManagerRef.current = null
-        }
         form.resetFields()
         if (onCancel) {
             onCancel(e)
@@ -203,13 +197,13 @@ const StartQCProcessDialog: React.FC<StartQCProcessDialogProps> = ({
 
     return (
         <CustomDialog
-            open={open}
             onOk={handleOk}
             onCancel={handleCancel}
             title='启动质控流程'
             okText='启动'
             cancelText='取消'
             confirmLoading={loading}
+            okClose
             width={600}
             {...restProps}
         >

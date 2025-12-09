@@ -649,6 +649,74 @@ export interface QCTaskLogDetailResponse {
     data: QCTaskLogDetailData
 }
 
+// 质控任务执行历史相关类型
+export interface QCTaskHistoryItem {
+    /** 任务ID */
+    id: string
+    /** 批次ID */
+    batchId: string
+    /** 任务名称 */
+    name: string
+    /** 状态：0-未执行, 1-执行中, 2-已完成, 3-暂停, 4-跳过, 5-失败 */
+    status: number
+    /** 开始时间 */
+    startTime: string
+    /** 结束时间 */
+    endTime: string | null
+    /** 节点类型 */
+    nodeType: string
+    /** 任务类型（多个用逗号分隔） */
+    taskTypes: string
+    /** 类型名称（多个用逗号分隔） */
+    typeNames: string
+    /** 概览 */
+    overview: string | null
+    /** 备注 */
+    remark: string | null
+}
+
+export interface QCTaskHistoryPageData {
+    /** 记录列表 */
+    records: QCTaskHistoryItem[]
+    /** 总记录数 */
+    total: string
+    /** 每页大小 */
+    size: string
+    /** 当前页码 */
+    current: string
+    /** 总页数 */
+    pages: string
+}
+
+export interface QCTaskHistoryPageResponse {
+    code: number
+    msg: string
+    data: QCTaskHistoryPageData
+}
+
+export interface QCTaskHistoryPageParams {
+    /** 条件（暂时不使用） */
+    condition?: string
+    /** 页码 */
+    pageNum: number
+    /** 每页大小 */
+    pageSize: number
+    /** 排序字段 */
+    sortField?: string
+    /** 排序顺序 */
+    sortOrder?: 'asc' | 'desc'
+    /** ID或名称搜索 */
+    idOrName?: string
+    /** 状态：0-未执行, 1-执行中, 2-已完成, 3-暂停, 4-跳过, 5-失败 */
+    status?: number
+    /** 任务类型数组 */
+    taskTypes?: string[]
+    /** 开始时间（从） */
+    startTimeFrom?: string
+    /** 开始时间（到） */
+    startTimeTo?: string
+}
+
 /** 步骤状态标签映射 */
 export const ExecutionStepStatusLabels = {
     [ExecutionStepStatus.SUCCESS]: '成功',

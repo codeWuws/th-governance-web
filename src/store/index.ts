@@ -3,6 +3,7 @@ import counterReducer from './slices/counterSlice'
 import userReducer from './slices/userSlice'
 import dataGovernanceReducer from './slices/dataGovernanceSlice'
 import workflowExecutionReducer from './slices/workflowExecutionSlice'
+import qcExecutionReducer from './slices/qcExecutionSlice'
 import systemSettingsReducer from './slices/systemSettingsSlice'
 
 // 配置 Redux store
@@ -19,6 +20,7 @@ export const store = configureStore({
         user: userReducer,
         dataGovernance: dataGovernanceReducer,
         workflowExecution: workflowExecutionReducer,
+        qcExecution: qcExecutionReducer,
         systemSettings: systemSettingsReducer,
     },
     // 开发环境启用 Redux DevTools

@@ -3,7 +3,12 @@
  * 提供数据质控任务相关的API接口
  */
 
-import type { QCTaskConfigListResponse, QCTaskLogDetailResponse } from '@/types'
+import type {
+    QCTaskConfigListResponse,
+    QCTaskLogDetailResponse,
+    QCTaskHistoryPageResponse,
+    QCTaskHistoryPageParams,
+} from '@/types'
 import { api } from '@/utils/request'
 import { logger } from '@/utils/logger'
 
@@ -59,6 +64,31 @@ export class DataQualityControlService {
             )
         }
     }
+
+    /**
+     * 获取质控任务执行历史列表（分页）
+     * @description 获取质控任务的执行历史记录，支持分页和筛选
+     * @param params 查询参数
+     * @returns Promise<QCTaskHistoryPageResponse>
+     */
+    static async getQCTaskHistoryPage(
+        params: QCTaskHistoryPageParams
+    ): Promise<QCTaskHistoryPageResponse> {
+        try {
+            logger.debug('发送获取质控任务执行历史列表请求到: /data/qc/task/page', params)
+            const response = await api.post<QCTaskHistoryPageResponse>('/data/qc/task/page', params)
+            logger.debug('获取质控任务执行历史列表API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取质控任务执行历史列表API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取质控任务执行历史列表失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
 }
 
 /**
@@ -68,6 +98,7 @@ export class DataQualityControlService {
 export const dataQualityControlService = {
     getQCTaskConfigList: DataQualityControlService.getQCTaskConfigList,
     getQCTaskLogDetail: DataQualityControlService.getQCTaskLogDetail,
+    getQCTaskHistoryPage: DataQualityControlService.getQCTaskHistoryPage,
 }
 
 export default dataQualityControlService
