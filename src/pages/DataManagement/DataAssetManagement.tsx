@@ -41,6 +41,9 @@ import type { AssetTreeNode, AssetTableInfo, AssetTableColumnDetailsData, AssetD
 import { logger } from '../../utils/logger'
 import { Spin } from 'antd'
 import styles from './DataAssetManagement.module.scss'
+import { EditAssetDialog } from '../../components/EditAssetDialog'
+import { EditAssetCategoryDialog } from '../../components/EditAssetCategoryDialog'
+import { showDialog } from '../../utils/showDialog'
 
 const { Sider, Content } = Layout
 const { Search } = Input
@@ -56,6 +59,7 @@ interface DataSource {
     port: number
     database: string
     status: 'connected' | 'disconnected'
+    deleted?: boolean // 逻辑删除标记
 }
 
 // 资产类别
@@ -65,6 +69,7 @@ interface AssetCategory {
     dataSourceId: string
     database: string
     tables: string[]
+    deleted?: boolean // 逻辑删除标记
 }
 
 // 表信息
@@ -568,54 +573,49 @@ const DataAssetManagement: React.FC = () => {
         const buildTree = (): ExtendedDataNode[] => {
             const nodes: ExtendedDataNode[] = []
 
-            dataSources.forEach(ds => {
-                const menuItems: MenuProps['items'] = [
-                    {
-                        key: 'add-category',
-                        label: '添加资产类别',
-                        icon: <PlusOutlined />,
-                        onClick: () => {
-                            handleAddCategoryClick(ds)
-                        },
-                    },
-                ]
-
-                const dsNode: ExtendedDataNode = {
-                    title: ds.name, // 先设置简单的标题，稍后通过 titleRender 自定义
-                    key: `ds-${ds.id}`,
-                    nodeType: 'dataSource',
-                    data: ds,
-                    children: [],
-                }
-
-                // 添加资产类别（仅显示两个层级：资产 -> 资产类别）
-                const dsCategories = categories.filter(cat => cat.dataSourceId === ds.id)
-                dsCategories.forEach(cat => {
-                    const catNode: ExtendedDataNode = {
-                        title: (
-                            <span>
-                                <FolderOutlined style={{ marginRight: 8, color: '#52c41a' }} />
-                                {cat.name}
-                            </span>
-                        ),
-                        key: `cat-${cat.id}`,
-                        nodeType: 'category',
-                        data: cat,
-                        dataSourceId: ds.id,
-                        children: [], // 不再包含表和字段子节点
+            // 过滤掉已删除的数据源
+            dataSources
+                .filter(ds => !ds.deleted)
+                .forEach(ds => {
+                    const dsNode: ExtendedDataNode = {
+                        title: ds.name, // 先设置简单的标题，稍后通过 titleRender 自定义
+                        key: `ds-${ds.id}`,
+                        nodeType: 'dataSource',
+                        data: ds,
+                        children: [],
                     }
 
-                    dsNode.children!.push(catNode)
-                })
+                    // 添加资产类别（仅显示两个层级：资产 -> 资产类别）
+                    // 过滤掉已删除的资产类别
+                    const dsCategories = categories.filter(
+                        cat => cat.dataSourceId === ds.id && !cat.deleted
+                    )
+                    dsCategories.forEach(cat => {
+                        const catNode: ExtendedDataNode = {
+                            title: (
+                                <span>
+                                    <FolderOutlined style={{ marginRight: 8, color: '#52c41a' }} />
+                                    {cat.name}
+                                </span>
+                            ),
+                            key: `cat-${cat.id}`,
+                            nodeType: 'category',
+                            data: cat,
+                            dataSourceId: ds.id,
+                            children: [], // 不再包含表和字段子节点
+                        }
 
-                nodes.push(dsNode)
-            })
+                        dsNode.children!.push(catNode)
+                    })
+
+                    nodes.push(dsNode)
+                })
 
             return nodes
         }
 
         return buildTree()
-    }, [dataSources, categories, handleAddCategoryClick])
+    }, [dataSources, categories])
 
     // 树形数据（搜索由接口处理，这里直接使用 treeData）
     const filteredTreeData = useMemo(() => {
@@ -836,6 +836,153 @@ const DataAssetManagement: React.FC = () => {
             }
         }
     }
+
+    // 处理编辑资产（数据源）
+    const handleEditAsset = useCallback(async (dataSource: DataSource) => {
+        try {
+            // 确保数据源选项已加载
+            if (dataSourceOptions.length === 0) {
+                await fetchDataSourceOptions()
+            }
+
+            await showDialog(EditAssetDialog as React.ComponentType<any>, {
+                name: dataSource.name,
+                dataSourceId: dataSource.id,
+                dataSourceOptions,
+                dataSourceOptionsLoading,
+                onOk: async (values: { name: string; dataSourceId: string }) => {
+                    // 逻辑更新：更新本地状态中的数据源信息
+                    setDataSources(prev => 
+                        prev.map(ds => 
+                            ds.id === dataSource.id 
+                                ? { ...ds, name: values.name, id: values.dataSourceId }
+                                : ds
+                        )
+                    )
+                    message.success('资产编辑成功')
+                },
+            } as any)
+        } catch (error) {
+            logger.error('编辑资产失败:', error instanceof Error ? error : new Error(String(error)))
+        }
+    }, [dataSourceOptions, dataSourceOptionsLoading, fetchDataSourceOptions])
+
+    // 处理删除资产（数据源）- 逻辑删除
+    const handleDeleteAsset = useCallback((dataSource: DataSource) => {
+        showDialog({
+            title: '确认删除',
+            children: (
+                <div>
+                    <p>确定要删除资产 "{dataSource.name}" 吗？</p>
+                    <p style={{ color: '#ff4d4f', fontSize: '12px', marginTop: '8px' }}>
+                        注意：此操作将同时删除该资产下的所有资产类别（逻辑删除）
+                    </p>
+                </div>
+            ),
+            onOk: async () => {
+                // 逻辑删除：标记数据源和其下的所有资产类别为已删除
+                setDataSources(prev => 
+                    prev.map(ds => 
+                        ds.id === dataSource.id ? { ...ds, deleted: true } : ds
+                    )
+                )
+                setCategories(prev => 
+                    prev.map(cat => 
+                        cat.dataSourceId === dataSource.id ? { ...cat, deleted: true } : cat
+                    )
+                )
+                message.success('资产删除成功')
+            },
+        })
+    }, [])
+
+    // 处理编辑资产类别
+    const handleEditCategory = useCallback(async (category: AssetCategory) => {
+        try {
+            // 确保数据源选项和表信息已加载
+            if (dataSourceOptions.length === 0) {
+                await fetchDataSourceOptions()
+            }
+            if (tableInfoOptions.length === 0) {
+                await fetchTableInfo()
+            }
+
+            await showDialog(EditAssetCategoryDialog as React.ComponentType<any>, {
+                name: category.name,
+                dataSourceId: category.dataSourceId,
+                tables: category.tables,
+                dataSourceOptions,
+                tableInfoOptions,
+                dataSourceOptionsLoading,
+                tableInfoOptionsLoading,
+                disableDataSource: false, // 允许修改数据源
+                onOk: async (values: { name: string; dataSourceId: string; tables: string[] }) => {
+                    // 逻辑更新：更新本地状态中的资产类别信息
+                    setCategories(prev => 
+                        prev.map(cat => 
+                            cat.id === category.id 
+                                ? { 
+                                    ...cat, 
+                                    name: values.name, 
+                                    dataSourceId: values.dataSourceId,
+                                    tables: values.tables 
+                                }
+                                : cat
+                        )
+                    )
+                    message.success('资产类别编辑成功')
+                    
+                    // 如果当前选中的是正在编辑的类别，需要刷新表列表
+                    if (selectedCategory?.id === category.id) {
+                        await fetchCategoryTableList(category.id)
+                    }
+                },
+            } as any)
+        } catch (error) {
+            logger.error('编辑资产类别失败:', error instanceof Error ? error : new Error(String(error)))
+        }
+    }, [
+        dataSourceOptions, 
+        tableInfoOptions, 
+        dataSourceOptionsLoading, 
+        tableInfoOptionsLoading,
+        fetchDataSourceOptions,
+        fetchTableInfo,
+        selectedCategory,
+        fetchCategoryTableList,
+    ])
+
+    // 处理删除资产类别 - 逻辑删除
+    const handleDeleteCategory = useCallback((category: AssetCategory) => {
+        showDialog({
+            title: '确认删除',
+            children: (
+                <div>
+                    <p>确定要删除资产类别 "{category.name}" 吗？</p>
+                    <p style={{ color: '#ff4d4f', fontSize: '12px', marginTop: '8px' }}>
+                        注意：此操作为逻辑删除，数据不会真正删除
+                    </p>
+                </div>
+            ),
+            onOk: async () => {
+                // 逻辑删除：标记资产类别为已删除
+                setCategories(prev => 
+                    prev.map(cat => 
+                        cat.id === category.id ? { ...cat, deleted: true } : cat
+                    )
+                )
+                message.success('资产类别删除成功')
+                
+                // 如果当前选中的是被删除的类别，清空选中状态
+                if (selectedCategory?.id === category.id) {
+                    setSelectedKeys([])
+                    setViewMode('empty')
+                    setSelectedCategory(null)
+                    setTableList([])
+                }
+            },
+        })
+    }, [selectedCategory])
 
     // 处理表行点击
     const handleTableRowClick = useCallback(async (tableName: string) => {
@@ -1153,10 +1300,62 @@ const DataAssetManagement: React.FC = () => {
                                                             width: 160,
                                                             render: (time: string | null) => formatDateTime(time),
                                                         },
+                                                        {
+                                                            title: '操作',
+                                                            key: 'action',
+                                                            width: 120,
+                                                            fixed: 'right' as const,
+                                                            render: (_: unknown, record: AssetTableInfo) => (
+                                                                <Space size="small">
+                                                                    <Button
+                                                                        type="link"
+                                                                        size="small"
+                                                                        icon={<EditOutlined />}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation()
+                                                                            // 表编辑功能（演示用，仅提示）
+                                                                            message.info(`编辑表 "${record.tableName}" 功能（演示）`)
+                                                                        }}
+                                                                    >
+                                                                        编辑
+                                                                    </Button>
+                                                                    <Button
+                                                                        type="link"
+                                                                        size="small"
+                                                                        danger
+                                                                        icon={<DeleteOutlined />}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation()
+                                                                            // 表删除功能（演示用，逻辑删除）
+                                                                            showDialog({
+                                                                                title: '确认删除',
+                                                                                children: (
+                                                                                    <div>
+                                                                                        <p>确定要删除表 "{record.tableName}" 吗？</p>
+                                                                                        <p style={{ color: '#ff4d4f', fontSize: '12px', marginTop: '8px' }}>
+                                                                                            注意：此操作为逻辑删除，数据不会真正删除
+                                                                                        </p>
+                                                                                    </div>
+                                                                                ),
+                                                                                onOk: async () => {
+                                                                                    // 逻辑删除：从表列表中移除
+                                                                                    setTableList(prev => 
+                                                                                        prev.filter(table => table.tableName !== record.tableName)
+                                                                                    )
+                                                                                    message.success('表删除成功')
+                                                                                },
+                                                                            })
+                                                                        }}
+                                                                    >
+                                                                        删除
+                                                                    </Button>
+                                                                </Space>
+                                                            ),
+                                                        },
                                                     ]}
                                                     pagination={false}
                                                     size='small'
-                                                    scroll={{ x: 1200, y: 400 }}
+                                                    scroll={{ x: 1400, y: 400 }}
                                                     onRow={(record) => ({
                                                         onClick: () => {
                                                             handleTableRowClick(record.tableName)
@@ -1260,6 +1459,26 @@ const DataAssetManagement: React.FC = () => {
                                                 handleAddCategoryClick(ds)
                                             },
                                         },
+                                        {
+                                            type: 'divider',
+                                        },
+                                        {
+                                            key: 'edit',
+                                            label: '编辑',
+                                            icon: <EditOutlined />,
+                                            onClick: () => {
+                                                handleEditAsset(ds)
+                                            },
+                                        },
+                                        {
+                                            key: 'delete',
+                                            label: '删除',
+                                            icon: <DeleteOutlined />,
+                                            danger: true,
+                                            onClick: () => {
+                                                handleDeleteAsset(ds)
+                                            },
+                                        },
                                     ]
 
                                     return (
@@ -1308,6 +1527,147 @@ const DataAssetManagement: React.FC = () => {
                                                         zIndex: 10,
                                                     }}
                                                     title='添加资产类别'
+                                                />
+                                                <Button
+                                                    type='text'
+                                                    size='small'
+                                                    icon={<EditOutlined />}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        e.preventDefault()
+                                                        handleEditAsset(ds)
+                                                    }}
+                                                    onMouseDown={(e) => {
+                                                        e.stopPropagation()
+                                                        e.preventDefault()
+                                                    }}
+                                                    style={{
+                                                        marginLeft: 4,
+                                                        padding: '2px 6px',
+                                                        height: 24,
+                                                        fontSize: 12,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        zIndex: 10,
+                                                        color: '#1890ff',
+                                                    }}
+                                                    title='编辑'
+                                                />
+                                                <Button
+                                                    type='text'
+                                                    size='small'
+                                                    icon={<DeleteOutlined />}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        e.preventDefault()
+                                                        handleDeleteAsset(ds)
+                                                    }}
+                                                    onMouseDown={(e) => {
+                                                        e.stopPropagation()
+                                                        e.preventDefault()
+                                                    }}
+                                                    style={{
+                                                        marginLeft: 4,
+                                                        padding: '2px 6px',
+                                                        height: 24,
+                                                        fontSize: 12,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        zIndex: 10,
+                                                        color: '#ff4d4f',
+                                                    }}
+                                                    title='删除'
+                                                />
+                                            </div>
+                                        </Dropdown>
+                                    )
+                                } else if (node.nodeType === 'category') {
+                                    const cat = node.data as AssetCategory
+                                    const menuItems: MenuProps['items'] = [
+                                        {
+                                            key: 'edit',
+                                            label: '编辑',
+                                            icon: <EditOutlined />,
+                                            onClick: () => {
+                                                handleEditCategory(cat)
+                                            },
+                                        },
+                                        {
+                                            key: 'delete',
+                                            label: '删除',
+                                            icon: <DeleteOutlined />,
+                                            danger: true,
+                                            onClick: () => {
+                                                handleDeleteCategory(cat)
+                                            },
+                                        },
+                                    ]
+
+                                    return (
+                                        <Dropdown menu={{ items: menuItems }} trigger={['contextMenu']}>
+                                            <div
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    width: '100%',
+                                                    paddingRight: 8,
+                                                }}
+                                            >
+                                                <FolderOutlined style={{ marginRight: 8, color: '#52c41a' }} />
+                                                <span style={{ flex: 1 }}>{cat.name}</span>
+                                                <Button
+                                                    type='text'
+                                                    size='small'
+                                                    icon={<EditOutlined />}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        e.preventDefault()
+                                                        handleEditCategory(cat)
+                                                    }}
+                                                    onMouseDown={(e) => {
+                                                        e.stopPropagation()
+                                                        e.preventDefault()
+                                                    }}
+                                                    style={{
+                                                        marginLeft: 8,
+                                                        padding: '2px 6px',
+                                                        height: 24,
+                                                        fontSize: 12,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        zIndex: 10,
+                                                        color: '#1890ff',
+                                                    }}
+                                                    title='编辑'
+                                                />
+                                                <Button
+                                                    type='text'
+                                                    size='small'
+                                                    icon={<DeleteOutlined />}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        e.preventDefault()
+                                                        handleDeleteCategory(cat)
+                                                    }}
+                                                    onMouseDown={(e) => {
+                                                        e.stopPropagation()
+                                                        e.preventDefault()
+                                                    }}
+                                                    style={{
+                                                        marginLeft: 4,
+                                                        padding: '2px 6px',
+                                                        height: 24,
+                                                        fontSize: 12,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        zIndex: 10,
+                                                        color: '#ff4d4f',
+                                                    }}
+                                                    title='删除'
                                                 />
                                             </div>
                                         </Dropdown>
