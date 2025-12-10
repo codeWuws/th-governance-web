@@ -13,80 +13,74 @@ import {
     message,
     Popconfirm,
     Typography,
+    Row,
+    Col,
 } from 'antd'
 import {
     PlusOutlined,
     EditOutlined,
     DeleteOutlined,
     ReloadOutlined,
+    SearchOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
+import type { CategoryRecord } from '@/types'
+import { dataManagementService } from '@/services/dataManagementService'
 
 const { Title } = Typography
 const { Option } = Select
-
-// 类别接口定义
-interface Category {
-    id: string
-    name: string // 类别名称
-    code: string // 类别编码
-    status: 'active' | 'inactive' // 类别状态
-    createTime: string // 创建时间
-    updateTime: string // 更新时间
-    creator: string // 创建人
-}
-
-// 模拟数据
-const mockData: Category[] = [
-    {
-        id: '1',
-        name: '科室分类',
-        code: 'DEPT_001',
-        status: 'active',
-        createTime: '2024-01-10 09:00:00',
-        updateTime: '2024-01-15 14:30:00',
-        creator: '系统管理员',
-    },
-    {
-        id: '2',
-        name: '人员分类',
-        code: 'PERSON_001',
-        status: 'active',
-        createTime: '2024-01-11 10:00:00',
-        updateTime: '2024-01-16 16:45:00',
-        creator: '系统管理员',
-    },
-    {
-        id: '3',
-        name: '疾病分类',
-        code: 'DISEASE_001',
-        status: 'inactive',
-        createTime: '2024-01-12 11:00:00',
-        updateTime: '2024-01-17 10:20:00',
-        creator: '张医生',
-    },
-]
+const { TextArea, Search } = Input
 
 const CategoryManagement: React.FC = () => {
     const [loading, setLoading] = useState(false)
-    const [data, setData] = useState<Category[]>([])
+    const [data, setData] = useState<CategoryRecord[]>([])
+    const [total, setTotal] = useState(0)
+    const [currentPage, setCurrentPage] = useState(1)
+    const [pageSize, setPageSize] = useState(10)
     const [modalVisible, setModalVisible] = useState(false)
-    const [editingRecord, setEditingRecord] = useState<Category | null>(null)
+    const [editingRecord, setEditingRecord] = useState<CategoryRecord | null>(null)
     const [form] = Form.useForm()
+    const [searchForm] = Form.useForm()
+
+    // 搜索条件
+    const [searchParams, setSearchParams] = useState<{
+        condition?: string
+        categoryName?: string
+        categoryCode?: string
+        categoryStatus?: number
+        sortField?: string
+        sortOrder?: 'asc' | 'desc'
+    }>({
+        sortField: 'create_time',
+        sortOrder: 'desc',
+    })
 
     useEffect(() => {
         fetchData()
-    }, [])
+    }, [currentPage, pageSize, searchParams])
 
     // 获取数据
     const fetchData = async () => {
         setLoading(true)
         try {
-            // 模拟API调用
-            await new Promise(resolve => setTimeout(resolve, 500))
-            setData(mockData)
+            const response = await dataManagementService.getCategoryPage({
+                condition: searchParams.condition,
+                pageNum: currentPage,
+                pageSize: pageSize,
+                sortField: searchParams.sortField,
+                sortOrder: searchParams.sortOrder,
+                categoryName: searchParams.categoryName,
+                categoryCode: searchParams.categoryCode,
+                categoryStatus: searchParams.categoryStatus,
+            })
+            if (response.code === 0) {
+                setData(response.data.records)
+                setTotal(Number(response.data.total))
+            } else {
+                message.error(response.msg || '获取数据失败')
+            }
         } catch (error) {
-            message.error('获取数据失败')
+            message.error(error instanceof Error ? error.message : '获取数据失败')
         } finally {
             setLoading(false)
         }
@@ -97,27 +91,54 @@ const CategoryManagement: React.FC = () => {
         setEditingRecord(null)
         form.resetFields()
         form.setFieldsValue({
-            status: 'active',
+            id: 0,
+            categoryStatus: 1,
         })
         setModalVisible(true)
     }
 
     // 编辑
-    const handleEdit = (record: Category) => {
-        setEditingRecord(record)
-        form.setFieldsValue(record)
-        setModalVisible(true)
+    const handleEdit = async (record: CategoryRecord) => {
+        try {
+            setLoading(true)
+            const response = await dataManagementService.getCategoryDetail(record.id)
+            if (response.code === 0) {
+                setEditingRecord(response.data)
+                form.setFieldsValue({
+                    id: response.data.id,
+                    categoryName: response.data.categoryName,
+                    categoryCode: response.data.categoryCode,
+                    categoryStatus: response.data.categoryStatus,
+                    remark: response.data.remark,
+                })
+                setModalVisible(true)
+            } else {
+                message.error(response.msg || '获取详情失败')
+            }
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : '获取详情失败')
+        } finally {
+            setLoading(false)
+        }
     }
 
     // 删除
-    const handleDelete = async (id: string) => {
+    const handleDelete = async (id: number) => {
         try {
-            // 模拟API调用
-            await new Promise(resolve => setTimeout(resolve, 300))
-            setData(data.filter(item => item.id !== id))
-            message.success('删除成功')
+            const response = await dataManagementService.deleteCategory(id)
+            if (response.code === 0) {
+                message.success('删除成功')
+                // 如果当前页没有数据了，且不是第一页，则跳转到上一页
+                if (data.length === 1 && currentPage > 1) {
+                    setCurrentPage(currentPage - 1)
+                } else {
+                    fetchData()
+                }
+            } else {
+                message.error(response.msg || '删除失败')
+            }
         } catch (error) {
-            message.error('删除失败')
+            message.error(error instanceof Error ? error.message : '删除失败')
         }
     }
 
@@ -125,63 +146,44 @@ const CategoryManagement: React.FC = () => {
     const handleModalOk = async () => {
         try {
             const values = await form.validateFields()
+            const params = {
+                id: values.id || 0,
+                categoryName: values.categoryName,
+                categoryCode: values.categoryCode,
+                categoryStatus: values.categoryStatus,
+                remark: values.remark || '',
+            }
 
             if (editingRecord) {
                 // 编辑
-                setData(
-                    data.map(item =>
-                        item.id === editingRecord.id
-                            ? {
-                                  ...item,
-                                  ...values,
-                                  updateTime: new Date().toLocaleString('zh-CN', {
-                                      year: 'numeric',
-                                      month: '2-digit',
-                                      day: '2-digit',
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                      second: '2-digit',
-                                      hour12: false,
-                                  }).replace(/\//g, '-'),
-                              }
-                            : item
-                    )
-                )
-                message.success('更新成功')
+                const response = await dataManagementService.updateCategory(params)
+                if (response.code === 0) {
+                    message.success('更新成功')
+                    setModalVisible(false)
+                    form.resetFields()
+                    setEditingRecord(null)
+                    fetchData()
+                } else {
+                    message.error(response.msg || '更新失败')
+                }
             } else {
                 // 新增
-                const newRecord: Category = {
-                    ...values,
-                    id: Date.now().toString(),
-                    createTime: new Date().toLocaleString('zh-CN', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                        hour12: false,
-                    }).replace(/\//g, '-'),
-                    updateTime: new Date().toLocaleString('zh-CN', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                        hour12: false,
-                    }).replace(/\//g, '-'),
-                    creator: '当前用户',
+                const response = await dataManagementService.addCategory(params)
+                if (response.code === 0) {
+                    message.success('创建成功')
+                    setModalVisible(false)
+                    form.resetFields()
+                    setEditingRecord(null)
+                    fetchData()
+                } else {
+                    message.error(response.msg || '创建失败')
                 }
-                setData([...data, newRecord])
-                message.success('创建成功')
             }
-
-            setModalVisible(false)
-            form.resetFields()
-            setEditingRecord(null)
         } catch (error) {
             console.error('表单验证失败:', error)
+            if (error instanceof Error) {
+                message.error(error.message)
+            }
         }
     }
 
@@ -193,28 +195,58 @@ const CategoryManagement: React.FC = () => {
     }
 
     // 获取状态标签颜色
-    const getStatusColor = (status: string) => {
-        return status === 'active' ? 'success' : 'default'
+    const getStatusColor = (status: number) => {
+        return status === 1 ? 'success' : 'default'
     }
 
     // 获取状态文本
-    const getStatusText = (status: string) => {
-        return status === 'active' ? '启用' : '停用'
+    const getStatusText = (status: number) => {
+        return status === 1 ? '启用' : '停用'
+    }
+
+    // 分页变化处理
+    const handleTableChange = (page: number, size: number) => {
+        setCurrentPage(page)
+        setPageSize(size)
+    }
+
+    // 搜索处理
+    const handleSearch = () => {
+        const values = searchForm.getFieldsValue()
+        setSearchParams({
+            condition: values.condition,
+            categoryName: values.categoryName,
+            categoryCode: values.categoryCode,
+            categoryStatus: values.categoryStatus,
+            sortField: searchParams.sortField || 'create_time',
+            sortOrder: searchParams.sortOrder || 'desc',
+        })
+        setCurrentPage(1) // 重置到第一页
+    }
+
+    // 重置搜索
+    const handleReset = () => {
+        searchForm.resetFields()
+        setSearchParams({
+            sortField: 'create_time',
+            sortOrder: 'desc',
+        })
+        setCurrentPage(1)
     }
 
     // 表格列配置
-    const columns: ColumnsType<Category> = [
+    const columns: ColumnsType<CategoryRecord> = [
         {
             title: '类别名称',
-            dataIndex: 'name',
-            key: 'name',
+            dataIndex: 'categoryName',
+            key: 'categoryName',
             width: 200,
             fixed: 'left' as const,
         },
         {
             title: '类别编码',
-            dataIndex: 'code',
-            key: 'code',
+            dataIndex: 'categoryCode',
+            key: 'categoryCode',
             width: 150,
             render: (text: string) => (
                 <code
@@ -231,37 +263,33 @@ const CategoryManagement: React.FC = () => {
         },
         {
             title: '类别状态',
-            dataIndex: 'status',
-            key: 'status',
+            dataIndex: 'categoryStatus',
+            key: 'categoryStatus',
             width: 120,
-            render: (status: string) => (
+            render: (status: number) => (
                 <Tag color={getStatusColor(status)}>{getStatusText(status)}</Tag>
             ),
         },
         {
-            title: '创建时间',
-            dataIndex: 'createTime',
-            key: 'createTime',
-            width: 180,
-        },
-        {
-            title: '更新时间',
-            dataIndex: 'updateTime',
-            key: 'updateTime',
-            width: 180,
-        },
-        {
-            title: '创建人',
-            dataIndex: 'creator',
-            key: 'creator',
-            width: 120,
+            title: '备注',
+            dataIndex: 'remark',
+            key: 'remark',
+            width: 200,
+            ellipsis: {
+                showTitle: false,
+            },
+            render: (text: string) => (
+                <span title={text} style={{ display: 'block', maxWidth: '200px' }}>
+                    {text || '-'}
+                </span>
+            ),
         },
         {
             title: '操作',
             key: 'action',
             width: 150,
             fixed: 'right' as const,
-            render: (_: unknown, record: Category) => (
+            render: (_: unknown, record: CategoryRecord) => (
                 <Space size='small'>
                     <Button
                         type='link'
@@ -317,6 +345,51 @@ const CategoryManagement: React.FC = () => {
                 style={{ marginBottom: 24 }}
             />
 
+            {/* 搜索表单 */}
+            <Card style={{ marginBottom: 16 }}>
+                <Form form={searchForm} layout='vertical' onFinish={handleSearch}>
+                    <Row gutter={16}>
+                        <Col span={6}>
+                            <Form.Item label='关键字段' name='condition'>
+                                <Search
+                                    placeholder='请输入类别名称或编码'
+                                    allowClear
+                                    onSearch={handleSearch}
+                                />
+                            </Form.Item>
+                        </Col>
+                        <Col span={6}>
+                            <Form.Item label='类别名称' name='categoryName'>
+                                <Input placeholder='请输入类别名称' allowClear />
+                            </Form.Item>
+                        </Col>
+                        <Col span={6}>
+                            <Form.Item label='类别编码' name='categoryCode'>
+                                <Input placeholder='请输入类别编码' allowClear />
+                            </Form.Item>
+                        </Col>
+                        <Col span={6}>
+                            <Form.Item label='类别状态' name='categoryStatus'>
+                                <Select placeholder='请选择状态' allowClear>
+                                    <Option value={1}>启用</Option>
+                                    <Option value={0}>停用</Option>
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                    </Row>
+                    <Row>
+                        <Col>
+                            <Space>
+                                <Button type='primary' icon={<SearchOutlined />} onClick={handleSearch}>
+                                    查询
+                                </Button>
+                                <Button onClick={handleReset}>重置</Button>
+                            </Space>
+                        </Col>
+                    </Row>
+                </Form>
+            </Card>
+
             <Card
                 style={{
                     flex: 1,
@@ -345,13 +418,16 @@ const CategoryManagement: React.FC = () => {
                             y: 'calc(100vh - 380px)', // 动态计算高度，确保不超出页面
                         }}
                         pagination={{
-                            total: data.length,
-                            pageSize: 10,
+                            total: total,
+                            current: currentPage,
+                            pageSize: pageSize,
                             showSizeChanger: true,
                             showQuickJumper: true,
                             showTotal: (total, range) =>
                                 `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`,
                             pageSizeOptions: ['10', '20', '50', '100'],
+                            onChange: handleTableChange,
+                            onShowSizeChange: handleTableChange,
                         }}
                         size='middle'
                     />
@@ -370,11 +446,15 @@ const CategoryManagement: React.FC = () => {
                 <Form
                     form={form}
                     layout='vertical'
-                    initialValues={{ status: 'active' }}
+                    initialValues={{ categoryStatus: 1 }}
                 >
+                    <Form.Item name='id' hidden>
+                        <Input />
+                    </Form.Item>
+
                     <Form.Item
                         label='类别名称'
-                        name='name'
+                        name='categoryName'
                         rules={[
                             { required: true, message: '请输入类别名称' },
                             { max: 50, message: '类别名称不能超过50个字符' },
@@ -385,7 +465,7 @@ const CategoryManagement: React.FC = () => {
 
                     <Form.Item
                         label='类别编码'
-                        name='code'
+                        name='categoryCode'
                         rules={[
                             { required: true, message: '请输入类别编码' },
                             {
@@ -400,13 +480,26 @@ const CategoryManagement: React.FC = () => {
 
                     <Form.Item
                         label='类别状态'
-                        name='status'
+                        name='categoryStatus'
                         rules={[{ required: true, message: '请选择类别状态' }]}
                     >
                         <Select placeholder='请选择类别状态'>
-                            <Option value='active'>启用</Option>
-                            <Option value='inactive'>停用</Option>
+                            <Option value={1}>启用</Option>
+                            <Option value={0}>停用</Option>
                         </Select>
+                    </Form.Item>
+
+                    <Form.Item
+                        label='备注'
+                        name='remark'
+                        rules={[{ max: 200, message: '备注不能超过200个字符' }]}
+                    >
+                        <TextArea
+                            placeholder='请输入备注信息'
+                            rows={4}
+                            showCount
+                            maxLength={200}
+                        />
                     </Form.Item>
                 </Form>
             </Modal>

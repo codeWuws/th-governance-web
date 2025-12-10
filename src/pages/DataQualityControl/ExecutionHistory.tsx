@@ -181,6 +181,35 @@ const ExecutionHistory: React.FC = () => {
         }))
     }
 
+    // 计算表格滚动高度（动态计算，避免触发浏览器滚动条）
+    const tableScrollHeight = useMemo(() => {
+        if (typeof window === 'undefined') {
+            return 600 // 服务端渲染时的默认值
+        }
+        
+        // 计算页面其他元素占用的高度（更保守的估算）
+        // 标题：约 64px (40px + 24px margin)
+        // Alert：约 84px (60px + 24px margin)
+        // 筛选区域：约 140px (根据实际内容，可能有多行，预留更多空间)
+        // 表格包装器 padding：32px (16px * 2)
+        // 分页器：约 80px (包含分页信息和控件，20条分页时可能需要更多空间)
+        // 页面整体 padding/margin：约 50px
+        // 安全边距：约 100px (为不同屏幕尺寸和分页大小预留更多空间)
+        const reservedHeight = 64 + 84 + 140 + 32 + 80 + 50 + 100
+        
+        // 使用更保守的计算，确保不会触发浏览器滚动条
+        const calculatedHeight = window.innerHeight - reservedHeight
+        
+        // 设置最小高度，确保至少能显示几条数据
+        const minHeight = 400
+        // 设置最大高度，避免表格过高
+        const maxHeight = 700
+        
+        const finalHeight = Math.max(minHeight, Math.min(maxHeight, calculatedHeight))
+        
+        return `${finalHeight}px`
+    }, [])
+
     // 解析任务类型
     const parseTaskTypes = (taskTypes: string): string[] => {
         if (!taskTypes) return []
@@ -378,6 +407,7 @@ const ExecutionHistory: React.FC = () => {
                         rowKey='id'
                         dataSource={data}
                         columns={columns}
+                        scroll={{ y: tableScrollHeight, x: 'max-content' }}
                         pagination={{
                             current: pagination.current,
                             pageSize: pagination.pageSize,

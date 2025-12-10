@@ -72,7 +72,7 @@ const FlowManagement: React.FC = () => {
 
     // 将接口数据转换为选项格式
     const qcOptions = useMemo((): QcTypeOption[] => {
-        return qcConfigList
+        return qcConfigList.filter(item => ['TimelinessQC', 'CompletenessQC', 'ConsistencyQC', 'AccuracyQC'].includes(item.nodeType))
             .sort((a, b) => a.nodeStep - b.nodeStep) // 按步骤排序
             .map(item => ({
                 label: item.nodeName,

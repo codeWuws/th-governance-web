@@ -1,10 +1,8 @@
 import {
-    CheckCircleOutlined,
     DatabaseOutlined,
-    ExclamationCircleOutlined,
     PieChartOutlined,
     SearchOutlined,
-    TableOutlined,
+    EyeOutlined,
 } from '@ant-design/icons'
 import {
     Alert,
@@ -13,46 +11,26 @@ import {
     Col,
     Form,
     Input,
-    Modal,
     Progress,
     Row,
     Select,
-    Space,
-    Statistic,
-    Table,
     Typography,
 } from 'antd'
-import type { ColumnsType } from 'antd/es/table'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { logger } from '@/utils/logger'
 import uiMessage from '@/utils/uiMessage'
+import { dataQualityControlService } from '@/services/dataQualityControlService'
+import { api } from '@/utils/request'
+import type { SSEManager } from '@/utils/request'
+import { useAppDispatch } from '@/store/hooks'
+import { initializeExecution, addMessage } from '@/store/slices/qcExecutionSlice'
+import type { WorkflowExecutionMessage } from '@/types'
+import { showDialog } from '@/utils/showDialog'
+import QCResultDialog from './components/QCResultDialog'
 
 const { Title, Text } = Typography
 
-interface TableCompleteness {
-    key: string
-    tableName: string
-    tableComment: string
-    totalRecords: number
-    completenessRate: number
-    incompleteRecords: number
-    status: 'excellent' | 'good' | 'warning' | 'poor'
-}
-
-interface FieldCompleteness {
-    key: string
-    fieldName: string
-    fieldComment: string
-    dataType: string
-    totalRecords: number
-    filledRecords: number
-    emptyRecords: number
-    fillRate: number
-    isRequired: boolean
-}
-
 interface CompletenessFormValues {
-    database: string
     tableType: string
     tableFilter?: string
 }
@@ -60,27 +38,19 @@ interface CompletenessFormValues {
 type AutoProps = { autoStart?: boolean; onAutoDone?: () => void }
 
 const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) => {
+    const dispatch = useAppDispatch()
     const [form] = Form.useForm()
     const [loading, setLoading] = useState(false)
-    const [tableCompleteness, setTableCompleteness] = useState<TableCompleteness[]>([])
-    const [fieldCompleteness, setFieldCompleteness] = useState<FieldCompleteness[]>([])
-    const [selectedTable, setSelectedTable] = useState<string>('')
-    const [showRequiredOnly, setShowRequiredOnly] = useState(false)
-    const [overallStats, setOverallStats] = useState({
-        totalTables: 0,
-        avgCompleteness: 0,
-        excellentTables: 0,
-        poorTables: 0,
-    })
 
-    // 数据库选项
-    const databaseOptions = [
-        { label: 'HIS数据库', value: 'his_db' },
-        { label: 'EMR数据库', value: 'emr_db' },
-        { label: 'LIS数据库', value: 'lis_db' },
-        { label: 'PACS数据库', value: 'pacs_db' },
-        { label: '数据仓库', value: 'dw_db' },
-    ]
+    // SSE相关状态
+    const sseManagerRef = useRef<SSEManager | null>(null)
+    const taskIdRef = useRef<string | null>(null)
+    const [executionStatus, setExecutionStatus] = useState<'idle' | 'running' | 'completed' | 'error'>('idle')
+    const [progress, setProgress] = useState(0)
+    const [completedQuantity, setCompletedQuantity] = useState(0)
+    const [totalQuantity, setTotalQuantity] = useState(0)
+    const [currentTable, setCurrentTable] = useState<string>('')
+    const [currentTableName, setCurrentTableName] = useState<string>('')
 
     // 表类型选项
     const tableTypeOptions = [
@@ -92,169 +62,193 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
         { label: '手术信息表', value: 'surgery' },
     ]
 
-    // 执行完整性检查
+    // 执行完整性检查（使用SSE）
     const handleCompletenessCheck = async (_values: CompletenessFormValues) => {
+        if (loading || executionStatus === 'running') {
+            return
+        }
+
         setLoading(true)
+        setExecutionStatus('running')
+        setProgress(0)
+        setCompletedQuantity(0)
+        setTotalQuantity(0)
+        setCurrentTable('')
+        setCurrentTableName('')
+        taskIdRef.current = null
+
         try {
-            // 模拟完整性检查过程
-            await new Promise(resolve => setTimeout(resolve, 2500))
+            // 生成临时taskId
+            const tempTaskId =
+                (window.crypto?.randomUUID && window.crypto.randomUUID()) ||
+                `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
-            // 模拟表级完整性结果
-            const mockTableData: TableCompleteness[] = [
-                {
-                    key: '1',
-                    tableName: 'patient_info',
-                    tableComment: '患者基本信息表',
-                    totalRecords: 50000,
-                    completenessRate: 95.2,
-                    incompleteRecords: 2400,
-                    status: 'excellent',
+            // 调用SSE接口
+            const manager = api.createSSE({
+                url: '/data/qc/completenessQc',
+                method: 'POST',
+                data: {}, // 空对象
+                maxReconnectAttempts: 3,
+                reconnectInterval: 5000,
+                onOpen: () => {
+                    logger.info('SSE连接已建立，开始启动完整性质控检查...')
+                    uiMessage.info('完整性检查已启动')
                 },
-                {
-                    key: '2',
-                    tableName: 'medical_record',
-                    tableComment: '病历记录表',
-                    totalRecords: 120000,
-                    completenessRate: 87.5,
-                    incompleteRecords: 15000,
-                    status: 'good',
-                },
-                {
-                    key: '3',
-                    tableName: 'examination_result',
-                    tableComment: '检查结果表',
-                    totalRecords: 80000,
-                    completenessRate: 72.3,
-                    incompleteRecords: 22160,
-                    status: 'warning',
-                },
-                {
-                    key: '4',
-                    tableName: 'prescription_detail',
-                    tableComment: '处方明细表',
-                    totalRecords: 200000,
-                    completenessRate: 91.8,
-                    incompleteRecords: 16400,
-                    status: 'excellent',
-                },
-                {
-                    key: '5',
-                    tableName: 'surgery_record',
-                    tableComment: '手术信息表',
-                    totalRecords: 15000,
-                    completenessRate: 65.4,
-                    incompleteRecords: 5190,
-                    status: 'poor',
-                },
-            ]
+                onMessage: (event: MessageEvent) => {
+                    const message = event.data
+                    logger.info('收到SSE消息:', message)
 
-            let filtered = mockTableData
-            if (_values.tableFilter) {
-                const q = _values.tableFilter.toLowerCase()
-                filtered = filtered.filter(
-                    item =>
-                        item.tableName.toLowerCase().includes(q) ||
-                        item.tableComment.toLowerCase().includes(q)
-                )
-            }
-            if (_values.tableType && _values.tableType !== 'all') {
-                const t = _values.tableType
-                filtered = filtered.filter(item => item.tableName.includes(t))
-            }
+                    try {
+                        // 解析SSE消息
+                        const data = typeof message === 'string' ? JSON.parse(message) : message
 
-            setTableCompleteness(filtered)
+                        // 获取taskId
+                        const currentTaskId = data.taskId ? String(data.taskId) : taskIdRef.current || tempTaskId
 
-            // 计算整体统计
-            const totalTables = mockTableData.length
-            const avgCompleteness = Math.round(
-                mockTableData.reduce((sum, item) => sum + item.completenessRate, 0) / totalTables
-            )
-            const excellentTables = mockTableData.filter(item => item.status === 'excellent').length
-            const poorTables = mockTableData.filter(item => item.status === 'poor').length
+                        // 如果是第一条消息且包含taskId，初始化执行状态
+                        if (!taskIdRef.current && currentTaskId) {
+                            taskIdRef.current = currentTaskId
+                            dispatch(initializeExecution({ taskId: currentTaskId }))
+                        }
 
-            setOverallStats({
-                totalTables,
-                avgCompleteness,
-                excellentTables,
-                poorTables,
+                        // 构造 WorkflowExecutionMessage 格式的消息
+                        const executionMessage: WorkflowExecutionMessage = {
+                            tableQuantity: data.tableQuantity || data.table_quantity || 0,
+                            node: {
+                                id: data.node?.id || 0,
+                                nodeName: data.node?.nodeName || '完整性质控',
+                                nodeType: data.node?.nodeType || 'CompletenessQC',
+                                nodeStep: data.node?.nodeStep || 0,
+                                enabled: data.node?.enabled ?? true,
+                                isAuto: data.node?.isAuto ?? true,
+                                descript: data.node?.descript || '',
+                            },
+                            executionStatus: data.executionStatus || 'running',
+                            progress: data.progress || 0,
+                            completedQuantity: data.completedQuantity || 0,
+                            taskId: data.taskId || currentTaskId,
+                            status: data.status || 1,
+                            tableName: data.tableName,
+                            table: data.table,
+                        }
+
+                        // 更新进度信息
+                        if (executionMessage.tableQuantity) {
+                            setTotalQuantity(executionMessage.tableQuantity)
+                        }
+                        if (executionMessage.completedQuantity !== undefined) {
+                            setCompletedQuantity(executionMessage.completedQuantity)
+                        }
+                        if (executionMessage.progress !== undefined) {
+                            setProgress(executionMessage.progress)
+                        }
+                        if (executionMessage.table) {
+                            setCurrentTable(executionMessage.table)
+                        }
+                        if (executionMessage.tableName) {
+                            setCurrentTableName(executionMessage.tableName)
+                        }
+
+                        // 存储消息到全局状态
+                        if (taskIdRef.current) {
+                            dispatch(addMessage({ taskId: taskIdRef.current, message: executionMessage }))
+                        }
+
+                        // 检查是否完成
+                        if (
+                            executionMessage.executionStatus === 'completed' ||
+                            executionMessage.executionStatus === 'end'
+                        ) {
+                            setExecutionStatus('completed')
+                            setProgress(100)
+                            uiMessage.success('完整性检查已完成！')
+                            if (sseManagerRef.current) {
+                                sseManagerRef.current.disconnect()
+                                sseManagerRef.current = null
+                            }
+                        } else if (
+                            executionMessage.executionStatus === 'error' ||
+                            executionMessage.executionStatus === 'failed'
+                        ) {
+                            setExecutionStatus('error')
+                            uiMessage.error('完整性检查执行失败')
+                            if (sseManagerRef.current) {
+                                sseManagerRef.current.disconnect()
+                                sseManagerRef.current = null
+                            }
+                        }
+                    } catch (error) {
+                        logger.error('解析SSE消息失败', error as Error)
+                    }
+                },
+                onError: (error: Event) => {
+                    const msg = 'SSE连接错误'
+                    logger.error(msg, new Error(msg))
+                    setExecutionStatus('error')
+                    uiMessage.error('完整性检查连接失败')
+                    if (sseManagerRef.current) {
+                        sseManagerRef.current.disconnect()
+                        sseManagerRef.current = null
+                    }
+                },
+                onClose: () => {
+                    logger.info('SSE连接已关闭')
+                    // 如果还在运行中，可能是连接意外断开
+                    setExecutionStatus(prev => {
+                        if (prev === 'running') {
+                            uiMessage.warning('连接已断开')
+                            return 'error'
+                        }
+                        return prev
+                    })
+                },
+                onMaxReconnectAttemptsReached: () => {
+                    const msg = 'SSE重连次数已达上限'
+                    logger.error(msg)
+                    setExecutionStatus('error')
+                    uiMessage.error(msg)
+                    if (sseManagerRef.current) {
+                        sseManagerRef.current.disconnect()
+                        sseManagerRef.current = null
+                    }
+                },
             })
 
-            uiMessage.success('完整性检查完成！')
+            sseManagerRef.current = manager
+            manager.connect()
         } catch (error) {
-            logger.error(
-                '完整性检查失败:',
-                error instanceof Error ? error : new Error(String(error))
-            )
-            uiMessage.error('完整性检查失败，请重试')
+            logger.error('启动完整性检查失败:', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('启动完整性检查失败，请重试')
+            setExecutionStatus('error')
         } finally {
             setLoading(false)
         }
     }
 
-    // 查看表字段详情
-    const handleViewTableDetail = (tableName: string) => {
-        setSelectedTable(tableName)
+    // 查看质控结果
+    const handleViewResult = () => {
+        if (!taskIdRef.current) {
+            uiMessage.warning('暂无执行结果')
+            return
+        }
 
-        // 模拟字段级完整性数据
-        const mockFieldData: FieldCompleteness[] = [
-            {
-                key: '1',
-                fieldName: 'patient_id',
-                fieldComment: '患者ID',
-                dataType: 'VARCHAR(20)',
-                totalRecords: 50000,
-                filledRecords: 50000,
-                emptyRecords: 0,
-                fillRate: 100,
-                isRequired: true,
-            },
-            {
-                key: '2',
-                fieldName: 'patient_name',
-                fieldComment: '患者姓名',
-                dataType: 'VARCHAR(50)',
-                totalRecords: 50000,
-                filledRecords: 49850,
-                emptyRecords: 150,
-                fillRate: 99.7,
-                isRequired: true,
-            },
-            {
-                key: '3',
-                fieldName: 'id_card',
-                fieldComment: '身份证号',
-                dataType: 'VARCHAR(18)',
-                totalRecords: 50000,
-                filledRecords: 47500,
-                emptyRecords: 2500,
-                fillRate: 95.0,
-                isRequired: true,
-            },
-            {
-                key: '4',
-                fieldName: 'phone',
-                fieldComment: '联系电话',
-                dataType: 'VARCHAR(15)',
-                totalRecords: 50000,
-                filledRecords: 42000,
-                emptyRecords: 8000,
-                fillRate: 84.0,
-                isRequired: false,
-            },
-            {
-                key: '5',
-                fieldName: 'address',
-                fieldComment: '家庭地址',
-                dataType: 'VARCHAR(200)',
-                totalRecords: 50000,
-                filledRecords: 35000,
-                emptyRecords: 15000,
-                fillRate: 70.0,
-                isRequired: false,
-            },
-        ]
-        setFieldCompleteness(mockFieldData)
+        showDialog(QCResultDialog, {
+            title: '完整性质控结果',
+            type: 'completeness',
+            batchId: taskIdRef.current,
+        })
     }
+
+    // 清理SSE连接
+    useEffect(() => {
+        return () => {
+            if (sseManagerRef.current) {
+                sseManagerRef.current.disconnect()
+                sseManagerRef.current = null
+            }
+        }
+    }, [])
+
 
 
     useEffect(() => {
@@ -262,7 +256,7 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
         const run = async () => {
             if (!autoStart || loading) return
             try {
-                await handleCompletenessCheck({ database: 'dw_db', tableType: 'all' })
+                await handleCompletenessCheck({ tableType: 'all' })
             } finally {
                 if (!cancelled) onAutoDone && onAutoDone()
             }
@@ -273,162 +267,6 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
         }
     }, [autoStart])
 
-    // 表级完整性表格列配置
-    const tableColumns: ColumnsType<TableCompleteness> = [
-        {
-            title: '表名',
-            dataIndex: 'tableName',
-            key: 'tableName',
-            width: 150,
-            render: (text: string) => (
-                <Text code style={{ fontSize: 12 }}>
-                    {text}
-                </Text>
-            ),
-        },
-        {
-            title: '表注释',
-            dataIndex: 'tableComment',
-            key: 'tableComment',
-            width: 150,
-        },
-        {
-            title: '总记录数',
-            dataIndex: 'totalRecords',
-            key: 'totalRecords',
-            width: 100,
-            render: (value: number) => value.toLocaleString(),
-        },
-        {
-            title: '完整性',
-            dataIndex: 'completenessRate',
-            key: 'completenessRate',
-            width: 120,
-            render: (rate: number) => (
-                <Progress
-                    percent={rate}
-                    size='small'
-                    status={rate >= 90 ? 'success' : rate >= 70 ? 'active' : 'exception'}
-                />
-            ),
-        },
-        {
-            title: '状态',
-            dataIndex: 'status',
-            key: 'status',
-            width: 80,
-            render: (status: string) => {
-                const statusConfig = {
-                    excellent: { color: '#52c41a', text: '优秀' },
-                    good: { color: '#1890ff', text: '良好' },
-                    warning: { color: '#faad14', text: '警告' },
-                    poor: { color: '#ff4d4f', text: '较差' },
-                }
-                const config = statusConfig[status as keyof typeof statusConfig]
-                return <span style={{ color: config.color }}>{config.text}</span>
-            },
-        },
-        {
-            title: '操作',
-            key: 'action',
-            width: 100,
-            render: (_, record) => (
-                <Button
-                    type='link'
-                    size='small'
-                    icon={<SearchOutlined />}
-                    onClick={() => handleViewTableDetail(record.tableName)}
-                >
-                    详情
-                </Button>
-            ),
-        },
-    ]
-
-    // 字段级完整性表格列配置
-    const fieldColumns: ColumnsType<FieldCompleteness> = [
-        {
-            title: '字段名',
-            dataIndex: 'fieldName',
-            key: 'fieldName',
-            width: 120,
-            render: (text: string, record) => (
-                <Space>
-                    <Text code style={{ fontSize: 12 }}>
-                        {text}
-                    </Text>
-                    {record.isRequired && <span style={{ color: '#ff4d4f', fontSize: 12 }}>*</span>}
-                </Space>
-            ),
-        },
-        {
-            title: '字段注释',
-            dataIndex: 'fieldComment',
-            key: 'fieldComment',
-            width: 120,
-        },
-        {
-            title: '数据类型',
-            dataIndex: 'dataType',
-            key: 'dataType',
-            width: 100,
-            render: (text: string) => (
-                <Text type='secondary' style={{ fontSize: 12 }}>
-                    {text}
-                </Text>
-            ),
-        },
-        {
-            title: '总记录',
-            dataIndex: 'totalRecords',
-            key: 'totalRecords',
-            width: 80,
-            render: (value: number) => value.toLocaleString(),
-        },
-        {
-            title: '已填充',
-            dataIndex: 'filledRecords',
-            key: 'filledRecords',
-            width: 80,
-            render: (value: number) => (
-                <span style={{ color: '#52c41a' }}>{value.toLocaleString()}</span>
-            ),
-        },
-        {
-            title: '空值',
-            dataIndex: 'emptyRecords',
-            key: 'emptyRecords',
-            width: 80,
-            render: (value: number) => (
-                <span style={{ color: '#ff4d4f' }}>{value.toLocaleString()}</span>
-            ),
-        },
-        {
-            title: '填充率',
-            dataIndex: 'fillRate',
-            key: 'fillRate',
-            width: 100,
-            render: (rate: number, record) => (
-                <Progress
-                    percent={rate}
-                    size='small'
-                    status={
-                        record.isRequired
-                            ? rate >= 95
-                                ? 'success'
-                                : rate >= 80
-                                  ? 'active'
-                                  : 'exception'
-                            : rate >= 80
-                              ? 'success'
-                              : rate >= 60
-                                ? 'active'
-                                : 'exception'
-                    }
-                />
-            ),
-        },
-    ]
 
     return (
         <div>
@@ -456,65 +294,9 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
                 style={{ marginBottom: 24 }}
             />
 
-            {/* 整体统计 */}
-            {overallStats.totalTables > 0 && (
-                <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-                    <Col xs={24} sm={6}>
-                        <Card>
-                            <Statistic
-                                title='检查表数'
-                                value={overallStats.totalTables}
-                                suffix='张'
-                                prefix={<TableOutlined />}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={24} sm={6}>
-                        <Card>
-                            <Statistic
-                                title='平均完整性'
-                                value={overallStats.avgCompleteness}
-                                suffix='%'
-                                valueStyle={{
-                                    color:
-                                        overallStats.avgCompleteness >= 90
-                                            ? '#52c41a'
-                                            : overallStats.avgCompleteness >= 70
-                                              ? '#1890ff'
-                                              : '#ff4d4f',
-                                }}
-                                prefix={<PieChartOutlined />}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={24} sm={6}>
-                        <Card>
-                            <Statistic
-                                title='优秀表数'
-                                value={overallStats.excellentTables}
-                                suffix='张'
-                                valueStyle={{ color: '#52c41a' }}
-                                prefix={<CheckCircleOutlined />}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={24} sm={6}>
-                        <Card>
-                            <Statistic
-                                title='问题表数'
-                                value={overallStats.poorTables}
-                                suffix='张'
-                                valueStyle={{ color: '#ff4d4f' }}
-                                prefix={<ExclamationCircleOutlined />}
-                            />
-                        </Card>
-                    </Col>
-                </Row>
-            )}
-
             <Row gutter={[16, 16]}>
-                {/* 左侧：检查配置 */}
-                <Col xs={24} lg={8}>
+                {/* 检查配置 */}
+                <Col xs={24} lg={12}>
                     <Card
                         title={
                             <>
@@ -527,20 +309,8 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
                             form={form}
                             layout='vertical'
                             onFinish={handleCompletenessCheck}
-                            initialValues={{ database: 'dw_db', tableType: 'all', tableFilter: '' }}
+                            initialValues={{ tableType: 'all', tableFilter: '' }}
                         >
-                            <Form.Item
-                                label='选择数据库'
-                                name='database'
-                                rules={[{ required: true, message: '请选择数据库' }]}
-                            >
-                                <Select
-                                    placeholder='请选择要检查的数据库'
-                                    options={databaseOptions}
-                                    size='large'
-                                />
-                            </Form.Item>
-
                             <Form.Item
                                 label='表类型'
                                 name='tableType'
@@ -561,80 +331,61 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
                                 <Button
                                     type='primary'
                                     htmlType='submit'
-                                    loading={loading}
+                                    loading={loading || executionStatus === 'running'}
                                     icon={<SearchOutlined />}
                                     size='large'
                                     block
+                                    disabled={executionStatus === 'running'}
                                 >
-                                    开始完整性检查
+                                    {executionStatus === 'running' ? '检查进行中...' : '开始完整性检查'}
                                 </Button>
                             </Form.Item>
+
+                            {/* 进度条展示 */}
+                            {executionStatus === 'running' && (
+                                <div style={{ marginTop: 16 }}>
+                                    <div style={{ marginBottom: 8 }}>
+                                        <Text strong>执行进度：</Text>
+                                    </div>
+                                    <Progress
+                                        percent={progress}
+                                        status={progress === 100 ? 'success' : 'active'}
+                                        showInfo
+                                    />
+                                    {totalQuantity > 0 && (
+                                        <div style={{ marginTop: 8 }}>
+                                            <Text type='secondary' style={{ fontSize: 12 }}>
+                                                已完成: {completedQuantity} / {totalQuantity} ({progress}%)
+                                            </Text>
+                                        </div>
+                                    )}
+                                    {(currentTable || currentTableName) && (
+                                        <div style={{ marginTop: 8 }}>
+                                            <Text type='secondary' style={{ fontSize: 12 }}>
+                                                正在处理: {currentTable}
+                                                {currentTableName ? ` (${currentTableName})` : ''}
+                                            </Text>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* 执行完成后的结果按钮 */}
+                            {executionStatus === 'completed' && (
+                                <div style={{ marginTop: 16 }}>
+                                    <Button
+                                        type='primary'
+                                        icon={<EyeOutlined />}
+                                        size='large'
+                                        block
+                                        onClick={handleViewResult}
+                                    >
+                                        查看质控结果
+                                    </Button>
+                                </div>
+                            )}
                         </Form>
                     </Card>
-                </Col>
-
-                {/* 右侧：检查结果 */}
-                <Col xs={24} lg={16}>
-                    {/* 表级完整性结果 */}
-                    <Card
-                        title={
-                            <>
-                                <TableOutlined style={{ marginRight: 8 }} />
-                                表级完整性
-                            </>
-                        }
-                        style={{ marginBottom: 16 }}
-                    >
-                        {tableCompleteness.length > 0 ? (
-                            <Table
-                                columns={tableColumns}
-                                dataSource={tableCompleteness}
-                                pagination={{ pageSize: 10 }}
-                                size='middle'
-                                scroll={{ x: 800 }}
-                            />
-                        ) : (
-                            <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
-                                <PieChartOutlined style={{ fontSize: 48, marginBottom: 16 }} />
-                                <div>暂无检查结果</div>
-                                <div style={{ fontSize: 12, marginTop: 8 }}>请先执行完整性检查</div>
-                            </div>
-                        )}
-                    </Card>
-
-                    {/* 字段级完整性结果 */}
-                    {fieldCompleteness.length > 0 && (
-                        <Card
-                            title={
-                                <>
-                                    <DatabaseOutlined style={{ marginRight: 8 }} />
-                                    字段级完整性 - {selectedTable}
-                                </>
-                            }
-                            extra={
-                                fieldCompleteness.length > 0 ? (
-                                    <Button
-                                        type='link'
-                                        onClick={() => setShowRequiredOnly(s => !s)}
-                                    >
-                                        {showRequiredOnly ? '显示全部字段' : '仅显示必填字段'}
-                                    </Button>
-                                ) : undefined
-                            }
-                        >
-                            <Table
-                                columns={fieldColumns}
-                                dataSource={
-                                    showRequiredOnly
-                                        ? fieldCompleteness.filter(f => f.isRequired)
-                                        : fieldCompleteness
-                                }
-                                pagination={false}
-                                size='middle'
-                                scroll={{ x: 800 }}
-                            />
-                        </Card>
-                    )}
                 </Col>
             </Row>
         </div>

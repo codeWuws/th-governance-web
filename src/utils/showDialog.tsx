@@ -1,6 +1,8 @@
 import React from 'react'
 import { createRoot, Root } from 'react-dom/client'
 import { Provider } from 'react-redux'
+import { ConfigProvider } from 'antd'
+import zhCN from 'antd/locale/zh_CN'
 import CustomDialog, { CustomDialogProps } from '@/components/CustomDialog'
 import { store } from '@/store'
 
@@ -214,17 +216,19 @@ export function showDialog<T extends CustomDialogProps = CustomDialogProps>(
         // 更新弹窗状态为关闭（通过 forceClose 来触发关闭）
         root.render(
             <Provider store={store}>
-                <DialogComponent
-                    {...(props as any)}
-                    forceClose={true}
-                    onOk={handleOk}
-                    onCancel={handleCancel}
-                    onClose={() => {
-                        destroyDialog(instance, finalUniqueId)
-                        console.log(`✨ [showDialog] Promise resolved，返回值: ${result}`)
-                        promiseResolve!(result)
-                    }}
-                />
+                <ConfigProvider locale={zhCN}>
+                    <DialogComponent
+                        {...(props as any)}
+                        forceClose={true}
+                        onOk={handleOk}
+                        onCancel={handleCancel}
+                        onClose={() => {
+                            destroyDialog(instance, finalUniqueId)
+                            console.log(`✨ [showDialog] Promise resolved，返回值: ${result}`)
+                            promiseResolve!(result)
+                        }}
+                    />
+                </ConfigProvider>
             </Provider>
         )
     }
@@ -238,13 +242,15 @@ export function showDialog<T extends CustomDialogProps = CustomDialogProps>(
     // 渲染弹窗
     root.render(
         <Provider store={store}>
-            <DialogComponent
-                {...(props as any)}
-                forceClose={false}
-                onOk={handleOk}
-                onCancel={handleCancel}
-                onClose={() => handleClose(false)}
-            />
+            <ConfigProvider locale={zhCN}>
+                <DialogComponent
+                    {...(props as any)}
+                    forceClose={false}
+                    onOk={handleOk}
+                    onCancel={handleCancel}
+                    onClose={() => handleClose(false)}
+                />
+            </ConfigProvider>
         </Provider>
     )
 
@@ -260,13 +266,15 @@ export function closeDialog(id: string) {
     if (instance) {
         instance.root.render(
             <Provider store={store}>
-                <CustomDialog
-                    forceClose={true}
-                    onClose={() => {
-                        destroyDialog(instance, id)
-                        instance.resolve(false)
-                    }}
-                />
+                <ConfigProvider locale={zhCN}>
+                    <CustomDialog
+                        forceClose={true}
+                        onClose={() => {
+                            destroyDialog(instance, id)
+                            instance.resolve(false)
+                        }}
+                    />
+                </ConfigProvider>
             </Provider>
         )
     }
@@ -279,26 +287,30 @@ export function closeAllDialogs() {
     dialogInstances.forEach((instance, id) => {
         instance.root.render(
             <Provider store={store}>
-                <CustomDialog
-                    forceClose={true}
-                    onClose={() => {
-                        destroyDialog(instance, id)
-                        instance.resolve(false)
-                    }}
-                />
+                <ConfigProvider locale={zhCN}>
+                    <CustomDialog
+                        forceClose={true}
+                        onClose={() => {
+                            destroyDialog(instance, id)
+                            instance.resolve(false)
+                        }}
+                    />
+                </ConfigProvider>
             </Provider>
         )
     })
     anonymousInstances.forEach((instance) => {
         instance.root.render(
             <Provider store={store}>
-                <CustomDialog
-                    forceClose={true}
-                    onClose={() => {
-                        destroyDialog(instance)
-                        instance.resolve(false)
-                    }}
-                />
+                <ConfigProvider locale={zhCN}>
+                    <CustomDialog
+                        forceClose={true}
+                        onClose={() => {
+                            destroyDialog(instance)
+                            instance.resolve(false)
+                        }}
+                    />
+                </ConfigProvider>
             </Provider>
         )
     })

@@ -8,7 +8,7 @@ import {
     LinkOutlined,
     HeartOutlined,
 } from '@ant-design/icons'
-import { Button, Card, Progress, Spin, Steps, Tag, Typography, Modal, Space } from 'antd'
+import { Button, Card, Progress, Spin, Steps, Tag, Typography, Space } from 'antd'
 import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAppSelector, useAppDispatch } from '@/store/hooks'
@@ -16,8 +16,11 @@ import { selectExecutionByTaskId, selectExecutionMessages, initializeExecution }
 import { dataQualityControlService } from '@/services/dataQualityControlService'
 import { logger } from '@/utils/logger'
 import { uiMessage } from '@/utils/uiMessage'
-import type { WorkflowExecutionMessage, QCTaskLogDetailData, QCTaskLogItem } from '@/types'
+import type { WorkflowExecutionMessage, QCTaskLogDetailData, QCTaskLogItem, QCTaskLogSummary } from '@/types'
 import dayjs from 'dayjs'
+import { showDialog } from '@/utils/showDialog'
+import QCResultDialog from './components/QCResultDialog'
+import { subscribeWorkflow } from '@/utils/workflowUtils'
 
 const { Title, Text } = Typography
 const { Step } = Steps
@@ -97,13 +100,6 @@ const QualityControlFlowDetail: React.FC = () => {
     // UI状态管理
     const [loading, setLoading] = useState(false)
     const [logDetailData, setLogDetailData] = useState<QCTaskLogDetailData | null>(null)
-    const [resultModalVisible, setResultModalVisible] = useState(false)
-    const [selectedStepResult, setSelectedStepResult] = useState<{
-        title: string
-        resultSummary: string
-        stepIndex: number
-        step?: QCTaskLogItem
-    } | null>(null)
     const [continueLoading, setContinueLoading] = useState(false)
 
     // 初始化执行状态（如果不存在）
@@ -142,24 +138,142 @@ const QualityControlFlowDetail: React.FC = () => {
         }
     }, [taskId])
 
-    // 初始化时获取日志详情
+    // 组件初始化时获取日志详情并初始化质控任务执行状态
     useEffect(() => {
         if (taskId) {
+            // 初始化质控任务执行状态（如果还不存在）
+            if (!qcExecution) {
+                dispatch(initializeExecution({ taskId }))
+            }
+            // 只在初始化时获取一次日志详情，后续通过SSE更新
             fetchLogDetail()
+        }
+    }, [taskId, dispatch, fetchLogDetail]) // qcExecution 在此处不应作为依赖，避免无限循环
+
+    // 订阅质控流程完成/关闭事件
+    useEffect(() => {
+        if (!taskId) return
+
+        let unsubscribe: (() => void) | null = null
+        try {
+            unsubscribe = subscribeWorkflow(String(taskId), evt => {
+                if (!evt || evt.taskId !== String(taskId)) return
+                if (evt.type === 'completed' || evt.type === 'closed') {
+                    // 仅在完成或关闭时刷新详情
+                    fetchLogDetail()
+                }
+            })
+        } catch (e) {
+            const errMsg = e instanceof Error ? e.message : '订阅质控流程事件时发生未知错误'
+            logger.error('订阅质控流程事件失败', e instanceof Error ? e : new Error(errMsg))
+        }
+
+        // 清理订阅
+        return () => {
+            try {
+                unsubscribe?.()
+            } catch (e) {
+                const errMsg = e instanceof Error ? e.message : '取消订阅时发生未知错误'
+                logger.error('取消订阅质控流程事件失败', e instanceof Error ? e : new Error(errMsg))
+            }
         }
     }, [taskId, fetchLogDetail])
 
+    // 获取质控流程详情，如果有SSE连接的情况下优先从SSE中获取步骤详情
+    const displayDetail = useMemo(() => {
+        if (!logDetailData) {
+            // 如果没有日志数据，返回空结构
+            return null
+        }
+
+        // 深拷贝日志数据，避免直接修改原始数据
+        const detail = JSON.parse(JSON.stringify(logDetailData)) as QCTaskLogDetailData
+        const executionMessages = qcExecution?.messages || []
+
+        // 如果有SSE消息，将SSE消息中的进度信息合并到日志详情中
+        if (executionMessages.length > 0 && detail.logList) {
+            // 找到最后一个正在执行的步骤
+            const lastExecutingStep = executionMessages.at(-1)
+            const lastNode = executionMessages.findLast(
+                msg => msg.executionStatus !== 'end' && !!msg.node && (typeof msg.node === 'string' ? msg.node !== '-' : true)
+            )
+            const isEnd =
+                lastExecutingStep?.executionStatus === 'end' &&
+                (typeof lastNode?.node === 'object' && lastNode?.node !== null
+                    ? lastNode.node.nodeType === detail.logList?.at(-1)?.node_type
+                    : false)
+
+            // 遍历SSE消息，更新对应的日志步骤
+            executionMessages.forEach(msgInfo => {
+                const { node, tableQuantity, completedQuantity, status, tableName, table } = msgInfo
+
+                // 找到对应的日志步骤
+                const step = detail.logList.find(
+                    log => log.node_type === node.nodeType
+                ) as QCTaskLogItem | undefined
+
+                if (step) {
+                    // 更新进度信息
+                    if (completedQuantity !== undefined) {
+                        step.completedQuantity = completedQuantity
+                    }
+                    if (tableQuantity !== undefined) {
+                        step.table_quantity = tableQuantity
+                    }
+
+                    // 更新tableName和table字段
+                    if (tableName !== undefined) {
+                        step.tableName = tableName
+                    }
+                    if (table !== undefined) {
+                        step.table = table
+                    }
+
+                    // 找到最后一个节点的索引
+                    const lastIndex = detail.logList?.findIndex(
+                        step => step.node_type === lastNode?.node.nodeType
+                    )
+
+                    // 更新步骤状态
+                    if ((isEnd || (lastIndex !== undefined && step.step_no < lastIndex + 1)) && step.enabled) {
+                        step.step_status = 2 // 已完成
+                    } else {
+                        // 根据SSE消息的状态更新
+                        if (status !== undefined) {
+                            step.step_status = status
+                        }
+                    }
+                }
+            })
+
+            // 更新摘要信息
+            if (lastNode) {
+                detail.logSummary.node_type = lastNode.node.nodeType
+            }
+            if (isEnd) {
+                detail.logSummary.status = 2 // 已完成
+            } else if (lastNode?.node && !lastNode.node.isAuto) {
+                detail.logSummary.status = 3 // 暂停
+            } else {
+                detail.logSummary.status = 1 // 执行中
+            }
+        }
+
+        return detail
+    }, [logDetailData, qcExecution?.messages, taskId])
+
     // 根据日志数据或类型生成执行步骤
     const executionSteps = useMemo(() => {
-        // 优先使用日志数据
-        if (logDetailData?.logList && logDetailData.logList.length > 0) {
+        // 优先使用组合后的详情数据
+        const detailData = displayDetail || logDetailData
+        if (detailData?.logList && detailData.logList.length > 0) {
             const nodeTypeToValue: Record<string, string> = {
                 TimelinessQC: 'comprehensive',
                 CompletenessQC: 'completeness',
                 ConsistencyQC: 'basic-medical-logic',
                 AccuracyQC: 'core-data',
             }
-            return logDetailData.logList.map((log, index) => {
+            return detailData.logList.map((log, index) => {
                 const type = nodeTypeToValue[log.node_type] || log.node_type
                 const typeInfo = QC_TYPE_MAP[type]
                 return {
@@ -183,14 +297,14 @@ const QualityControlFlowDetail: React.FC = () => {
                 type: type,
             }
         })
-    }, [logDetailData, types])
+    }, [displayDetail, logDetailData, types])
 
-    // 根据日志数据或全局状态中的消息更新流程详情
+    // 根据组合后的详情数据生成流程详情
     const flowDetail: QCFlowDetail = useMemo(() => {
-        // 优先使用日志数据
-        if (logDetailData) {
-            const summary = logDetailData.logSummary
-            const logList = logDetailData.logList || []
+        // 优先使用组合后的详情数据
+        if (displayDetail) {
+            const summary = displayDetail.logSummary
+            const logList = displayDetail.logList || []
 
             // 从task_types或logList中获取类型
             const nodeTypeToValue: Record<string, string> = {
@@ -204,16 +318,18 @@ const QualityControlFlowDetail: React.FC = () => {
                 ? summary.task_types.split(',').map(type => nodeTypeToValue[type.trim()] || type.trim()).filter(Boolean)
                 : logList.map(log => nodeTypeToValue[log.node_type] || log.node_type).filter(Boolean)
 
-            // 将logList转换为steps
+            // 将logList转换为steps，使用SSE更新后的数据
             const steps: QCStepStatus[] = logList.map((log) => ({
                 stepIndex: log.step_no - 1, // step_no从1开始，stepIndex从0开始
                 status: log.step_status,
-                completedQuantity: log.step_status === 2 ? 100 : log.step_status === 1 ? 50 : 0,
-                totalQuantity: 100,
+                completedQuantity: log.completedQuantity || (log.step_status === 2 ? 100 : log.step_status === 1 ? 50 : 0),
+                totalQuantity: log.table_quantity || 100,
                 startTime: log.create_time ? dayjs(log.create_time).format('YYYY-MM-DD HH:mm:ss') : undefined,
                 endTime: log.end_time ? dayjs(log.end_time).format('YYYY-MM-DD HH:mm:ss') : undefined,
                 resultSummary: log.step_status === 2 ? `${log.step_name}执行完成` : undefined,
                 errorMessage: log.step_status === 5 ? '执行失败' : undefined,
+                table: log.table,
+                tableName: log.tableName,
             }))
 
             return {
@@ -296,7 +412,7 @@ const QualityControlFlowDetail: React.FC = () => {
         }
 
         return baseDetail
-    }, [taskId, types, executionSteps, qcExecution, executionMessages, logDetailData])
+    }, [taskId, types, executionSteps, qcExecution, executionMessages, displayDetail])
 
     // 返回上一页
     const goBack = () => {
@@ -318,29 +434,27 @@ const QualityControlFlowDetail: React.FC = () => {
         const step = executionSteps[stepIndex]
         if (!step) return
 
-        // 从日志数据中获取步骤信息
-        const logItem = logDetailData?.logList?.[stepIndex]
-        const resultSummary = logItem?.step_status === 2 
-            ? `${step.title}执行完成` 
-            : '暂无执行结果'
+        // 从组合后的详情数据中获取步骤信息
+        const logItem = displayDetail?.logList?.[stepIndex] || logDetailData?.logList?.[stepIndex]
 
-        setSelectedStepResult({
+        // 使用 showDialog 显示结果弹窗
+        showDialog(QCResultDialog, {
             title: step.title,
-            resultSummary,
-            stepIndex,
+            type: step.type,
             step: logItem,
+            batchId: taskId,
         })
-        setResultModalVisible(true)
-    }
-
-    // 关闭结果弹窗
-    const handleCloseResultModal = () => {
-        setResultModalVisible(false)
-        setSelectedStepResult(null)
     }
 
     // 获取当前步骤索引（仅用于展示）
     const getCurrentStep = () => {
+        if (displayDetail?.logSummary?.node_type && displayDetail.logList) {
+            // 使用组合后的详情数据中的node_type来找到当前步骤
+            const currentIndex = displayDetail.logList.findIndex(
+                step => step.node_type === displayDetail.logSummary.node_type
+            )
+            return currentIndex >= 0 ? currentIndex : displayDetail.logList.length
+        }
         if (!flowDetail) return 0
         const currentIndex = flowDetail.steps.findIndex(step => step.status === 1)
         return currentIndex >= 0 ? currentIndex : flowDetail.steps.length
@@ -455,7 +569,7 @@ const QualityControlFlowDetail: React.FC = () => {
                     </div>
                     <div>
                         <Text strong>任务名称：</Text>
-                        <Text>{logDetailData?.logSummary?.name || '无'}</Text>
+                        <Text>{displayDetail?.logSummary?.name || logDetailData?.logSummary?.name || '无'}</Text>
                     </div>
                     <div>
                         <Text strong>质控类型：</Text>
@@ -478,7 +592,9 @@ const QualityControlFlowDetail: React.FC = () => {
                     <div>
                         <Text strong>开始时间：</Text>
                         <Text>
-                            {logDetailData?.logSummary?.start_time
+                            {displayDetail?.logSummary?.start_time
+                                ? dayjs(displayDetail.logSummary.start_time).format('YYYY-MM-DD HH:mm:ss')
+                                : logDetailData?.logSummary?.start_time
                                 ? dayjs(logDetailData.logSummary.start_time).format('YYYY-MM-DD HH:mm:ss')
                                 : flowDetail?.startTime
                                 ? new Date(flowDetail.startTime).toLocaleString('zh-CN')
@@ -488,17 +604,19 @@ const QualityControlFlowDetail: React.FC = () => {
                     <div>
                         <Text strong>结束时间：</Text>
                         <Text>
-                            {logDetailData?.logSummary?.end_time
+                            {displayDetail?.logSummary?.end_time
+                                ? dayjs(displayDetail.logSummary.end_time).format('YYYY-MM-DD HH:mm:ss')
+                                : logDetailData?.logSummary?.end_time
                                 ? dayjs(logDetailData.logSummary.end_time).format('YYYY-MM-DD HH:mm:ss')
                                 : flowDetail?.endTime
                                 ? new Date(flowDetail.endTime).toLocaleString('zh-CN')
                                 : '进行中'}
                         </Text>
                     </div>
-                    {logDetailData?.logSummary?.remark && (
+                    {(displayDetail?.logSummary?.remark || logDetailData?.logSummary?.remark) && (
                         <div style={{ gridColumn: '1 / -1' }}>
                             <Text strong>备注：</Text>
-                            <Text>{logDetailData.logSummary.remark}</Text>
+                            <Text>{displayDetail?.logSummary?.remark || logDetailData?.logSummary?.remark}</Text>
                         </div>
                     )}
                 </div>
@@ -581,65 +699,6 @@ const QualityControlFlowDetail: React.FC = () => {
                 )}
             </Card>
 
-            {/* 执行结果查看弹窗 */}
-            <Modal
-                title={`执行结果 - ${selectedStepResult?.title}`}
-                open={resultModalVisible}
-                onCancel={handleCloseResultModal}
-                footer={[
-                    <Button key='close' onClick={handleCloseResultModal}>
-                        关闭
-                    </Button>,
-                ]}
-                width={600}
-            >
-                {selectedStepResult && (
-                    <div>
-                        <div style={{ marginBottom: 16 }}>
-                            <Text strong>步骤名称：</Text>
-                            <Text>{selectedStepResult.title}</Text>
-                        </div>
-                        {selectedStepResult.step && (
-                            <div style={{ marginBottom: 16 }}>
-                                <Text strong>执行类型：</Text>
-                                <Tag color={selectedStepResult.step.is_auto ? 'blue' : 'orange'}>
-                                    {selectedStepResult.step.is_auto ? '自动执行' : '手动执行'}
-                                </Tag>
-                            </div>
-                        )}
-                        {selectedStepResult.step?.create_time && (
-                            <div style={{ marginBottom: 16 }}>
-                                <Text strong>开始时间：</Text>
-                                <Text>
-                                    {dayjs(selectedStepResult.step.create_time).format('YYYY-MM-DD HH:mm:ss')}
-                                </Text>
-                            </div>
-                        )}
-                        {selectedStepResult.step?.end_time && (
-                            <div style={{ marginBottom: 16 }}>
-                                <Text strong>结束时间：</Text>
-                                <Text>
-                                    {dayjs(selectedStepResult.step.end_time).format('YYYY-MM-DD HH:mm:ss')}
-                                </Text>
-                            </div>
-                        )}
-                        <div>
-                            <Text strong>执行结果：</Text>
-                            <div
-                                style={{
-                                    marginTop: 8,
-                                    padding: 12,
-                                    background: '#f5f5f5',
-                                    borderRadius: 4,
-                                    border: '1px solid #d9d9d9',
-                                }}
-                            >
-                                <Text>{selectedStepResult.resultSummary}</Text>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </Modal>
         </div>
     )
 }

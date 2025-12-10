@@ -23,6 +23,12 @@ import type {
     AssetTableInfoResponse,
     AddAssetCategoryParams,
     AddAssetCategoryResponse,
+    CategoryPageParams,
+    CategoryPageResponse,
+    CategoryDetailResponse,
+    CategorySaveParams,
+    CategorySaveResponse,
+    CategoryDeleteResponse,
 } from '@/types'
 import { api } from '@/utils/request'
 import { logger } from '@/utils/logger'
@@ -412,6 +418,123 @@ export class DataManagementService {
         }
     }
 
+    /**
+     * 获取类别分页列表
+     * @description 分页查询类别数据
+     * @param params 查询参数
+     * @returns Promise<CategoryPageResponse>
+     */
+    static async getCategoryPage(params: CategoryPageParams): Promise<CategoryPageResponse> {
+        try {
+            logger.debug('发送获取类别列表请求到: /data/standard/category/page', params)
+            const response = await api.get<CategoryPageResponse>('/data/standard/category/page', {
+                params,
+            })
+            logger.debug('获取类别列表API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取类别列表API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取类别列表失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 获取类别详情
+     * @description 根据ID获取类别详情
+     * @param id 类别ID
+     * @returns Promise<CategoryDetailResponse>
+     */
+    static async getCategoryDetail(id: number): Promise<CategoryDetailResponse> {
+        try {
+            logger.debug('发送获取类别详情请求到: /data/standard/category/' + id, { id })
+            const response = await api.get<CategoryDetailResponse>(`/data/standard/category/${id}`)
+            logger.debug('获取类别详情API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取类别详情API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取类别详情失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 新增类别
+     * @description 创建新的类别
+     * @param params 新增类别参数
+     * @returns Promise<CategorySaveResponse>
+     */
+    static async addCategory(params: CategorySaveParams): Promise<CategorySaveResponse> {
+        try {
+            logger.debug('发送新增类别请求到: /data/standard/category/add', params)
+            const response = await api.post<CategorySaveResponse>('/data/standard/category/add', params)
+            logger.debug('新增类别API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '新增类别API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `新增类别失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 更新类别
+     * @description 更新现有类别信息
+     * @param params 更新类别参数
+     * @returns Promise<CategorySaveResponse>
+     */
+    static async updateCategory(params: CategorySaveParams): Promise<CategorySaveResponse> {
+        try {
+            logger.debug('发送更新类别请求到: /data/standard/category/update', params)
+            const response = await api.put<CategorySaveResponse>('/data/standard/category/update', params)
+            logger.debug('更新类别API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '更新类别API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `更新类别失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 删除类别
+     * @description 根据ID删除类别
+     * @param id 类别ID
+     * @returns Promise<CategoryDeleteResponse>
+     */
+    static async deleteCategory(id: number): Promise<CategoryDeleteResponse> {
+        try {
+            logger.debug('发送删除类别请求到: /data/standard/category/' + id, { id })
+            const response = await api.delete<CategoryDeleteResponse>(`/data/standard/category/${id}`)
+            logger.debug('删除类别API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '删除类别API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `删除类别失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
 }
 
 /**
@@ -432,6 +555,11 @@ export const dataManagementService = {
     getAssetDataSourceOptions: DataManagementService.getAssetDataSourceOptions,
     getTableInfo: DataManagementService.getTableInfo,
     addAssetCategory: DataManagementService.addAssetCategory,
+    getCategoryPage: DataManagementService.getCategoryPage,
+    getCategoryDetail: DataManagementService.getCategoryDetail,
+    addCategory: DataManagementService.addCategory,
+    updateCategory: DataManagementService.updateCategory,
+    deleteCategory: DataManagementService.deleteCategory,
 }
 
 export default dataManagementService

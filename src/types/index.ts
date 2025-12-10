@@ -629,6 +629,14 @@ export interface QCTaskLogItem {
     is_auto: boolean
     /** 节点类型 */
     node_type: string
+    /** 已完成数量 (通过SSE动态更新) */
+    completedQuantity?: number
+    /** 总表数量 (通过SSE动态更新) */
+    table_quantity?: number
+    /** 表名 (通过SSE动态更新) */
+    tableName?: string
+    /** 表 (通过SSE动态更新) */
+    table?: string
 }
 
 /** 质控任务日志详情数据 */
@@ -1179,4 +1187,360 @@ export interface AddAssetCategoryResponse {
     msg: string
     /** 响应数据 */
     data?: unknown
+}
+
+// ==================== 准确性质控执行结果相关类型定义 ====================
+
+/** 准确性质控执行结果记录 */
+export interface AccuracyQCResultRecord {
+    /** 记录ID */
+    id: string
+    /** 规则编码 */
+    ruleCode: string
+    /** 主表名称 */
+    mainTable: string
+    /** 次表名称 */
+    subTable: string
+    /** 主表表名 */
+    mainTableName: string
+    /** 次表表名 */
+    subTableName: string
+    /** 主表数量 */
+    mainCount: string
+    /** 次表数量 */
+    subCount: string
+    /** 问题描述 */
+    issueDesc: string
+    /** 批次ID */
+    batchId: string
+}
+
+/** 准确性质控执行结果分页请求参数 */
+export interface AccuracyQCResultPageParams {
+    /** 页码，从1开始 */
+    pageNum: number
+    /** 每页数量 */
+    pageSize: number
+    /** 排序字段 */
+    sortField?: string
+    /** 排序顺序 */
+    sortOrder?: 'asc' | 'desc'
+    /** 批次ID */
+    batchId: string | number
+}
+
+/** 准确性质控执行结果分页数据 */
+export interface AccuracyQCResultPageData {
+    /** 记录列表 */
+    records: AccuracyQCResultRecord[]
+    /** 总条数 */
+    total: string
+    /** 每页数量 */
+    size: string
+    /** 当前页码 */
+    current: string
+    /** 总页数 */
+    pages: string
+}
+
+/** 准确性质控执行结果分页响应 */
+export interface AccuracyQCResultPageResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data: AccuracyQCResultPageData
+}
+
+// ==================== 完整性质控执行结果相关类型定义 ====================
+
+/** 完整性质控执行结果记录 */
+export interface CompletenessQCResultRecord {
+    /** 记录ID */
+    id: string
+    /** 批次ID */
+    batchId: string
+    /** 表名 */
+    tableName: string
+    /** 字段名 */
+    fieldName: string
+    /** 表注释 */
+    tableComment: string
+    /** 字段注释 */
+    fieldComment: string
+    /** 表总记录数 */
+    tableTotalRecords: string
+    /** 字段填充记录数 */
+    fieldFillRecords: string
+    /** 字段填充率 */
+    fieldFillRate: number
+}
+
+/** 完整性质控执行结果分页请求参数 */
+export interface CompletenessQCResultPageParams {
+    /** 页码，从1开始 */
+    pageNum: number
+    /** 每页数量 */
+    pageSize: number
+    /** 批次ID */
+    batchId: string | number
+}
+
+/** 完整性质控执行结果分页数据 */
+export interface CompletenessQCResultPageData {
+    /** 记录列表 */
+    records: CompletenessQCResultRecord[]
+    /** 总条数 */
+    total: string
+    /** 每页数量 */
+    size: string
+    /** 当前页码 */
+    current: string
+    /** 总页数 */
+    pages: string
+}
+
+/** 完整性质控执行结果分页响应 */
+export interface CompletenessQCResultPageResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data: CompletenessQCResultPageData
+}
+
+// ==================== 一致性质控执行结果相关类型定义 ====================
+
+/** 一致性质控执行结果记录 */
+export interface ConsistencyQCResultRecord {
+    /** 记录ID */
+    id: string
+    /** 规则编码 */
+    code: string
+    /** 主表 */
+    mainTable: string
+    /** 次表 */
+    subTable: string
+    /** 主表表名 */
+    mainTableName: string
+    /** 次表表名 */
+    subTableName: string
+    /** 主表数量 */
+    mainTableCount: number
+    /** 次表数量 */
+    subTableCount: number
+    /** 字段名 */
+    field: string
+    /** 字段名称 */
+    fieldName: string
+    /** 问题描述 */
+    issueDesc: string
+    /** 批次ID */
+    batchId: string
+}
+
+/** 一致性质控执行结果分页请求参数 */
+export interface ConsistencyQCResultPageParams {
+    /** 页码，从1开始 */
+    pageNum: number
+    /** 每页数量 */
+    pageSize: number
+    /** 批次ID */
+    batchId: string | number
+}
+
+/** 一致性质控执行结果分页数据 */
+export interface ConsistencyQCResultPageData {
+    /** 记录列表 */
+    records: ConsistencyQCResultRecord[]
+    /** 总条数 */
+    total: string
+    /** 每页数量 */
+    size: string
+    /** 当前页码 */
+    current: string
+    /** 总页数 */
+    pages: string
+}
+
+/** 一致性质控执行结果分页响应 */
+export interface ConsistencyQCResultPageResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data: ConsistencyQCResultPageData
+}
+
+// ==================== 可靠性质控相关类型定义 ====================
+
+/** 表信息项 */
+export interface TableInfoItem {
+    /** 表名 */
+    tableName: string
+    /** 表注释 */
+    tableComment: string
+}
+
+/** 表信息列表响应 */
+export interface TableInfoListResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 表信息列表 */
+    data: TableInfoItem[]
+}
+
+/** 保存可靠性质控结果请求参数 */
+export interface ReliabilityQCSaveParams {
+    /** 表名 */
+    tableName: string
+    /** 质控备注 */
+    qcRemark: string
+    /** 质控结果：true-合格，false-不合格 */
+    qcResult: boolean
+    /** 文件ID */
+    fileId: string
+    /** 文件名 */
+    fileName: string
+}
+
+/** 保存可靠性质控结果响应 */
+export interface ReliabilityQCSaveResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data?: unknown
+}
+
+// ==================== 完整性质控相关类型定义 ====================
+
+/** 完整性质控检查请求参数 */
+export interface CompletenessQCCheckParams {
+    /** 数据库ID */
+    dataBaseId: string
+    /** 表名数组 */
+    tableName: string[]
+    /** 表过滤条件数组 */
+    tableFilter: string[]
+}
+
+/** 完整性质控检查响应 */
+export interface CompletenessQCCheckResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data: null
+}
+
+// ==================== 类别管理相关类型定义 ====================
+
+/** 类别记录 */
+export interface CategoryRecord {
+    /** 类别ID */
+    id: number
+    /** 类别名称 */
+    categoryName: string
+    /** 类别编码 */
+    categoryCode: string
+    /** 类别状态：0-禁用，1-启用 */
+    categoryStatus: number
+    /** 备注 */
+    remark: string
+}
+
+/** 类别分页查询参数 */
+export interface CategoryPageParams {
+    /** 页码，从1开始 */
+    pageNum: number
+    /** 每页数量 */
+    pageSize: number
+    /** 关键字段模糊查询（可选） */
+    condition?: string
+    /** 排序字段（可选） */
+    sortField?: string
+    /** 排序顺序（可选） */
+    sortOrder?: 'asc' | 'desc'
+    /** 类别名称（可选，用于搜索） */
+    categoryName?: string
+    /** 类别编码（可选，用于搜索） */
+    categoryCode?: string
+    /** 类别状态（可选，用于筛选） */
+    categoryStatus?: number
+}
+
+/** 类别分页数据 */
+export interface CategoryPageData {
+    /** 记录列表 */
+    records: CategoryRecord[]
+    /** 总条数 */
+    total: string
+    /** 每页数量 */
+    size: string
+    /** 当前页码 */
+    current: string
+    /** 总页数 */
+    pages: string
+}
+
+/** 类别分页响应 */
+export interface CategoryPageResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 分页数据对象 */
+    data: CategoryPageData
+}
+
+/** 类别详情响应 */
+export interface CategoryDetailResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 类别数据 */
+    data: CategoryRecord
+}
+
+/** 类别新增/更新请求参数 */
+export interface CategorySaveParams {
+    /** 类别ID，新增时为0 */
+    id: number
+    /** 类别名称 */
+    categoryName: string
+    /** 类别编码 */
+    categoryCode: string
+    /** 类别状态：0-禁用，1-启用 */
+    categoryStatus: number
+    /** 备注 */
+    remark: string
+}
+
+/** 类别保存响应 */
+export interface CategorySaveResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据（通常是新增的ID） */
+    data: number
+}
+
+/** 类别删除响应 */
+export interface CategoryDeleteResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data: number
 }

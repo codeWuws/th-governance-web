@@ -1,9 +1,11 @@
 import { FileTextOutlined, InboxOutlined, SaveOutlined, TableOutlined } from '@ant-design/icons'
 import { Alert, Button, Card, Col, Form, Input, Radio, Row, Select, Typography, Upload } from 'antd'
 import type { UploadFile, UploadProps } from 'antd/es/upload'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { logger } from '@/utils/logger'
 import uiMessage from '@/utils/uiMessage'
+import { dataQualityControlService } from '@/services/dataQualityControlService'
+import type { TableInfoItem } from '@/types'
 
 const { Title } = Typography
 const { TextArea } = Input
@@ -19,19 +21,41 @@ interface TextQualityFormValues {
 const TextQualityControl: React.FC = () => {
     const [form] = Form.useForm()
     const [saving, setSaving] = useState(false)
+    const [loading, setLoading] = useState(false)
+    const [tableOptions, setTableOptions] = useState<Array<{ label: string; value: string }>>([])
+
     const normFile = (e: any) => {
         if (Array.isArray(e)) return e
         return e?.fileList || []
     }
 
-    // 模拟表选项
-    const tableOptions = [
-        { label: '患者基本信息表', value: 'patient_info' },
-        { label: '诊断信息表', value: 'diagnosis_info' },
-        { label: '检查报告表', value: 'examination_report' },
-        { label: '用药记录表', value: 'medication_record' },
-        { label: '手术信息表', value: 'surgery_record' },
-    ]
+    // 获取表信息列表
+    const fetchTableInfo = async () => {
+        try {
+            setLoading(true)
+            const response = await dataQualityControlService.getTableInfo()
+            if (response.code === 200 && response.data) {
+                const options = response.data.map((item: TableInfoItem) => ({
+                    label: `${item.tableComment} (${item.tableName})`,
+                    value: item.tableName,
+                }))
+                setTableOptions(options)
+            } else {
+                logger.warn('获取表信息列表失败:', response.msg)
+                uiMessage.warning(response.msg || '获取表信息列表失败')
+            }
+        } catch (error) {
+            logger.error('获取表信息列表异常:', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('获取表信息列表失败，请重试')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    // 组件加载时获取表信息
+    useEffect(() => {
+        fetchTableInfo()
+    }, [])
 
     // 文件上传配置（支持文档与图片）
     const uploadProps: UploadProps = {
@@ -88,24 +112,76 @@ const TextQualityControl: React.FC = () => {
     }
 
 
+    /**
+     * 生成文件假ID
+     * @description 根据文件名和时间戳生成唯一的文件ID
+     * @param fileName 文件名
+     * @returns 文件ID
+     */
+    const generateFileId = (fileName: string): string => {
+        const timestamp = Date.now()
+        const random = Math.random().toString(36).substring(2, 9)
+        return `file_${timestamp}_${random}_${fileName}`
+    }
+
     // 保存质控结果
     const handleSaveQualityResult = async () => {
         try {
-            const values = await form.validateFields(['targetTable', 'qualityDescription', 'qualityResult'])
+            const values = await form.validateFields([
+                'targetTable',
+                'qualityDescription',
+                'qualityResult',
+                'uploadFile',
+            ])
             if (!values.qualityResult) {
                 uiMessage.warning('请选择质控结果')
                 return
             }
+            if (!values.uploadFile || values.uploadFile.length === 0) {
+                uiMessage.warning('请上传文件')
+                return
+            }
+
             setSaving(true)
-            // TODO: 调用接口保存质控结果
-            // const result = await saveQualityResult({
-            //     targetTable: values.targetTable,
-            //     qualityDescription: values.qualityDescription,
-            //     qualityResult: values.qualityResult,
-            // })
-            await new Promise(resolve => setTimeout(resolve, 1000)) // 模拟接口调用
-            uiMessage.success('质控结果保存成功！')
-            logger.info('质控结果保存:', values)
+
+            // 获取上传的文件
+            const uploadFile = values.uploadFile[0]
+            const file = uploadFile.originFileObj as File | undefined
+            if (!file) {
+                uiMessage.error('文件信息获取失败，请重新上传')
+                return
+            }
+
+            // 生成文件ID和文件名
+            const fileName = file.name
+            const fileId = generateFileId(fileName)
+
+            // 转换质控结果为布尔值：qualified -> true, unqualified -> false
+            const qcResult = values.qualityResult === 'qualified'
+
+            // 调用保存接口
+            const result = await dataQualityControlService.saveReliabilityQC({
+                tableName: values.targetTable,
+                qcRemark: values.qualityDescription || '',
+                qcResult,
+                fileId,
+                fileName,
+            })
+
+            if (result.code === 200) {
+                uiMessage.success('质控结果保存成功！')
+                logger.info('质控结果保存成功:', {
+                    tableName: values.targetTable,
+                    qcResult,
+                    fileId,
+                    fileName,
+                })
+                // 可选：保存成功后重置表单
+                // form.resetFields()
+            } else {
+                uiMessage.error(result.msg || '保存质控结果失败')
+                logger.warn('保存质控结果失败:', result.msg)
+            }
         } catch (error) {
             if (error && typeof error === 'object' && 'errorFields' in error) {
                 // 表单验证错误
@@ -158,6 +234,11 @@ const TextQualityControl: React.FC = () => {
                                     placeholder='请选择要进行质控的数据表'
                                     options={tableOptions}
                                     size='large'
+                                    loading={loading}
+                                    showSearch
+                                    filterOption={(input, option) =>
+                                        (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                    }
                                 />
                             </Form.Item>
 
