@@ -140,9 +140,9 @@ export const menuItems: MenuItem[] = [
                         label: '主索引生成规则',
                     },
                     {
-                        key: '/data-management/merge-rules',
-                        icon: <MergeCellsOutlined />,
-                        label: '主索引合并规则',
+                        key: '/data-management/index-configuration',
+                        icon: <SettingOutlined />,
+                        label: '主索引配置',
                     },
                     {
                         key: '/data-management/index-processing',

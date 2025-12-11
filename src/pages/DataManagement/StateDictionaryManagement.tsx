@@ -11,7 +11,6 @@ import {
     Modal,
     Form,
     Switch,
-    DatePicker,
     Alert,
     Typography,
 } from 'antd'
@@ -23,33 +22,27 @@ import {
     ImportOutlined,
     ExportOutlined,
     EyeOutlined,
+    DownloadOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import moment from 'moment'
+import { exportToExcel, importFromExcel, downloadExcelTemplate } from '../../utils/excel'
+import type { UploadProps } from 'antd'
+import { Upload } from 'antd'
 
 const { Search } = Input
 const { Option } = Select
-const { RangePicker } = DatePicker
 
 interface StateDictionary {
     id: string
-    name: string
-    code: string
-    category: string
-    description: string
-    values: Array<{
-        code: string
-        name: string
-        description: string
-        isDefault: boolean
-    }>
-    status: 'active' | 'inactive'
+    name: string // 状态名称
+    code: string // 状态编码
+    category: string // 分类
+    description: string // 描述
+    status: 'active' | 'inactive' // 启用状态
     createTime: string
     updateTime: string
     creator: string
-    version: string
-    effectiveDate: string
-    expiryDate: string
 }
 
 const StateDictionaryManagement: React.FC = () => {
@@ -62,80 +55,95 @@ const StateDictionaryManagement: React.FC = () => {
     const [categoryFilter, setCategoryFilter] = useState('')
     const [statusFilter, setStatusFilter] = useState('')
 
-    // 模拟数据
+    // 模拟数据 - 每个状态一条记录
     const mockData: StateDictionary[] = [
         {
             id: '1',
-            name: '患者状态字典',
-            code: 'PATIENT_STATUS',
-            category: '患者管理',
-            description: '定义患者在系统中的各种状态',
-            values: [
-                { code: 'ACTIVE', name: '活跃', description: '患者处于活跃状态', isDefault: true },
-                {
-                    code: 'INACTIVE',
-                    name: '非活跃',
-                    description: '患者处于非活跃状态',
-                    isDefault: false,
-                },
-                { code: 'DELETED', name: '已删除', description: '患者已被删除', isDefault: false },
-            ],
+            name: '已审核',
+            code: 'AUDITED',
+            category: '工作流',
+            description: '审核完成状态',
             status: 'active',
             createTime: '2024-01-15 10:30:00',
             updateTime: '2024-01-15 10:30:00',
-            creator: '张三',
-            version: '1.0',
-            effectiveDate: '2024-01-01',
-            expiryDate: '2025-12-31',
+            creator: '系统管理员',
         },
         {
             id: '2',
-            name: '数据质量状态',
-            code: 'DATA_QUALITY_STATUS',
-            category: '数据质量',
-            description: '定义数据质量检查的状态',
-            values: [
-                { code: 'VALID', name: '有效', description: '数据质量检查通过', isDefault: true },
-                {
-                    code: 'INVALID',
-                    name: '无效',
-                    description: '数据质量检查未通过',
-                    isDefault: false,
-                },
-                {
-                    code: 'PENDING',
-                    name: '待检查',
-                    description: '数据质量待检查',
-                    isDefault: false,
-                },
-            ],
+            name: '未审核',
+            code: 'UNAUDITED',
+            category: '工作流',
+            description: '待审核状态',
             status: 'active',
-            createTime: '2024-02-01 14:20:00',
-            updateTime: '2024-02-01 14:20:00',
-            creator: '李四',
-            version: '1.1',
-            effectiveDate: '2024-02-01',
-            expiryDate: '2025-01-31',
+            createTime: '2024-01-15 10:31:00',
+            updateTime: '2024-01-15 10:31:00',
+            creator: '系统管理员',
         },
         {
             id: '3',
-            name: '审批状态',
-            code: 'APPROVAL_STATUS',
+            name: '已中止',
+            code: 'TERMINATED',
             category: '工作流',
-            description: '定义审批流程中的状态',
-            values: [
-                { code: 'DRAFT', name: '草稿', description: '审批单处于草稿状态', isDefault: true },
-                { code: 'PENDING', name: '待审批', description: '等待审批', isDefault: false },
-                { code: 'APPROVED', name: '已批准', description: '审批通过', isDefault: false },
-                { code: 'REJECTED', name: '已拒绝', description: '审批被拒绝', isDefault: false },
-            ],
+            description: '流程已中止状态',
             status: 'active',
-            createTime: '2024-02-10 09:15:00',
-            updateTime: '2024-02-10 09:15:00',
-            creator: '王五',
-            version: '2.0',
-            effectiveDate: '2024-02-10',
-            expiryDate: '2026-02-09',
+            createTime: '2024-01-15 10:32:00',
+            updateTime: '2024-01-15 10:32:00',
+            creator: '系统管理员',
+        },
+        {
+            id: '4',
+            name: '已结束',
+            code: 'COMPLETED',
+            category: '工作流',
+            description: '流程已结束状态',
+            status: 'active',
+            createTime: '2024-01-15 10:33:00',
+            updateTime: '2024-01-15 10:33:00',
+            creator: '系统管理员',
+        },
+        {
+            id: '5',
+            name: '草稿',
+            code: 'DRAFT',
+            category: '工作流',
+            description: '草稿状态',
+            status: 'active',
+            createTime: '2024-01-16 09:00:00',
+            updateTime: '2024-01-16 09:00:00',
+            creator: '系统管理员',
+        },
+        {
+            id: '6',
+            name: '待审批',
+            code: 'PENDING',
+            category: '工作流',
+            description: '等待审批状态',
+            status: 'active',
+            createTime: '2024-01-16 09:01:00',
+            updateTime: '2024-01-16 09:01:00',
+            creator: '系统管理员',
+        },
+        {
+            id: '7',
+            name: '已批准',
+            code: 'APPROVED',
+            category: '工作流',
+            description: '审批通过状态',
+            status: 'active',
+            createTime: '2024-01-16 09:02:00',
+            updateTime: '2024-01-16 09:02:00',
+            creator: '系统管理员',
+        },
+        {
+            id: '8',
+            name: '已拒绝',
+            code: 'REJECTED',
+            category: '工作流',
+            description: '审批被拒绝状态',
+            status: 'active',
+            createTime: '2024-01-16 09:03:00',
+            updateTime: '2024-01-16 09:03:00',
+            creator: '系统管理员',
         },
     ]
 
@@ -184,8 +192,7 @@ const StateDictionaryManagement: React.FC = () => {
         setEditingRecord(record)
         form.setFieldsValue({
             ...record,
-            effectiveDate: moment(record.effectiveDate),
-            expiryDate: moment(record.expiryDate),
+            status: record.status === 'active', // 将 'active'/'inactive' 转换为 boolean
         })
         setModalVisible(true)
     }
@@ -193,7 +200,7 @@ const StateDictionaryManagement: React.FC = () => {
     const handleDelete = (record: StateDictionary) => {
         Modal.confirm({
             title: '确认删除',
-            content: `确定要删除状态字典"${record.name}"吗？`,
+            content: `确定要删除状态"${record.name}"吗？`,
             onOk: () => {
                 message.success('删除成功')
                 loadData()
@@ -204,10 +211,10 @@ const StateDictionaryManagement: React.FC = () => {
     const handleModalOk = async () => {
         try {
             const values = await form.validateFields()
+            // 将 Switch 的 boolean 值转换为 'active'/'inactive'
             const formData = {
                 ...values,
-                effectiveDate: values.effectiveDate.format('YYYY-MM-DD'),
-                expiryDate: values.expiryDate.format('YYYY-MM-DD'),
+                status: values.status ? 'active' : 'inactive',
                 updateTime: moment().format('YYYY-MM-DD HH:mm:ss'),
             }
 
@@ -229,25 +236,147 @@ const StateDictionaryManagement: React.FC = () => {
         form.resetFields()
     }
 
-    const handleImport = () => {
-        message.info('导入功能开发中...')
+    // Excel导出功能
+    const handleExport = () => {
+        try {
+            const exportColumns = [
+                { title: '状态名称', dataIndex: 'name', key: 'name' },
+                { title: '状态编码', dataIndex: 'code', key: 'code' },
+                { title: '分类', dataIndex: 'category', key: 'category' },
+                { title: '描述', dataIndex: 'description', key: 'description' },
+                { title: '状态', dataIndex: 'status', key: 'status' },
+                { title: '创建人', dataIndex: 'creator', key: 'creator' },
+                { title: '创建时间', dataIndex: 'createTime', key: 'createTime' },
+                { title: '更新时间', dataIndex: 'updateTime', key: 'updateTime' },
+            ]
+
+            // 准备导出数据，转换状态
+            const exportData = data.map(item => ({
+                ...item,
+                status: item.status === 'active' ? '启用' : '禁用',
+            }))
+
+            exportToExcel(exportData, exportColumns, '状态字典管理')
+        } catch (error) {
+            console.error('导出失败:', error)
+        }
     }
 
-    const handleExport = () => {
-        message.success('导出成功')
+    // Excel导入功能
+    const handleImport = async (file: File) => {
+        try {
+            const importedData = await importFromExcel<Partial<StateDictionary>>(file, {
+                columnMapping: {
+                    '状态名称': 'name',
+                    '状态编码': 'code',
+                    '分类': 'category',
+                    '描述': 'description',
+                    '状态': 'status',
+                },
+                skipFirstRow: true,
+                validateRow: (row) => {
+                    // 验证必填字段
+                    if (!row.name || !row.code) {
+                        return false
+                    }
+                    return true
+                },
+                transformRow: (row) => {
+                    const transformed: Partial<StateDictionary> = {
+                        name: String(row.name || '').trim(),
+                        code: String(row.code || '').trim(),
+                        category: String(row.category || '').trim(),
+                        description: String(row.description || '').trim(),
+                        status:
+                            String(row.status || '').trim() === '启用' ||
+                            String(row.status || '').trim() === 'active' ||
+                            String(row.status || '').trim() === 'ACTIVE'
+                                ? 'active'
+                                : 'inactive',
+                    }
+                    return transformed as StateDictionary
+                },
+            })
+
+            if (importedData.length === 0) {
+                message.warning('导入的数据为空或格式不正确')
+                return false
+            }
+
+            // 添加到数据列表
+            const newData: StateDictionary[] = importedData
+                .filter(item => item.name && item.code) // 再次过滤确保必填字段存在
+                .map(item => ({
+                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                    name: item.name || '',
+                    code: item.code || '',
+                    category: item.category || '',
+                    description: item.description || '',
+                    status: item.status || 'active',
+                    createTime: moment().format('YYYY-MM-DD HH:mm:ss'),
+                    updateTime: moment().format('YYYY-MM-DD HH:mm:ss'),
+                    creator: '当前用户',
+                }))
+
+            setData([...data, ...newData])
+            message.success(`成功导入 ${importedData.length} 条数据`)
+            return false // 阻止自动上传
+        } catch (error) {
+            console.error('导入失败:', error)
+            message.error('导入失败，请检查文件格式')
+            return false
+        }
+    }
+
+    // 下载导入模板
+    const handleDownloadTemplate = () => {
+        const templateColumns = [
+            { title: '状态名称', dataIndex: 'name' },
+            { title: '状态编码', dataIndex: 'code' },
+            { title: '分类', dataIndex: 'category' },
+            { title: '描述', dataIndex: 'description' },
+            { title: '状态', dataIndex: 'status' },
+        ]
+        downloadExcelTemplate(templateColumns, '状态字典管理')
+    }
+
+    // 上传配置
+    const uploadProps: UploadProps = {
+        name: 'file',
+        accept: '.xlsx,.xls',
+        showUploadList: false,
+        beforeUpload: (file) => {
+            const isExcel =
+                file.type ===
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                file.type === 'application/vnd.ms-excel' ||
+                file.name.endsWith('.xlsx') ||
+                file.name.endsWith('.xls')
+            if (!isExcel) {
+                message.error('只支持 Excel 格式的文件！')
+                return false
+            }
+            const isLt5M = file.size / 1024 / 1024 < 5
+            if (!isLt5M) {
+                message.error('文件大小不能超过 5MB！')
+                return false
+            }
+            handleImport(file)
+            return false // 阻止自动上传
+        },
     }
 
     const handlePreview = (record: StateDictionary) => {
         Modal.info({
-            title: '状态字典详情',
+            title: '状态详情',
             width: 600,
             content: (
                 <div style={{ marginTop: 16 }}>
                     <p>
-                        <strong>名称:</strong> {record.name}
+                        <strong>状态名称:</strong> {record.name}
                     </p>
                     <p>
-                        <strong>编码:</strong> {record.code}
+                        <strong>状态编码:</strong> {record.code}
                     </p>
                     <p>
                         <strong>分类:</strong> {record.category}
@@ -262,41 +391,14 @@ const StateDictionaryManagement: React.FC = () => {
                         </Tag>
                     </p>
                     <p>
-                        <strong>版本:</strong> {record.version}
-                    </p>
-                    <p>
-                        <strong>生效日期:</strong> {record.effectiveDate}
-                    </p>
-                    <p>
-                        <strong>失效日期:</strong> {record.expiryDate}
-                    </p>
-                    <p>
                         <strong>创建人:</strong> {record.creator}
                     </p>
                     <p>
                         <strong>创建时间:</strong> {record.createTime}
                     </p>
                     <p>
-                        <strong>字典值:</strong>
+                        <strong>更新时间:</strong> {record.updateTime}
                     </p>
-                    <Table
-                        size='small'
-                        dataSource={record.values}
-                        columns={[
-                            { title: '编码', dataIndex: 'code', key: 'code' },
-                            { title: '名称', dataIndex: 'name', key: 'name' },
-                            { title: '描述', dataIndex: 'description', key: 'description' },
-                            {
-                                title: '默认',
-                                dataIndex: 'isDefault',
-                                key: 'isDefault',
-                                render: (isDefault: boolean) =>
-                                    isDefault ? <Tag color='blue'>是</Tag> : <Tag>否</Tag>,
-                            },
-                        ]}
-                        pagination={false}
-                        rowKey='code'
-                    />
                 </div>
             ),
         })
@@ -304,13 +406,13 @@ const StateDictionaryManagement: React.FC = () => {
 
     const columns: ColumnsType<StateDictionary> = [
         {
-            title: '字典名称',
+            title: '状态名称',
             dataIndex: 'name',
             key: 'name',
             render: (text: string) => <strong>{text}</strong>,
         },
         {
-            title: '字典编码',
+            title: '状态编码',
             dataIndex: 'code',
             key: 'code',
         },
@@ -321,6 +423,12 @@ const StateDictionaryManagement: React.FC = () => {
             render: (text: string) => <Tag color='blue'>{text}</Tag>,
         },
         {
+            title: '描述',
+            dataIndex: 'description',
+            key: 'description',
+            ellipsis: true,
+        },
+        {
             title: '状态',
             dataIndex: 'status',
             key: 'status',
@@ -329,16 +437,6 @@ const StateDictionaryManagement: React.FC = () => {
                     {status === 'active' ? '启用' : '禁用'}
                 </Tag>
             ),
-        },
-        {
-            title: '版本',
-            dataIndex: 'version',
-            key: 'version',
-        },
-        {
-            title: '字典值数量',
-            key: 'values',
-            render: (_, record) => <span>{record.values.length} 个</span>,
         },
         {
             title: '创建人',
@@ -356,14 +454,6 @@ const StateDictionaryManagement: React.FC = () => {
             width: 200,
             render: (_, record) => (
                 <Space size='small'>
-                    <Button
-                        type='link'
-                        size='small'
-                        icon={<EyeOutlined />}
-                        onClick={() => handlePreview(record)}
-                    >
-                        查看
-                    </Button>
                     <Button
                         type='link'
                         size='small'
@@ -401,10 +491,13 @@ const StateDictionaryManagement: React.FC = () => {
                 </Typography.Title>
                 <Space>
                     <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
-                        新增状态字典
+                        新增状态
                     </Button>
-                    <Button icon={<ImportOutlined />} onClick={handleImport}>
-                        导入
+                    <Upload {...uploadProps}>
+                        <Button icon={<ImportOutlined />}>导入</Button>
+                    </Upload>
+                    <Button icon={<DownloadOutlined />} onClick={handleDownloadTemplate}>
+                        下载模板
                     </Button>
                     <Button icon={<ExportOutlined />} onClick={handleExport}>
                         导出
@@ -413,7 +506,7 @@ const StateDictionaryManagement: React.FC = () => {
             </div>
             <Alert
                 message='状态字典管理'
-                description='支持新增、导入、导出与搜索，维护标准化状态字典。'
+                description='支持新增、导入、导出与搜索，维护标准化状态。'
                 type='info'
                 showIcon
                 style={{ marginBottom: 24 }}
@@ -424,7 +517,7 @@ const StateDictionaryManagement: React.FC = () => {
 
                     <Space style={{ marginBottom: 16 }}>
                         <Search
-                            placeholder='搜索字典名称、编码或描述'
+                            placeholder='搜索状态名称、编码或描述'
                             allowClear
                             style={{ width: 300 }}
                             value={searchText}
@@ -473,27 +566,27 @@ const StateDictionaryManagement: React.FC = () => {
             </Card>
 
             <Modal
-                title={editingRecord ? '编辑状态字典' : '新增状态字典'}
-                visible={modalVisible}
+                title={editingRecord ? '编辑状态' : '新增状态'}
+                open={modalVisible}
                 onOk={handleModalOk}
                 onCancel={handleModalCancel}
-                width={800}
+                width={600}
             >
                 <Form form={form} layout='vertical'>
                     <Form.Item
                         name='name'
-                        label='字典名称'
-                        rules={[{ required: true, message: '请输入字典名称' }]}
+                        label='状态名称'
+                        rules={[{ required: true, message: '请输入状态名称' }]}
                     >
-                        <Input placeholder='请输入字典名称' />
+                        <Input placeholder='请输入状态名称' />
                     </Form.Item>
 
                     <Form.Item
                         name='code'
-                        label='字典编码'
-                        rules={[{ required: true, message: '请输入字典编码' }]}
+                        label='状态编码'
+                        rules={[{ required: true, message: '请输入状态编码' }]}
                     >
-                        <Input placeholder='请输入字典编码' />
+                        <Input placeholder='请输入状态编码（大写英文字母和下划线）' />
                     </Form.Item>
 
                     <Form.Item
@@ -525,32 +618,6 @@ const StateDictionaryManagement: React.FC = () => {
                     >
                         <Switch checkedChildren='启用' unCheckedChildren='禁用' />
                     </Form.Item>
-
-                    <Form.Item
-                        name='version'
-                        label='版本'
-                        rules={[{ required: true, message: '请输入版本' }]}
-                    >
-                        <Input placeholder='请输入版本' />
-                    </Form.Item>
-
-                    <Space>
-                        <Form.Item
-                            name='effectiveDate'
-                            label='生效日期'
-                            rules={[{ required: true, message: '请选择生效日期' }]}
-                        >
-                            <DatePicker placeholder='选择生效日期' />
-                        </Form.Item>
-
-                        <Form.Item
-                            name='expiryDate'
-                            label='失效日期'
-                            rules={[{ required: true, message: '请选择失效日期' }]}
-                        >
-                            <DatePicker placeholder='选择失效日期' />
-                        </Form.Item>
-                    </Space>
                 </Form>
             </Modal>
         </div>

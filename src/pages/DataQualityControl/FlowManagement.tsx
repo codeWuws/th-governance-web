@@ -58,7 +58,7 @@ const FlowManagement: React.FC = () => {
                     logger.info('成功获取质控任务配置列表', response.data)
                 } else {
                     uiMessage.error(response.msg || '获取质控配置列表失败')
-                    logger.error('获取质控配置列表失败', response.msg)
+                    logger.error('获取质控配置列表失败', new Error(response.msg || '获取质控配置列表失败'))
                 }
             } catch (error) {
                 logger.error('获取质控配置列表异常', error as Error)
@@ -73,6 +73,7 @@ const FlowManagement: React.FC = () => {
     // 将接口数据转换为选项格式
     const qcOptions = useMemo((): QcTypeOption[] => {
         return qcConfigList
+            .filter(item => ['TimelinessQC', 'CompletenessQC', 'ConsistencyQC', 'AccuracyQC'].includes(item.nodeType))
             .sort((a, b) => a.nodeStep - b.nodeStep) // 按步骤排序
             .map(item => ({
                 label: item.nodeName,
@@ -130,11 +131,14 @@ const FlowManagement: React.FC = () => {
 
                     uiMessage.success('质控流程已启动并记录历史')
 
-                    // 导航到流程详情页
-                    const typesParam = selectedTypes.join(',')
-                    navigate(
-                        `/data-quality-control/flow/${taskId}?types=${encodeURIComponent(typesParam)}&name=${encodeURIComponent(processName)}`
-                    )
+                    // 延迟一下再跳转，确保弹窗关闭动画完成
+                    setTimeout(() => {
+                        // 导航到流程详情页
+                        const typesParam = selectedTypes.join(',')
+                        navigate(
+                            `/data-quality-control/flow/${taskId}?types=${encodeURIComponent(typesParam)}&name=${encodeURIComponent(processName)}`
+                        )
+                    }, 100)
                 },
             })
 
@@ -212,7 +216,7 @@ const FlowManagement: React.FC = () => {
                                                 <span className={styles.optionTitle}>{opt.label}</span>
                                                 <div style={{ flex: 1 }} />
                                                 {isDisabled && (
-                                                    <Tag color='default' size='small'>未启用</Tag>
+                                                    <Tag color='default'>未启用</Tag>
                                                 )}
                                                 {selected && !isDisabled && (
                                                     <span className={styles.selectedBadge}>已选择</span>

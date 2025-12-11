@@ -13,8 +13,6 @@ import uiMessage from '@/utils/uiMessage'
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { logger } from '@/utils/logger'
-import { api } from '@/utils/request'
-import type { SSEManager } from '@/utils/request'
 import { dataQualityControlService } from '@/services/dataQualityControlService'
 import type { QCTaskLogDetailData } from '@/types'
 
@@ -47,10 +45,9 @@ const QC_TYPE_MAP: Record<string, { label: string; icon: React.ReactNode; descri
 
 // 执行状态映射
 const statusConfig = {
-    0: { text: '未执行', color: 'default' },
+    0: { text: '待执行', color: 'default' },
     1: { text: '执行中', color: 'processing' },
     2: { text: '已完成', color: 'success' },
-    3: { text: '暂停', color: 'warning' },
     4: { text: '跳过', color: 'default' },
     5: { text: '失败', color: 'error' },
 }
@@ -58,7 +55,7 @@ const statusConfig = {
 // 步骤状态接口
 interface QCStepStatus {
     stepIndex: number
-    status: number // 0未执行, 1执行中, 2已完成, 3暂停, 4跳过, 5失败
+    status: number // 0未执行, 1执行中, 2已完成, 4跳过, 5失败
     completedQuantity?: number
     totalQuantity?: number
     startTime?: string
@@ -97,11 +94,8 @@ const QualityControlFlowDetail: React.FC = () => {
         stepIndex: number
     } | null>(null)
     const [continueLoading, setContinueLoading] = useState(false)
-    const [executionLogs, setExecutionLogs] = useState<string[]>([]) // SSE执行日志
     const executionRef = useRef<{ [key: number]: boolean }>({}) // 跟踪每个步骤是否正在执行
     const intervalRef = useRef<NodeJS.Timeout | null>(null) // 存储定时器引用
-    const sseManagerRef = useRef<SSEManager | null>(null) // SSE连接管理器
-    const logsEndRef = useRef<HTMLDivElement>(null) // 日志滚动到底部的引用
 
     // 根据类型生成执行步骤（优先使用接口返回的数据）
     const executionSteps = useMemo(() => {
@@ -138,6 +132,79 @@ const QualityControlFlowDetail: React.FC = () => {
             }
         })
     }, [logDetailData, types])
+
+    // 初始化模拟数据（当接口没有返回数据时使用）
+    const initializeMockData = useCallback(() => {
+        if (!taskId || types.length === 0) return
+
+        const processName = searchParams.get('name') || '质控流程'
+        const startTime = Date.now()
+
+        // 根据类型创建步骤
+        const steps: QCStepStatus[] = types.map((type, index) => {
+            const typeInfo = QC_TYPE_MAP[type]
+            return {
+                stepIndex: index,
+                status: index === 0 ? 1 : 0, // 第一个步骤状态为执行中
+                completedQuantity: index === 0 ? 0 : 0,
+                totalQuantity: 100,
+                startTime: index === 0 ? new Date().toLocaleString('zh-CN') : undefined,
+                endTime: undefined,
+                resultSummary: undefined,
+                errorMessage: undefined,
+            }
+        })
+
+        const mockFlowDetail: QCFlowDetail = {
+            taskId,
+            types,
+            status: 1, // 执行中
+            startTime,
+            endTime: undefined,
+            steps,
+        }
+
+        setFlowDetail(mockFlowDetail)
+        
+        // 更新执行历史状态为 running（如果历史记录存在）
+        const key = 'qcExecutionHistory'
+        const prevStorage = localStorage.getItem(key)
+        if (prevStorage) {
+            const list = JSON.parse(prevStorage)
+            const index = list.findIndex((item: any) => item.id === taskId)
+            if (index !== -1 && list[index].status === 'starting') {
+                list[index].status = 'running'
+                localStorage.setItem(key, JSON.stringify(list))
+            } else if (index === -1) {
+                // 如果历史记录不存在，创建新记录
+                const processName = searchParams.get('name') || '质控流程'
+                const historyItem = {
+                    id: taskId,
+                    name: processName,
+                    types,
+                    status: 'running',
+                    start_time: startTime,
+                    end_time: null,
+                }
+                list.unshift(historyItem)
+                localStorage.setItem(key, JSON.stringify(list))
+            }
+        } else {
+            // 如果没有历史记录，创建新记录
+            const processName = searchParams.get('name') || '质控流程'
+            const historyItem = {
+                id: taskId,
+                name: processName,
+                types,
+                status: 'running',
+                start_time: startTime,
+                end_time: null,
+            }
+            localStorage.setItem(key, JSON.stringify([historyItem]))
+        }
+        
+        logger.info('初始化模拟质控流程数据', { taskId, types, processName })
+    }, [taskId, types, searchParams])
 
     // 获取质控任务日志详情
     const fetchLogDetail = useCallback(async () => {
@@ -194,18 +261,19 @@ const QualityControlFlowDetail: React.FC = () => {
                     steps,
                 })
             } else {
-                const errorMsg = response.msg || '获取日志详情失败'
-                logger.error('获取质控任务日志详情失败', errorMsg)
-                uiMessage.error(errorMsg)
+                // 接口没有返回数据或失败，使用模拟数据
+                logger.warn('获取质控任务日志详情失败，使用模拟数据', response.msg)
+                initializeMockData()
             }
         } catch (error) {
+            // 接口调用异常，使用模拟数据
             const errorMsg = error instanceof Error ? error.message : '获取日志详情时发生未知错误'
-            logger.error('获取质控任务日志详情异常', errorMsg)
-            uiMessage.error(errorMsg)
+            logger.warn('获取质控任务日志详情异常，使用模拟数据', errorMsg)
+            initializeMockData()
         } finally {
             setLoading(false)
         }
-    }, [taskId])
+    }, [taskId, initializeMockData])
 
     // 初始化流程详情 - 调用接口获取数据
     useEffect(() => {
@@ -218,6 +286,41 @@ const QualityControlFlowDetail: React.FC = () => {
         // 调用接口获取日志详情
         fetchLogDetail()
     }, [taskId, navigate, fetchLogDetail])
+
+    // 更新执行历史记录
+    const updateExecutionHistory = useCallback((status: 'starting' | 'running' | 'completed' | 'error' | 'cancelled', endTime?: number | null) => {
+        if (!taskId) return
+        
+        const key = 'qcExecutionHistory'
+        const prevStorage = localStorage.getItem(key)
+        const list = prevStorage ? JSON.parse(prevStorage) : []
+        const index = list.findIndex((item: any) => item.id === taskId)
+        
+        if (index !== -1) {
+            list[index] = {
+                ...list[index],
+                status,
+                ...(endTime !== undefined && { end_time: endTime }),
+            }
+            localStorage.setItem(key, JSON.stringify(list))
+        } else {
+            // 如果历史记录不存在，创建新记录
+            const processName = searchParams.get('name') || '质控流程'
+            const typesParam = searchParams.get('types') || ''
+            const types = typesParam.split(',').filter(Boolean)
+            
+            const historyItem = {
+                id: taskId,
+                name: processName,
+                types,
+                status,
+                start_time: Date.now(),
+                end_time: endTime || null,
+            }
+            list.unshift(historyItem)
+            localStorage.setItem(key, JSON.stringify(list))
+        }
+    }, [taskId, searchParams])
 
     // 模拟执行步骤
     const executeStep = useCallback(async (stepIndex: number) => {
@@ -245,8 +348,17 @@ const QualityControlFlowDetail: React.FC = () => {
                 status: 1,
                 startTime: new Date().toLocaleString('zh-CN'),
             }
+            
+            // 如果是第一个步骤开始执行，更新主流程状态为 running
+            const isFirstStep = stepIndex === 0
+            const newStatus = isFirstStep && prev.status === 0 ? 1 : prev.status
 
-            return { ...prev, steps: updatedSteps }
+            // 更新执行历史状态为 running（如果刚开始执行）
+            if (isFirstStep && prev.status === 0) {
+                updateExecutionHistory('running')
+            }
+
+            return { ...prev, status: newStatus, steps: updatedSteps }
         })
 
         // 模拟执行过程
@@ -255,8 +367,19 @@ const QualityControlFlowDetail: React.FC = () => {
             clearInterval(intervalRef.current)
         }
 
+        // 随机生成每个步骤的执行时间（3~8秒）
+        const stepDuration = Math.floor(Math.random() * 5000) + 3000 // 3000ms ~ 8000ms
+        // 更新间隔设置为100ms，确保进度条流畅
+        const updateInterval = 100
+        // 计算需要更新的次数
+        const totalUpdates = Math.ceil(stepDuration / updateInterval)
+        // 每次更新的增量
+        const progressIncrement = 100 / totalUpdates
+
+        // 使用定时器更新进度
         intervalRef.current = setInterval(() => {
-            progress += 10
+            progress += progressIncrement
+            
             setFlowDetail(current => {
                 if (!current) return current
                 const newSteps = [...current.steps]
@@ -264,7 +387,7 @@ const QualityControlFlowDetail: React.FC = () => {
                 if (existingStep) {
                     newSteps[stepIndex] = {
                         ...existingStep,
-                        completedQuantity: progress,
+                        completedQuantity: Math.min(progress, 100),
                         totalQuantity: 100,
                     }
                 }
@@ -282,13 +405,62 @@ const QualityControlFlowDetail: React.FC = () => {
                     if (!current) return current
                     const finalSteps = [...current.steps]
                     const currentStep = finalSteps[stepIndex]
-                    if (currentStep) {
+                    const stepInfo = executionSteps[stepIndex]
+                    
+                    if (currentStep && stepInfo) {
+                        // 生成详细的执行结果
+                        const processedRecords = Math.floor(Math.random() * 10000) + 1000
+                        // 生成带小数的通过率（80-100之间，保留两位小数）
+                        const passRate = Math.round((Math.random() * 20 + 80) * 100) / 100
+                        const errorCount = Math.floor(processedRecords * (100 - passRate) / 100)
+                        // 生成带小数的准点率（88-98之间，保留两位小数）
+                        const punctualRate = Math.round((Math.random() * 10 + 88) * 100) / 100
+                        
+                        // 根据不同的质控类型生成不同的结果摘要
+                        let resultSummary = ''
+                        switch (stepInfo.type) {
+                            case 'comprehensive':
+                                resultSummary = `及时性质控执行完成\n\n` +
+                                    `• 处理记录数：${processedRecords.toLocaleString()} 条\n` +
+                                    `• 通过率：${formatPercentage(passRate)}\n` +
+                                    `• 异常记录：${errorCount} 条\n` +
+                                    `• 平均延迟：${Math.floor(Math.random() * 10) + 5} 分钟\n` +
+                                    `• 准点率：${formatPercentage(punctualRate)}`
+                                break
+                            case 'completeness':
+                                resultSummary = `完整性质控执行完成\n\n` +
+                                    `• 检查表数：${Math.floor(Math.random() * 20) + 10} 张\n` +
+                                    `• 检查字段数：${Math.floor(Math.random() * 100) + 50} 个\n` +
+                                    `• 完整率：${formatPercentage(passRate)}\n` +
+                                    `• 缺失字段：${errorCount} 个\n` +
+                                    `• 空值记录：${Math.floor(errorCount * 0.6)} 条`
+                                break
+                            case 'basic-medical-logic':
+                                resultSummary = `一致性质控执行完成\n\n` +
+                                    `• 检查记录数：${processedRecords.toLocaleString()} 条\n` +
+                                    `• 一致性通过率：${formatPercentage(passRate)}\n` +
+                                    `• 不一致记录：${errorCount} 条\n` +
+                                    `• 主附表关联检查：${Math.floor(processedRecords * 0.8).toLocaleString()} 条\n` +
+                                    `• 基础规则检查：${Math.floor(processedRecords * 0.6).toLocaleString()} 条`
+                                break
+                            case 'core-data':
+                                resultSummary = `准确性质控执行完成\n\n` +
+                                    `• 检查记录数：${processedRecords.toLocaleString()} 条\n` +
+                                    `• 准确率：${formatPercentage(passRate)}\n` +
+                                    `• 错误记录：${errorCount} 条\n` +
+                                    `• 编码规范检查：${Math.floor(processedRecords * 0.7).toLocaleString()} 条\n` +
+                                    `• 字段值校验：${Math.floor(processedRecords * 0.9).toLocaleString()} 条`
+                                break
+                            default:
+                                resultSummary = `成功完成${stepInfo.title}，处理了 ${processedRecords.toLocaleString()} 条记录，通过率 ${formatPercentage(passRate)}`
+                        }
+                        
                         finalSteps[stepIndex] = {
                             ...currentStep,
                             status: 2,
                             completedQuantity: 100,
                             endTime: new Date().toLocaleString('zh-CN'),
-                            resultSummary: `成功完成${executionSteps[stepIndex]?.title}，处理了 ${Math.floor(Math.random() * 10000) + 1000} 条记录，通过率 ${Math.floor(Math.random() * 20) + 80}%`,
+                            resultSummary,
                         }
                     }
 
@@ -303,24 +475,14 @@ const QualityControlFlowDetail: React.FC = () => {
                             }
                         }
                     } else {
-                        // 所有步骤完成，更新localStorage中的历史记录
-                        const key = 'qcExecutionHistory'
-                        const prevStorage = localStorage.getItem(key)
-                        const list = prevStorage ? JSON.parse(prevStorage) : []
-                        const index = list.findIndex((item: any) => item.id === taskId)
-                        if (index !== -1) {
-                            list[index] = {
-                                ...list[index],
-                                status: 'completed',
-                                end_time: Date.now(),
-                            }
-                            localStorage.setItem(key, JSON.stringify(list))
-                        }
+                        // 所有步骤完成，更新主流程状态和历史记录
+                        const endTime = Date.now()
+                        updateExecutionHistory('completed', endTime)
                     }
 
                     return {
                         ...current,
-                        status: stepIndex < executionSteps.length - 1 ? current.status : 2,
+                        status: stepIndex < executionSteps.length - 1 ? current.status : 2, // 2 表示已完成
                         endTime: stepIndex < executionSteps.length - 1 ? current.endTime : Date.now(),
                         steps: finalSteps,
                     }
@@ -336,14 +498,14 @@ const QualityControlFlowDetail: React.FC = () => {
 
                 executionRef.current[stepIndex] = false
             }
-        }, 500)
-    }, [executionSteps, taskId])
+        }, updateInterval) // 每100ms更新一次进度，总时间随机3~8秒
+    }, [executionSteps, taskId, updateExecutionHistory])
 
-    // 继续执行
+    // 继续执行（移除暂停功能，此函数保留用于可能的后续需求）
     const handleContinueExecution = async () => {
         if (!flowDetail) return
 
-        const currentStepIndex = flowDetail.steps.findIndex(step => step.status === 1 || step.status === 3)
+        const currentStepIndex = flowDetail.steps.findIndex(step => step.status === 1)
         if (currentStepIndex === -1) {
             // 找到第一个未执行的步骤
             const nextStepIndex = flowDetail.steps.findIndex(step => step.status === 0)
@@ -362,12 +524,39 @@ const QualityControlFlowDetail: React.FC = () => {
     useEffect(() => {
         if (flowDetail && flowDetail.steps.length > 0 && !hasStartedRef.current) {
             const firstStep = flowDetail.steps[0]
-            if (firstStep && firstStep.status === 1 && firstStep.completedQuantity === 0) {
+            // 如果第一个步骤状态为执行中且进度为0，或者状态为未执行，则开始执行
+            if (firstStep && (firstStep.status === 1 || firstStep.status === 0)) {
                 hasStartedRef.current = true
-                executeStep(0)
+                // 如果状态为未执行，先更新为执行中
+                if (firstStep.status === 0) {
+                    setFlowDetail(prev => {
+                        if (!prev) return prev
+                        const updatedSteps = [...prev.steps]
+                        const firstStepData = updatedSteps[0]
+                        if (firstStepData) {
+                            updatedSteps[0] = {
+                                ...firstStepData,
+                                stepIndex: firstStepData.stepIndex ?? 0,
+                                status: 1,
+                                startTime: new Date().toLocaleString('zh-CN'),
+                            }
+                        }
+                        // 更新主流程状态为执行中
+                        const newStatus = prev.status === 0 ? 1 : prev.status
+                        // 更新执行历史状态为 running
+                        if (prev.status === 0) {
+                            updateExecutionHistory('running')
+                        }
+                        return { ...prev, status: newStatus, steps: updatedSteps }
+                    })
+                }
+                // 延迟一下再执行，确保状态更新完成
+                setTimeout(() => {
+                    executeStep(0)
+                }, 100)
             }
         }
-    }, [flowDetail, executeStep])
+    }, [flowDetail, executeStep, updateExecutionHistory])
 
     // 清理定时器
     useEffect(() => {
@@ -377,58 +566,6 @@ const QualityControlFlowDetail: React.FC = () => {
             }
         }
     }, [])
-
-    // 建立SSE连接监听执行日志
-    useEffect(() => {
-        if (!taskId) return
-
-        // 建立SSE连接来监听执行日志
-        const manager = api.createSSE({
-            url: `/data/qc/task/process/log/${taskId}`,
-            method: 'GET',
-            maxReconnectAttempts: 3,
-            reconnectInterval: 5000,
-            onOpen: () => {
-                logger.info('SSE日志连接已建立')
-                setExecutionLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] SSE连接已建立，开始监听执行日志...`])
-            },
-            onMessage: (event: MessageEvent) => {
-                const message = event.data
-                logger.info('收到SSE日志消息:', message)
-                setExecutionLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`])
-            },
-            onError: (error: Event) => {
-                logger.error('SSE日志连接错误', error)
-                setExecutionLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] [错误] SSE连接错误`])
-            },
-            onClose: () => {
-                logger.info('SSE日志连接已关闭')
-                setExecutionLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] SSE连接已关闭`])
-            },
-            onMaxReconnectAttemptsReached: () => {
-                logger.error('SSE日志重连次数已达上限')
-                setExecutionLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] [错误] SSE重连次数已达上限`])
-            },
-        })
-
-        sseManagerRef.current = manager
-        manager.connect()
-
-        // 清理函数
-        return () => {
-            if (sseManagerRef.current) {
-                sseManagerRef.current.disconnect()
-                sseManagerRef.current = null
-            }
-        }
-    }, [taskId])
-
-    // 自动滚动日志到底部
-    useEffect(() => {
-        if (logsEndRef.current) {
-            logsEndRef.current.scrollIntoView({ behavior: 'smooth' })
-        }
-    }, [executionLogs])
 
     // 返回上一页
     const goBack = () => {
@@ -465,17 +602,73 @@ const QualityControlFlowDetail: React.FC = () => {
         setSelectedStepResult(null)
     }
 
-    // 获取当前步骤索引
-    const getCurrentStep = () => {
-        if (!flowDetail) return 0
-        const currentIndex = flowDetail.steps.findIndex(step => step.status === 1)
-        return currentIndex >= 0 ? currentIndex : flowDetail.steps.length
+    // 获取当前步骤索引（用于 Steps 组件的 current 属性）
+    const getCurrentStep = useMemo(() => {
+        if (!flowDetail || !flowDetail.steps.length) return 0
+        
+        // 查找第一个执行中的步骤
+        const executingIndex = flowDetail.steps.findIndex(step => step.status === 1)
+        if (executingIndex >= 0) {
+            return executingIndex
+        }
+        
+        // 如果没有执行中的步骤，查找最后一个已完成的步骤
+        let lastCompletedIndex = -1
+        for (let i = flowDetail.steps.length - 1; i >= 0; i--) {
+            const step = flowDetail.steps[i]
+            if (step && step.status === 2) {
+                lastCompletedIndex = i
+                break
+            }
+        }
+        
+        // 如果找到了已完成的步骤，返回下一个步骤的索引（如果存在）
+        if (lastCompletedIndex >= 0) {
+            return lastCompletedIndex < flowDetail.steps.length - 1 
+                ? lastCompletedIndex + 1 
+                : flowDetail.steps.length
+        }
+        
+        // 如果都没有，返回 0（第一个步骤）
+        return 0
+    }, [flowDetail])
+    
+    // 获取步骤的状态（用于 Steps 组件的 status 属性）
+    const getStepStatus = (stepStatus: QCStepStatus): 'wait' | 'process' | 'finish' | 'error' => {
+        switch (stepStatus.status) {
+            case 0: // 未执行
+                return 'wait'
+            case 1: // 执行中
+                return 'process'
+            case 2: // 已完成
+                return 'finish'
+            case 5: // 失败
+                return 'error'
+            case 4: // 跳过
+            default:
+                return 'wait'
+        }
     }
-
+    
     // 获取状态标签
     const getStatusTag = (status: number) => {
         const config = statusConfig[status as keyof typeof statusConfig] || statusConfig[0]
         return <Tag color={config.color}>{config.text}</Tag>
+    }
+    
+    // 获取状态文本（用于显示）
+    const getStatusText = (status: number): string => {
+        const config = statusConfig[status as keyof typeof statusConfig] || statusConfig[0]
+        return config.text
+    }
+    
+    // 格式化百分比，最多显示两位小数
+    const formatPercentage = (value: number): string => {
+        // 保留两位小数，去除末尾的0和小数点
+        const formatted = value.toFixed(2)
+        // 移除末尾的0和小数点（如果小数部分全为0）
+        const cleaned = formatted.replace(/\.?0+$/, '')
+        return cleaned + '%'
     }
 
     // 计算是否全部步骤已完成
@@ -485,13 +678,17 @@ const QualityControlFlowDetail: React.FC = () => {
 
     // 渲染进度条
     const renderProgressBar = (step: QCStepStatus) => {
-        if ([2, 3, 4, 5].includes(step.status)) {
+        if ([2, 4, 5].includes(step.status)) {
             return null
         }
 
         if (!step.completedQuantity || !step.totalQuantity) return null
 
-        const percentage = Math.round((step.completedQuantity / step.totalQuantity) * 100)
+        const percentage = (step.completedQuantity / step.totalQuantity) * 100
+        const percentageRounded = Math.round(percentage * 100) / 100 // 保留两位小数并四舍五入
+        // 进度条前面的数字取整数
+        const completedInt = Math.round(step.completedQuantity)
+        const totalInt = Math.round(step.totalQuantity)
 
         return (
             <div
@@ -503,14 +700,14 @@ const QualityControlFlowDetail: React.FC = () => {
                 }}
             >
                 <Progress
-                    percent={percentage}
+                    percent={percentageRounded}
                     size='small'
-                    status={percentage === 100 ? 'success' : 'active'}
+                    status={percentageRounded >= 100 ? 'success' : 'active'}
                     showInfo={false}
                     style={{ width: 250 }}
                 />
                 <Text type='secondary' style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-                    {step.completedQuantity}/{step.totalQuantity} ({percentage}%)
+                    {completedInt}/{totalInt} ({formatPercentage(percentage)})
                 </Text>
             </div>
         )
@@ -648,7 +845,7 @@ const QualityControlFlowDetail: React.FC = () => {
             {/* 执行步骤 */}
             <Card title='执行步骤' style={{ marginBottom: 24 }}>
                 <Steps
-                    current={getCurrentStep()}
+                    current={getCurrentStep}
                     direction='vertical'
                     size='small'
                     style={{ marginBottom: 24 }}
@@ -657,9 +854,13 @@ const QualityControlFlowDetail: React.FC = () => {
                         const stepStatus = flowDetail.steps[index]
                         if (!stepStatus) return null
 
+                        const stepStatusType = getStepStatus(stepStatus)
+                        const statusText = getStatusText(stepStatus.status)
+
                         return (
                             <Step
                                 key={index}
+                                status={stepStatusType}
                                 title={
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                         <span>{step.title}</span>
@@ -668,23 +869,32 @@ const QualityControlFlowDetail: React.FC = () => {
                                 }
                                 description={
                                     <div>
-                                        <div style={{ marginBottom: 8 }}>{step.description}</div>
+                                        <div style={{ marginBottom: 8 }}>
+                                            <Text type='secondary'>{step.description}</Text>
+                                        </div>
+                                        
+                                        {/* 状态信息 */}
+                                        <div style={{ marginBottom: 8, display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
+                                            <div>
+                                                <Text strong>状态：</Text>
+                                                <Text style={{ marginLeft: 4 }}>{statusText}</Text>
+                                            </div>
+                                            {stepStatus.startTime && (
+                                                <div>
+                                                    <Text strong>开始时间：</Text>
+                                                    <Text style={{ marginLeft: 4 }}>{stepStatus.startTime}</Text>
+                                                </div>
+                                            )}
+                                            {stepStatus.endTime && (
+                                                <div>
+                                                    <Text strong>结束时间：</Text>
+                                                    <Text style={{ marginLeft: 4 }}>{stepStatus.endTime}</Text>
+                                                </div>
+                                            )}
+                                        </div>
+                                        
                                         {/* 进度条展示 */}
                                         {renderProgressBar(stepStatus)}
-
-                                        {/* 继续执行按钮 - 仅在暂停状态的步骤显示 */}
-                                        {stepStatus.status === 3 && (
-                                            <Button
-                                                type='primary'
-                                                size='small'
-                                                icon={<PlayCircleOutlined />}
-                                                onClick={handleContinueExecution}
-                                                loading={continueLoading}
-                                                style={{ marginTop: 8, marginRight: 8 }}
-                                            >
-                                                继续执行
-                                            </Button>
-                                        )}
 
                                         {/* 查看执行结果按钮 - 仅在已完成的步骤显示 */}
                                         {stepStatus.status === 2 && (
@@ -722,36 +932,6 @@ const QualityControlFlowDetail: React.FC = () => {
                 )}
             </Card>
 
-            {/* 执行日志 */}
-            <Card title='执行日志' style={{ marginBottom: 24 }}>
-                <div
-                    style={{
-                        maxHeight: 400,
-                        overflowY: 'auto',
-                        padding: '12px',
-                        background: '#f5f5f5',
-                        borderRadius: '4px',
-                        fontFamily: 'monospace',
-                        fontSize: '12px',
-                        minHeight: 200,
-                    }}
-                >
-                    {executionLogs.length > 0 ? (
-                        <>
-                            {executionLogs.map((log, index) => (
-                                <div key={index} style={{ marginBottom: '4px', color: '#333' }}>
-                                    {log}
-                                </div>
-                            ))}
-                            <div ref={logsEndRef} />
-                        </>
-                    ) : (
-                        <div style={{ textAlign: 'center', color: '#999', padding: '40px 0' }}>
-                            暂无执行日志
-                        </div>
-                    )}
-                </div>
-            </Card>
 
             {/* 执行结果查看弹窗 */}
             <Modal
@@ -763,7 +943,7 @@ const QualityControlFlowDetail: React.FC = () => {
                         关闭
                     </Button>,
                 ]}
-                width={600}
+                width={700}
             >
                 {selectedStepResult && (
                     <div>
@@ -772,17 +952,21 @@ const QualityControlFlowDetail: React.FC = () => {
                             <Text>{selectedStepResult.title}</Text>
                         </div>
                         <div>
-                            <Text strong>执行结果：</Text>
+                            <Text strong style={{ display: 'block', marginBottom: 8 }}>执行结果：</Text>
                             <div
                                 style={{
                                     marginTop: 8,
-                                    padding: 12,
+                                    padding: 16,
                                     background: '#f5f5f5',
                                     borderRadius: 4,
                                     border: '1px solid #d9d9d9',
+                                    whiteSpace: 'pre-line',
+                                    fontFamily: 'monospace',
+                                    fontSize: 13,
+                                    lineHeight: 1.8,
                                 }}
                             >
-                                <Text>{selectedStepResult.resultSummary}</Text>
+                                <Text>{selectedStepResult.resultSummary || '暂无执行结果'}</Text>
                             </div>
                         </div>
                     </div>

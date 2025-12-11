@@ -76,7 +76,7 @@ const mockRoles: Role[] = [
             '/data-management/visualization',
             '/data-management/impact-analysis',
             '/data-management/index-rules',
-            '/data-management/merge-rules',
+            '/data-management/index-configuration',
             '/data-management/index-processing',
         ],
     },

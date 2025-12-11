@@ -16,7 +16,7 @@ import DataManagement from '../pages/DataManagement'
 import DataAssetManagement from '../pages/DataManagement/DataAssetManagement'
 import CategoryStandardManagement from '../pages/DataManagement/CategoryStandardManagement'
 import IndexGenerationRules from '../pages/DataManagement/IndexGenerationRules'
-import IndexMergeRules from '../pages/DataManagement/IndexMergeRules'
+import IndexConfiguration from '../pages/DataManagement/IndexConfiguration'
 import IndexProcessingManagement from '../pages/DataManagement/IndexProcessingManagement'
 
 import BusinessDatasetManagement from '../pages/DataManagement/BusinessDatasetManagement'
@@ -121,8 +121,8 @@ export const router = createBrowserRouter(
                         element: <IndexGenerationRules />,
                     },
                     {
-                        path: 'merge-rules',
-                        element: <IndexMergeRules />,
+                        path: 'index-configuration',
+                        element: <IndexConfiguration />,
                     },
                     {
                         path: 'index-processing',

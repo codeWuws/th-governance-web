@@ -13,6 +13,7 @@ import {
     message,
     Popconfirm,
     Typography,
+    Switch,
 } from 'antd'
 import {
     PlusOutlined,
@@ -22,6 +23,8 @@ import {
     DownloadOutlined,
     UploadOutlined,
 } from '@ant-design/icons'
+import { getActiveCategoryStandards } from '@/services/categoryStandardService'
+import type { CategoryStandard } from '@/services/categoryStandardService'
 
 const { Option } = Select
 
@@ -29,7 +32,7 @@ interface BusinessDataset {
     id: string
     name: string
     code: string
-    category: string
+    category: string // 分类，对应类别标准管理的name
     description: string
     diseaseType: string
     dataSource: string
@@ -47,44 +50,71 @@ const BusinessDatasetManagement: React.FC = () => {
     const [modalVisible, setModalVisible] = useState(false)
     const [editingRecord, setEditingRecord] = useState<BusinessDataset | null>(null)
     const [form] = Form.useForm()
+    const [categoryStandards, setCategoryStandards] = useState<CategoryStandard[]>([])
 
     // 模拟数据
     const mockData: BusinessDataset[] = [
         {
-            id: '1',
-            name: '心血管疾病数据集',
-            code: 'CVD_DATASET',
-            category: '专病数据集',
-            description: '心血管疾病相关的临床数据集，包含诊断、治疗、随访等信息',
-            diseaseType: '心血管疾病',
-            dataSource: 'HIS,EMR,LIS',
-            fieldCount: 156,
+            id: '3',
+            name: '性别',
+            code: 'GENDER_DICT',
+            category: '性别',
+            description: '性别标准字典数据集，包含性别编码、名称等信息',
+            diseaseType: '基础数据',
+            dataSource: 'HIS,EMR',
+            fieldCount: 5,
             status: 'active',
-            createTime: '2024-01-15 10:30:00',
-            updateTime: '2024-02-20 14:20:00',
-            creator: '张医生',
-            version: 'v2.1.0',
+            createTime: '2024-01-25 10:00:00',
+            updateTime: '2024-01-25 10:00:00',
+            creator: '系统管理员',
+            version: 'v1.0.0',
         },
         {
-            id: '2',
-            name: '糖尿病管理数据集',
-            code: 'DM_DATASET',
-            category: '专病数据集',
-            description: '糖尿病患者管理数据集，包含血糖监测、用药记录、并发症等',
-            diseaseType: '糖尿病',
-            dataSource: 'HIS,EMR,PHR',
-            fieldCount: 203,
+            id: '4',
+            name: '年龄',
+            code: 'AGE_DICT',
+            category: '年龄',
+            description: '年龄分类标准字典数据集，包含年龄段划分、编码等信息',
+            diseaseType: '基础数据',
+            dataSource: 'HIS,EMR',
+            fieldCount: 8,
             status: 'active',
-            createTime: '2024-01-20 09:15:00',
-            updateTime: '2024-02-18 16:45:00',
-            creator: '李医生',
-            version: 'v1.8.2',
+            createTime: '2024-01-25 11:00:00',
+            updateTime: '2024-01-25 11:00:00',
+            creator: '系统管理员',
+            version: 'v1.0.0',
+        },
+        {
+            id: '5',
+            name: '民族',
+            code: 'ETHNICITY_DICT',
+            category: '民族',
+            description: '民族分类标准字典数据集，包含民族编码、名称等信息',
+            diseaseType: '基础数据',
+            dataSource: 'HIS,EMR',
+            fieldCount: 12,
+            status: 'active',
+            createTime: '2024-01-25 12:00:00',
+            updateTime: '2024-01-25 12:00:00',
+            creator: '系统管理员',
+            version: 'v1.0.0',
         },
     ]
 
     useEffect(() => {
+        fetchCategoryStandards()
         fetchData()
     }, [])
+
+    // 获取类别标准数据
+    const fetchCategoryStandards = async () => {
+        try {
+            const categories = await getActiveCategoryStandards()
+            setCategoryStandards(categories)
+        } catch (error) {
+            console.error('获取类别标准失败:', error)
+        }
+    }
 
     const fetchData = async () => {
         setLoading(true)
@@ -99,15 +129,26 @@ const BusinessDatasetManagement: React.FC = () => {
         }
     }
 
-    const handleAdd = () => {
+    const handleAdd = async () => {
         setEditingRecord(null)
         form.resetFields()
+        // 确保类别标准数据已加载
+        if (categoryStandards.length === 0) {
+            await fetchCategoryStandards()
+        }
         setModalVisible(true)
     }
 
-    const handleEdit = (record: BusinessDataset) => {
+    const handleEdit = async (record: BusinessDataset) => {
         setEditingRecord(record)
-        form.setFieldsValue(record)
+        form.setFieldsValue({
+            ...record,
+            status: record.status === 'active', // 将 'active'/'inactive' 转换为 boolean
+        })
+        // 确保类别标准数据已加载
+        if (categoryStandards.length === 0) {
+            await fetchCategoryStandards()
+        }
         setModalVisible(true)
     }
 
@@ -125,13 +166,18 @@ const BusinessDatasetManagement: React.FC = () => {
     const handleModalOk = async () => {
         try {
             const values = await form.validateFields()
+            // 将 Switch 的 boolean 值转换为 'active'/'inactive'
+            const formData = {
+                ...values,
+                status: values.status ? 'active' : 'inactive',
+            }
 
             if (editingRecord) {
                 // 编辑
                 setData(
                     data.map(item =>
                         item.id === editingRecord.id
-                            ? { ...item, ...values, updateTime: new Date().toLocaleString() }
+                            ? { ...item, ...formData, updateTime: new Date().toLocaleString() }
                             : item
                     )
                 )
@@ -139,13 +185,12 @@ const BusinessDatasetManagement: React.FC = () => {
             } else {
                 // 新增
                 const newRecord: BusinessDataset = {
-                    ...values,
+                    ...formData,
                     id: Date.now().toString(),
                     createTime: new Date().toLocaleString(),
                     updateTime: new Date().toLocaleString(),
                     creator: '当前用户',
                     fieldCount: 0,
-                    status: 'active',
                 }
                 setData([...data, newRecord])
                 message.success('创建成功')
@@ -198,10 +243,6 @@ const BusinessDatasetManagement: React.FC = () => {
                         {record.dataSource}
                     </p>
                     <p>
-                        <strong>字段数量：</strong>
-                        {record.fieldCount}
-                    </p>
-                    <p>
                         <strong>描述：</strong>
                         {record.description}
                     </p>
@@ -228,10 +269,22 @@ const BusinessDatasetManagement: React.FC = () => {
             width: 150,
         },
         {
-            title: '疾病类型',
-            dataIndex: 'diseaseType',
-            key: 'diseaseType',
+            title: '分类',
+            dataIndex: 'category',
+            key: 'category',
             width: 120,
+            render: (category: string) => {
+                // 从类别标准中查找对应的分类信息
+                const categoryStandard = categoryStandards.find(item => item.name === category)
+                if (categoryStandard) {
+                    return (
+                        <Tag color='blue' title={categoryStandard.description}>
+                            {category}
+                        </Tag>
+                    )
+                }
+                return <Tag>{category}</Tag>
+            },
         },
         {
             title: '数据源',
@@ -249,20 +302,13 @@ const BusinessDatasetManagement: React.FC = () => {
             ),
         },
         {
-            title: '字段数量',
-            dataIndex: 'fieldCount',
-            key: 'fieldCount',
-            width: 80,
-            align: 'center' as const,
-        },
-        {
             title: '状态',
             dataIndex: 'status',
             key: 'status',
             width: 80,
             render: (status: string) => (
                 <Tag color={status === 'active' ? 'green' : 'red'}>
-                    {status === 'active' ? '启用' : '停用'}
+                    {status === 'active' ? '启用' : '禁用'}
                 </Tag>
             ),
         },
@@ -288,26 +334,10 @@ const BusinessDatasetManagement: React.FC = () => {
                     <Button
                         type='link'
                         size='small'
-                        icon={<EyeOutlined />}
-                        onClick={() => handlePreview(record)}
-                    >
-                        预览
-                    </Button>
-                    <Button
-                        type='link'
-                        size='small'
                         icon={<EditOutlined />}
                         onClick={() => handleEdit(record)}
                     >
                         编辑
-                    </Button>
-                    <Button
-                        type='link'
-                        size='small'
-                        icon={<DownloadOutlined />}
-                        onClick={() => handleExport(record)}
-                    >
-                        导出
                     </Button>
                     <Popconfirm
                         title='确定要删除这个数据集吗？'
@@ -378,7 +408,7 @@ const BusinessDatasetManagement: React.FC = () => {
                 onCancel={handleModalCancel}
                 width={600}
             >
-                <Form form={form} layout='vertical' initialValues={{ status: 'active' }}>
+                <Form form={form} layout='vertical' initialValues={{ status: true }}>
                     <Form.Item
                         label='数据集名称'
                         name='name'
@@ -436,11 +466,17 @@ const BusinessDatasetManagement: React.FC = () => {
                         name='category'
                         rules={[{ required: true, message: '请选择分类' }]}
                     >
-                        <Select placeholder='请选择分类'>
-                            <Option value='专病数据集'>专病数据集</Option>
-                            <Option value='通用数据集'>通用数据集</Option>
-                            <Option value='标准数据集'>标准数据集</Option>
+                        <Select placeholder='请选择分类' showSearch optionFilterProp='children'>
+                            {categoryStandards.map(category => (
+                                <Option key={category.id} value={category.name}>
+                                    {category.name}
+                                </Option>
+                            ))}
                         </Select>
+                    </Form.Item>
+
+                    <Form.Item name='status' label='状态' valuePropName='checked'>
+                        <Switch checkedChildren='启用' unCheckedChildren='禁用' />
                     </Form.Item>
                 </Form>
             </Modal>

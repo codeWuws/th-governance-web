@@ -7,8 +7,6 @@ import { showDialog } from '@/utils/showDialog'
  * 完全兼容 Antd Modal 的所有属性，并扩展了自定义事件处理
  */
 export interface CustomDialogProps extends Omit<ModalProps, 'open' | 'onOk' | 'onCancel'> {
-    /** 控制弹窗的显示/隐藏 */
-    open?: boolean
     /** 点击确定按钮的回调，支持异步操作 */
     onOk?: (e: React.MouseEvent<HTMLElement>) => void | Promise<void>
     /** 点击取消按钮的回调 */
@@ -43,7 +41,6 @@ export interface CustomDialogProps extends Omit<ModalProps, 'open' | 'onOk' | 'o
  * ```
  */
 const CustomDialog: React.FC<CustomDialogProps> = ({
-    open = false,
     onOk,
     onCancel,
     onClose,
@@ -55,8 +52,11 @@ const CustomDialog: React.FC<CustomDialogProps> = ({
     cancelClose = true,
     style,
     bodyStyle,
+    styles,
     ...restProps
 }) => {
+    // 使用内部 state 控制弹窗显示/隐藏
+    const [open, setOpen] = useState(true)
     const [loading, setLoading] = useState(false)
     
     // 计算最大高度：屏幕可视高度 - 200px
@@ -69,10 +69,18 @@ const CustomDialog: React.FC<CustomDialogProps> = ({
     }
     
     // 合并 body 样式，内容区域可滚动
+    // 使用新的 styles.body API（Antd 5.x），兼容旧的 bodyStyle
     const mergedBodyStyle: React.CSSProperties = {
         maxHeight: `calc(${maxHeight}px - 110px)`, // 减去标题栏和底部按钮的高度
         overflow: 'auto',
         ...bodyStyle,
+        ...styles?.body,
+    }
+    
+    // 合并 styles 对象
+    const mergedStyles = {
+        body: mergedBodyStyle,
+        ...styles,
     }
 
     // 处理确定按钮点击
@@ -88,9 +96,12 @@ const CustomDialog: React.FC<CustomDialogProps> = ({
                 setLoading(false)
             }
         }
-        // 如果 okClose 为 false，返回 false 阻止弹窗关闭
-        if (!okClose) {
-            return false
+        // 根据 okClose 决定是否关闭弹窗
+        if (okClose) {
+            setOpen(false)
+            if (onClose) {
+                onClose()
+            }
         }
     }
 
@@ -99,12 +110,12 @@ const CustomDialog: React.FC<CustomDialogProps> = ({
         if (onCancel) {
             onCancel(e)
         }
-        // 如果 cancelClose 为 false，返回 false 阻止弹窗关闭
-        if (!cancelClose) {
-            return false
-        }
-        if (onClose) {
-            onClose()
+        // 根据 cancelClose 决定是否关闭弹窗
+        if (cancelClose) {
+            setOpen(false)
+            if (onClose) {
+                onClose()
+            }
         }
     }
 
@@ -133,7 +144,7 @@ const CustomDialog: React.FC<CustomDialogProps> = ({
             confirmLoading={loading}
             footer={mergedFooter}
             style={mergedStyle}
-            bodyStyle={mergedBodyStyle}
+            styles={mergedStyles}
             {...restProps}
         >
             {children}

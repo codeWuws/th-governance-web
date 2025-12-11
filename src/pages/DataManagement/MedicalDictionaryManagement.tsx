@@ -13,6 +13,7 @@ import {
     message,
     Popconfirm,
     Typography,
+    Switch,
 } from 'antd'
 import {
     PlusOutlined,
@@ -31,10 +32,9 @@ interface MedicalDictionary {
     category: string
     version: string
     source: string
-    language: string
     description: string
     itemCount: number
-    status: 'active' | 'deprecated'
+    status: 'active' | 'inactive'
     createTime: string
     updateTime: string
     creator: string
@@ -55,8 +55,7 @@ const MedicalDictionaryManagement: React.FC = () => {
             code: 'ICD10',
             category: '疾病分类',
             version: '2019',
-            source: 'WHO',
-            language: '中文',
+            source: '世界卫生组织（WHO）',
             description: '国际疾病分类第十次修订本，用于疾病和健康状况的分类',
             itemCount: 69837,
             status: 'active',
@@ -70,14 +69,55 @@ const MedicalDictionaryManagement: React.FC = () => {
             code: 'LOINC',
             category: '检验代码',
             version: '2.72',
-            source: 'Regenstrief Institute',
-            language: '中文',
+            source: '美国Regenstrief医学研究所',
             description: '实验室检验和临床观察的通用代码系统',
             itemCount: 84567,
             status: 'active',
             createTime: '2024-01-12 10:30:00',
             updateTime: '2024-02-18 16:45:00',
             creator: '李医生',
+        },
+        {
+            id: '3',
+            name: 'SNOMED CT 医学术语集',
+            code: 'SNOMED_CT',
+            category: '医学术语',
+            version: '2023-09',
+            source: 'SNOMED International',
+            description: '系统化医学术语集，用于临床信息的标准化表达',
+            itemCount: 350000,
+            status: 'active',
+            createTime: '2024-01-15 11:00:00',
+            updateTime: '2024-02-20 10:15:00',
+            creator: '系统管理员',
+        },
+        {
+            id: '4',
+            name: '国家卫健委疾病分类编码',
+            code: 'NHCC_DISEASE',
+            category: '疾病分类',
+            version: '2023',
+            source: '国家卫生健康委员会',
+            description: '中国国家卫生健康委员会发布的疾病分类编码标准',
+            itemCount: 25000,
+            status: 'active',
+            createTime: '2024-01-18 14:20:00',
+            updateTime: '2024-02-22 16:30:00',
+            creator: '系统管理员',
+        },
+        {
+            id: '5',
+            name: '国家药监局药品编码',
+            code: 'NMPA_DRUG',
+            category: '药品代码',
+            version: '2024',
+            source: '国家药品监督管理局',
+            description: '国家药品监督管理局发布的药品编码标准',
+            itemCount: 150000,
+            status: 'active',
+            createTime: '2024-01-20 09:30:00',
+            updateTime: '2024-02-25 11:45:00',
+            creator: '系统管理员',
         },
     ]
 
@@ -106,7 +146,10 @@ const MedicalDictionaryManagement: React.FC = () => {
 
     const handleEdit = (record: MedicalDictionary) => {
         setEditingRecord(record)
-        form.setFieldsValue(record)
+        form.setFieldsValue({
+            ...record,
+            status: record.status === 'active', // 将 'active'/'inactive' 转换为 boolean
+        })
         setModalVisible(true)
     }
 
@@ -131,13 +174,18 @@ const MedicalDictionaryManagement: React.FC = () => {
     const handleModalOk = async () => {
         try {
             const values = await form.validateFields()
+            // 将 Switch 的 boolean 值转换为 'active'/'inactive'
+            const formData = {
+                ...values,
+                status: values.status ? 'active' : 'inactive',
+            }
 
             if (editingRecord) {
                 // 编辑
                 setData(
                     data.map(item =>
                         item.id === editingRecord.id
-                            ? { ...item, ...values, updateTime: new Date().toLocaleString() }
+                            ? { ...item, ...formData, updateTime: new Date().toLocaleString() }
                             : item
                     )
                 )
@@ -145,7 +193,7 @@ const MedicalDictionaryManagement: React.FC = () => {
             } else {
                 // 新增
                 const newRecord: MedicalDictionary = {
-                    ...values,
+                    ...formData,
                     id: Date.now().toString(),
                     createTime: new Date().toLocaleString(),
                     updateTime: new Date().toLocaleString(),
@@ -201,26 +249,13 @@ const MedicalDictionaryManagement: React.FC = () => {
             width: 120,
         },
         {
-            title: '语言',
-            dataIndex: 'language',
-            key: 'language',
-            width: 80,
-        },
-        {
-            title: '条目数量',
-            dataIndex: 'itemCount',
-            key: 'itemCount',
-            width: 100,
-            align: 'center' as const,
-        },
-        {
             title: '状态',
             dataIndex: 'status',
             key: 'status',
             width: 80,
             render: (status: string) => (
-                <Tag color={status === 'active' ? 'green' : 'orange'}>
-                    {status === 'active' ? '启用' : '弃用'}
+                <Tag color={status === 'active' ? 'green' : 'red'}>
+                    {status === 'active' ? '启用' : '禁用'}
                 </Tag>
             ),
         },
@@ -322,7 +357,7 @@ const MedicalDictionaryManagement: React.FC = () => {
                 <Form
                     form={form}
                     layout='vertical'
-                    initialValues={{ status: 'active', language: '中文' }}
+                    initialValues={{ status: true }}
                 >
                     <Form.Item
                         label='字典名称'
@@ -371,18 +406,6 @@ const MedicalDictionaryManagement: React.FC = () => {
                     </Form.Item>
 
                     <Form.Item
-                        label='语言'
-                        name='language'
-                        rules={[{ required: true, message: '请选择语言' }]}
-                    >
-                        <Select placeholder='请选择语言'>
-                            <Option value='中文'>中文</Option>
-                            <Option value='英文'>英文</Option>
-                            <Option value='中英文'>中英文</Option>
-                        </Select>
-                    </Form.Item>
-
-                    <Form.Item
                         label='描述'
                         name='description'
                         rules={[{ required: true, message: '请输入描述' }]}
@@ -390,15 +413,8 @@ const MedicalDictionaryManagement: React.FC = () => {
                         <Input.TextArea rows={3} placeholder='请输入字典描述' />
                     </Form.Item>
 
-                    <Form.Item
-                        label='状态'
-                        name='status'
-                        rules={[{ required: true, message: '请选择状态' }]}
-                    >
-                        <Select placeholder='请选择状态'>
-                            <Option value='active'>启用</Option>
-                            <Option value='deprecated'>弃用</Option>
-                        </Select>
+                    <Form.Item name='status' label='状态' valuePropName='checked'>
+                        <Switch checkedChildren='启用' unCheckedChildren='禁用' />
                     </Form.Item>
                 </Form>
             </Modal>

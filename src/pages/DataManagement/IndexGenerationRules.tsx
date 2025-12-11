@@ -10,16 +10,12 @@ import {
     Tag,
     Modal,
     Form,
-    Row,
-    Col,
     Typography,
     message,
     Tooltip,
     Popconfirm,
     Descriptions,
-    Divider,
     Switch,
-    InputNumber,
 } from 'antd'
 import {
     PlusOutlined,
@@ -29,7 +25,6 @@ import {
     ReloadOutlined,
     EyeOutlined,
     CopyOutlined,
-    PlayCircleOutlined,
 } from '@ant-design/icons'
 import { useDebounce } from '../../hooks/useDebounce'
 
@@ -40,108 +35,77 @@ const { TextArea } = Input
 
 interface IndexGenerationRule {
     id: string
-    name: string
-    code: string
-    description: string
-    ruleType: 'hash' | 'sequence' | 'uuid' | 'composite' | 'custom'
-    algorithm: string
-    parameters: Record<string, unknown>
-    scope: 'patient' | 'visit' | 'order' | 'document' | 'universal'
-    uniquenessLevel: 'global' | 'system' | 'organization' | 'department'
-    length: number
-    prefix: string
-    suffix: string
-    checksum: boolean
-    caseSensitive: boolean
-    status: 'active' | 'inactive'
+    name: string // 规则名称
+    code: string // 编码
+    sourceTable: string // 依据表
+    sourceFields: string[] // 依据字段（如：身份证号、姓名、年龄、性别、电话、住址等）
+    description: string // 描述
+    status: 'active' | 'inactive' // 状态
     createTime: string
     updateTime: string
     creator: string
-    lastExecutor: string
-    successRate: number
-    totalGenerated: number
 }
 
 const mockRules: IndexGenerationRule[] = [
     {
         id: '1',
-        name: '患者主索引生成规则',
-        code: 'PATIENT_MPI',
-        description: '基于患者身份证号、姓名、出生日期生成唯一主索引',
-        ruleType: 'composite',
-        algorithm: 'SHA256_HASH',
-        parameters: {
-            fields: ['id_card', 'name', 'birth_date'],
-            salt: 'patient_salt_2024',
-            iterations: 1000,
-        },
-        scope: 'patient',
-        uniquenessLevel: 'global',
-        length: 32,
-        prefix: 'P',
-        suffix: '',
-        checksum: true,
-        caseSensitive: false,
+        name: '患者主索引生成规则-身份证号',
+        code: 'PATIENT_MPI_IDCARD',
+        sourceTable: 'PAT_BASE_INFO',
+        sourceFields: ['身份证号', '姓名', '性别', '年龄'],
+        description: '基于患者身份证号、姓名、性别、年龄生成唯一主索引',
         status: 'active',
         createTime: '2024-01-10 09:00:00',
         updateTime: '2024-01-15 14:30:00',
-        creator: '张三',
-        lastExecutor: '李四',
-        successRate: 99.8,
-        totalGenerated: 15420,
+        creator: '数据管理员',
     },
     {
         id: '2',
-        name: '就诊流水号生成规则',
-        code: 'VISIT_SERIAL',
-        description: '基于时间戳和序列号生成就诊流水号',
-        ruleType: 'sequence',
-        algorithm: 'TIMESTAMP_SEQUENCE',
-        parameters: {
-            dateFormat: 'yyyyMMdd',
-            sequenceLength: 6,
-            resetDaily: true,
-        },
-        scope: 'visit',
-        uniquenessLevel: 'system',
-        length: 14,
-        prefix: 'V',
-        suffix: '',
-        checksum: false,
-        caseSensitive: false,
+        name: '患者主索引生成规则-姓名电话',
+        code: 'PATIENT_MPI_NAME_PHONE',
+        sourceTable: 'PAT_BASE_INFO',
+        sourceFields: ['姓名', '电话', '性别', '年龄', '住址'],
+        description: '基于患者姓名、电话、性别、年龄、住址生成唯一主索引',
         status: 'active',
         createTime: '2024-01-11 10:00:00',
         updateTime: '2024-01-16 16:45:00',
-        creator: '李四',
-        lastExecutor: '王五',
-        successRate: 100,
-        totalGenerated: 89650,
+        creator: '数据管理员',
     },
     {
         id: '3',
-        name: '文档UUID生成规则',
-        code: 'DOC_UUID',
-        description: '生成符合UUID v4标准的文档唯一标识',
-        ruleType: 'uuid',
-        algorithm: 'UUID_V4',
-        parameters: {
-            format: 'standard',
-            uppercase: false,
-        },
-        scope: 'document',
-        uniquenessLevel: 'global',
-        length: 36,
-        prefix: '',
-        suffix: '',
-        checksum: false,
-        caseSensitive: false,
-        status: 'inactive',
+        name: '患者主索引生成规则-完整信息',
+        code: 'PATIENT_MPI_FULL',
+        sourceTable: 'PAT_BASE_INFO',
+        sourceFields: ['身份证号', '姓名', '性别', '年龄', '电话', '住址'],
+        description: '基于患者身份证号、姓名、性别、年龄、电话、住址生成唯一主索引',
+        status: 'active',
         createTime: '2024-01-12 11:00:00',
         updateTime: '2024-01-22 09:30:00',
-        creator: '王五',
-        lastExecutor: '',
-        successRate: 0,
-        totalGenerated: 0,
+        creator: '系统管理员',
+    },
+    {
+        id: '4',
+        name: '患者主索引生成规则-姓名住址',
+        code: 'PATIENT_MPI_NAME_ADDR',
+        sourceTable: 'PAT_BASE_INFO',
+        sourceFields: ['姓名', '住址', '性别', '年龄'],
+        description: '基于患者姓名、住址、性别、年龄生成唯一主索引',
+        status: 'active',
+        createTime: '2024-01-13 14:20:00',
+        updateTime: '2024-01-18 10:15:00',
+        creator: '数据管理员',
+    },
+    {
+        id: '5',
+        name: '患者主索引生成规则-电话住址',
+        code: 'PATIENT_MPI_PHONE_ADDR',
+        sourceTable: 'PAT_BASE_INFO',
+        sourceFields: ['电话', '住址', '姓名', '性别'],
+        description: '基于患者电话、住址、姓名、性别生成唯一主索引',
+        status: 'inactive',
+        createTime: '2024-01-14 09:30:00',
+        updateTime: '2024-01-20 11:45:00',
+        creator: '数据管理员',
     },
 ]
 
@@ -150,8 +114,6 @@ const IndexGenerationRules: React.FC = () => {
     const [data, setData] = useState<IndexGenerationRule[]>([])
     const [filteredData, setFilteredData] = useState<IndexGenerationRule[]>([])
     const [searchText, setSearchText] = useState('')
-    const [ruleTypeFilter, setRuleTypeFilter] = useState<string>('')
-    const [scopeFilter, setScopeFilter] = useState<string>('')
     const [statusFilter, setStatusFilter] = useState<string>('')
     const [modalVisible, setModalVisible] = useState(false)
     const [detailModalVisible, setDetailModalVisible] = useState(false)
@@ -186,16 +148,10 @@ const IndexGenerationRules: React.FC = () => {
                 item =>
                     item.name.toLowerCase().includes(debouncedSearchText.toLowerCase()) ||
                     item.code.toLowerCase().includes(debouncedSearchText.toLowerCase()) ||
-                    item.description.toLowerCase().includes(debouncedSearchText.toLowerCase())
+                    item.sourceTable.toLowerCase().includes(debouncedSearchText.toLowerCase()) ||
+                    item.description.toLowerCase().includes(debouncedSearchText.toLowerCase()) ||
+                    item.sourceFields.some(field => field.toLowerCase().includes(debouncedSearchText.toLowerCase()))
             )
-        }
-
-        if (ruleTypeFilter) {
-            filtered = filtered.filter(item => item.ruleType === ruleTypeFilter)
-        }
-
-        if (scopeFilter) {
-            filtered = filtered.filter(item => item.scope === scopeFilter)
         }
 
         if (statusFilter) {
@@ -203,7 +159,7 @@ const IndexGenerationRules: React.FC = () => {
         }
 
         setFilteredData(filtered)
-    }, [data, debouncedSearchText, ruleTypeFilter, scopeFilter, statusFilter])
+    }, [data, debouncedSearchText, statusFilter])
 
     const handleSearch = (value: string) => {
         setSearchText(value)
@@ -212,12 +168,19 @@ const IndexGenerationRules: React.FC = () => {
     const handleAdd = () => {
         setEditingRecord(null)
         form.resetFields()
+        form.setFieldsValue({
+            status: true,
+            sourceFields: [],
+        })
         setModalVisible(true)
     }
 
     const handleEdit = (record: IndexGenerationRule) => {
         setEditingRecord(record)
-        form.setFieldsValue(record)
+        form.setFieldsValue({
+            ...record,
+            status: record.status === 'active', // 将 'active'/'inactive' 转换为 boolean
+        })
         setModalVisible(true)
     }
 
@@ -227,37 +190,27 @@ const IndexGenerationRules: React.FC = () => {
     }
 
     const handleCopy = (_record: IndexGenerationRule) => {
-        const newRecord = {
+        const newRecord: IndexGenerationRule = {
             ..._record,
             id: Date.now().toString(),
             name: `${_record.name}_副本`,
             code: `${_record.code}_COPY`,
-            status: 'inactive' as const,
-            createTime: new Date().toLocaleString(),
-            updateTime: new Date().toLocaleString(),
-            successRate: 0,
-            totalGenerated: 0,
+            status: 'inactive',
+            createTime: new Date().toLocaleString('zh-CN'),
+            updateTime: new Date().toLocaleString('zh-CN'),
         }
         setData([...data, newRecord])
         message.success('复制成功')
     }
 
-    const handleExecute = async (_record: IndexGenerationRule) => {
-        try {
-            // 模拟执行操作
-            message.loading('正在执行规则...', 2)
-            await new Promise(resolve => setTimeout(resolve, 2000))
-            message.success('规则执行成功')
-        } catch {
-            message.error('规则执行失败')
-        }
-    }
 
     const handleDelete = async (id: string) => {
         try {
             // 模拟API调用
             await new Promise(resolve => setTimeout(resolve, 300))
-            setData(data.filter(item => item.id !== id))
+            const newData = data.filter(item => item.id !== id)
+            setData(newData)
+            // 数据更新后，useEffect 会自动触发过滤
             message.success('删除成功')
         } catch {
             message.error('删除失败')
@@ -267,12 +220,17 @@ const IndexGenerationRules: React.FC = () => {
     const handleModalOk = async () => {
         try {
             const values = await form.validateFields()
+            // 将 Switch 的 boolean 值转换为 'active'/'inactive'
+            const formData = {
+                ...values,
+                status: values.status ? 'active' : 'inactive',
+            }
 
             if (editingRecord) {
                 // 编辑
                 const updatedData = data.map(item =>
                     item.id === editingRecord.id
-                        ? { ...item, ...values, updateTime: new Date().toLocaleString() }
+                        ? { ...item, ...formData, updateTime: new Date().toLocaleString('zh-CN') }
                         : item
                 )
                 setData(updatedData)
@@ -280,14 +238,11 @@ const IndexGenerationRules: React.FC = () => {
             } else {
                 // 新增
                 const newRecord: IndexGenerationRule = {
-                    ...values,
+                    ...formData,
                     id: Date.now().toString(),
-                    createTime: new Date().toLocaleString(),
-                    updateTime: new Date().toLocaleString(),
+                    createTime: new Date().toLocaleString('zh-CN'),
+                    updateTime: new Date().toLocaleString('zh-CN'),
                     creator: '当前用户',
-                    lastExecutor: '',
-                    successRate: 0,
-                    totalGenerated: 0,
                 }
                 setData([...data, newRecord])
                 message.success('添加成功')
@@ -295,56 +250,24 @@ const IndexGenerationRules: React.FC = () => {
 
             setModalVisible(false)
             form.resetFields()
-        } catch {
-            message.error('操作失败')
+            setEditingRecord(null)
+        } catch (error) {
+            console.error('表单验证失败:', error)
         }
     }
 
     const handleModalCancel = () => {
         setModalVisible(false)
         form.resetFields()
-    }
-
-    const getRuleTypeColor = (type: string) => {
-        switch (type) {
-            case 'hash':
-                return 'blue'
-            case 'sequence':
-                return 'green'
-            case 'uuid':
-                return 'purple'
-            case 'composite':
-                return 'orange'
-            case 'custom':
-                return 'red'
-            default:
-                return 'default'
-        }
-    }
-
-    const getScopeColor = (scope: string) => {
-        switch (scope) {
-            case 'patient':
-                return 'blue'
-            case 'visit':
-                return 'green'
-            case 'order':
-                return 'orange'
-            case 'document':
-                return 'purple'
-            case 'universal':
-                return 'red'
-            default:
-                return 'default'
-        }
+        setEditingRecord(null)
     }
 
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'active':
-                return 'success'
+                return 'green'
             case 'inactive':
-                return 'error'
+                return 'red'
             default:
                 return 'default'
         }
@@ -366,7 +289,7 @@ const IndexGenerationRules: React.FC = () => {
             title: '规则名称',
             dataIndex: 'name',
             key: 'name',
-            width: 180,
+            width: 200,
             render: (text: string) => (
                 <Tooltip title={text}>
                     <span style={{ fontWeight: 'bold' }}>{text}</span>
@@ -374,10 +297,10 @@ const IndexGenerationRules: React.FC = () => {
             ),
         },
         {
-            title: '规则编码',
+            title: '编码',
             dataIndex: 'code',
             key: 'code',
-            width: 120,
+            width: 180,
             render: (text: string) => (
                 <Tooltip title={text}>
                     <code
@@ -389,68 +312,29 @@ const IndexGenerationRules: React.FC = () => {
             ),
         },
         {
-            title: '规则类型',
-            dataIndex: 'ruleType',
-            key: 'ruleType',
-            width: 80,
+            title: '依据表',
+            dataIndex: 'sourceTable',
+            key: 'sourceTable',
+            width: 150,
             render: (text: string) => (
-                <Tag color={getRuleTypeColor(text)} style={{ textTransform: 'capitalize' }}>
-                    {text === 'hash'
-                        ? '哈希'
-                        : text === 'sequence'
-                          ? '序列'
-                          : text === 'uuid'
-                            ? 'UUID'
-                            : text === 'composite'
-                              ? '复合'
-                              : '自定义'}
-                </Tag>
+                <code style={{ background: '#e6f7ff', padding: '2px 4px', borderRadius: '4px' }}>
+                    {text}
+                </code>
             ),
         },
         {
-            title: '适用范围',
-            dataIndex: 'scope',
-            key: 'scope',
-            width: 80,
-            render: (text: string) => (
-                <Tag color={getScopeColor(text)}>
-                    {text === 'patient'
-                        ? '患者'
-                        : text === 'visit'
-                          ? '就诊'
-                          : text === 'order'
-                            ? '医嘱'
-                            : text === 'document'
-                              ? '文档'
-                              : '通用'}
-                </Tag>
-            ),
-        },
-        {
-            title: '状态',
-            dataIndex: 'status',
-            key: 'status',
-            width: 80,
-            render: (text: string) => <Tag color={getStatusColor(text)}>{getStatusText(text)}</Tag>,
-        },
-        {
-            title: '成功率',
-            dataIndex: 'successRate',
-            key: 'successRate',
-            width: 80,
-            render: (text: number) => (
-                <Tag color={text >= 95 ? 'success' : text >= 80 ? 'warning' : 'error'}>
-                    {text.toFixed(1)}%
-                </Tag>
-            ),
-        },
-        {
-            title: '生成数量',
-            dataIndex: 'totalGenerated',
-            key: 'totalGenerated',
-            width: 100,
-            render: (text: number) => (
-                <span style={{ fontWeight: 'bold' }}>{text.toLocaleString()}</span>
+            title: '依据字段',
+            dataIndex: 'sourceFields',
+            key: 'sourceFields',
+            width: 300,
+            render: (fields: string[]) => (
+                <Space size='small' wrap>
+                    {fields.map((field, index) => (
+                        <Tag key={index} color='blue'>
+                            {field}
+                        </Tag>
+                    ))}
+                </Space>
             ),
         },
         {
@@ -467,16 +351,25 @@ const IndexGenerationRules: React.FC = () => {
             ),
         },
         {
+            title: '状态',
+            dataIndex: 'status',
+            key: 'status',
+            width: 80,
+            render: (text: string) => (
+                <Tag color={getStatusColor(text)}>{getStatusText(text)}</Tag>
+            ),
+        },
+        {
             title: '创建人',
             dataIndex: 'creator',
             key: 'creator',
             width: 100,
         },
         {
-            title: '更新时间',
-            dataIndex: 'updateTime',
-            key: 'updateTime',
-            width: 150,
+            title: '创建时间',
+            dataIndex: 'createTime',
+            key: 'createTime',
+            width: 160,
         },
         {
             title: '操作',
@@ -499,15 +392,6 @@ const IndexGenerationRules: React.FC = () => {
                             icon={<CopyOutlined />}
                             size='small'
                             onClick={() => handleCopy(record)}
-                        />
-                    </Tooltip>
-                    <Tooltip title='执行规则'>
-                        <Button
-                            type='text'
-                            icon={<PlayCircleOutlined />}
-                            size='small'
-                            onClick={() => handleExecute(record)}
-                            disabled={record.status !== 'active'}
                         />
                     </Tooltip>
                     <Tooltip title='编辑'>
@@ -565,40 +449,17 @@ const IndexGenerationRules: React.FC = () => {
             <Card>
                 <Space style={{ marginBottom: 16 }} wrap>
                     <Search
-                        placeholder='搜索名称、编码或描述'
+                        placeholder='搜索规则名称、编码、依据表或描述'
                         allowClear
                         onSearch={handleSearch}
-                        style={{ width: 250 }}
+                        style={{ width: 300 }}
                         prefix={<SearchOutlined />}
                     />
-                    <Select
-                        placeholder='规则类型'
-                        style={{ width: 120 }}
-                        allowClear
-                        onChange={setRuleTypeFilter}
-                    >
-                        <Option value='hash'>哈希</Option>
-                        <Option value='sequence'>序列</Option>
-                        <Option value='uuid'>UUID</Option>
-                        <Option value='composite'>复合</Option>
-                        <Option value='custom'>自定义</Option>
-                    </Select>
-                    <Select
-                        placeholder='适用范围'
-                        style={{ width: 120 }}
-                        allowClear
-                        onChange={setScopeFilter}
-                    >
-                        <Option value='patient'>患者</Option>
-                        <Option value='visit'>就诊</Option>
-                        <Option value='order'>医嘱</Option>
-                        <Option value='document'>文档</Option>
-                        <Option value='universal'>通用</Option>
-                    </Select>
                     <Select
                         placeholder='状态'
                         style={{ width: 120 }}
                         allowClear
+                        value={statusFilter}
                         onChange={setStatusFilter}
                     >
                         <Option value='active'>启用</Option>
@@ -610,7 +471,7 @@ const IndexGenerationRules: React.FC = () => {
                     dataSource={filteredData}
                     loading={loading}
                     rowKey='id'
-                    scroll={{ x: 1600 }}
+                    scroll={{ x: 1200 }}
                     pagination={{
                         showSizeChanger: true,
                         showQuickJumper: true,
@@ -626,151 +487,76 @@ const IndexGenerationRules: React.FC = () => {
                 open={modalVisible}
                 onOk={handleModalOk}
                 onCancel={handleModalCancel}
-                width={800}
+                width={700}
+                okText='确定'
+                cancelText='取消'
+                destroyOnClose
             >
                 <Form
                     form={form}
                     layout='vertical'
                     initialValues={{
-                        status: 'inactive',
-                        checksum: false,
-                        caseSensitive: false,
-                        length: 32,
-                        successRate: 0,
-                        totalGenerated: 0,
+                        status: true,
+                        sourceFields: [],
                     }}
                 >
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item
-                                name='name'
-                                label='规则名称'
-                                rules={[{ required: true, message: '请输入规则名称' }]}
-                            >
-                                <Input placeholder='请输入规则名称' />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item
-                                name='code'
-                                label='规则编码'
-                                rules={[{ required: true, message: '请输入规则编码' }]}
-                            >
-                                <Input placeholder='请输入规则编码' />
-                            </Form.Item>
-                        </Col>
-                    </Row>
+                    <Form.Item
+                        name='name'
+                        label='规则名称'
+                        rules={[{ required: true, message: '请输入规则名称' }]}
+                    >
+                        <Input placeholder='请输入规则名称' />
+                    </Form.Item>
 
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item
-                                name='ruleType'
-                                label='规则类型'
-                                rules={[{ required: true, message: '请选择规则类型' }]}
-                            >
-                                <Select placeholder='请选择规则类型'>
-                                    <Option value='hash'>哈希</Option>
-                                    <Option value='sequence'>序列</Option>
-                                    <Option value='uuid'>UUID</Option>
-                                    <Option value='composite'>复合</Option>
-                                    <Option value='custom'>自定义</Option>
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name='scope'
-                                label='适用范围'
-                                rules={[{ required: true, message: '请选择适用范围' }]}
-                            >
-                                <Select placeholder='请选择适用范围'>
-                                    <Option value='patient'>患者</Option>
-                                    <Option value='visit'>就诊</Option>
-                                    <Option value='order'>医嘱</Option>
-                                    <Option value='document'>文档</Option>
-                                    <Option value='universal'>通用</Option>
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name='status'
-                                label='状态'
-                                rules={[{ required: true, message: '请选择状态' }]}
-                            >
-                                <Select placeholder='请选择状态'>
-                                    <Option value='active'>启用</Option>
-                                    <Option value='inactive'>禁用</Option>
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                    </Row>
+                    <Form.Item
+                        name='code'
+                        label='编码'
+                        rules={[{ required: true, message: '请输入编码' }]}
+                    >
+                        <Input placeholder='请输入编码（大写英文字母和下划线）' />
+                    </Form.Item>
+
+                    <Form.Item
+                        name='sourceTable'
+                        label='依据表'
+                        rules={[{ required: true, message: '请输入依据表名称' }]}
+                    >
+                        <Input placeholder='请输入依据表名称，如：PAT_BASE_INFO' />
+                    </Form.Item>
+
+                    <Form.Item
+                        name='sourceFields'
+                        label='依据字段'
+                        rules={[{ required: true, message: '请至少选择一个依据字段' }]}
+                    >
+                        <Select
+                            mode='multiple'
+                            placeholder='请选择依据字段（可多选）'
+                            showSearch
+                            optionFilterProp='children'
+                        >
+                            <Option value='身份证号'>身份证号</Option>
+                            <Option value='姓名'>姓名</Option>
+                            <Option value='年龄'>年龄</Option>
+                            <Option value='性别'>性别</Option>
+                            <Option value='电话'>电话</Option>
+                            <Option value='住址'>住址</Option>
+                            <Option value='出生日期'>出生日期</Option>
+                            <Option value='民族'>民族</Option>
+                        </Select>
+                    </Form.Item>
 
                     <Form.Item
                         name='description'
                         label='描述'
                         rules={[{ required: true, message: '请输入描述' }]}
                     >
-                        <TextArea rows={3} placeholder='请输入描述' maxLength={200} showCount />
+                        <TextArea rows={3} placeholder='请输入描述' maxLength={500} showCount />
                     </Form.Item>
 
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item
-                                name='algorithm'
-                                label='算法'
-                                rules={[{ required: true, message: '请输入算法' }]}
-                            >
-                                <Input placeholder='如: SHA256_HASH' />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name='length'
-                                label='长度'
-                                rules={[{ required: true, message: '请输入长度' }]}
-                            >
-                                <InputNumber
-                                    min={1}
-                                    max={128}
-                                    placeholder='长度'
-                                    style={{ width: '100%' }}
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item
-                                name='uniquenessLevel'
-                                label='唯一性级别'
-                                rules={[{ required: true, message: '请选择唯一性级别' }]}
-                            >
-                                <Select placeholder='请选择唯一性级别'>
-                                    <Option value='global'>全局</Option>
-                                    <Option value='system'>系统</Option>
-                                    <Option value='organization'>机构</Option>
-                                    <Option value='department'>科室</Option>
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item name='prefix' label='前缀'>
-                                <Input placeholder='前缀' />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item name='suffix' label='后缀'>
-                                <Input placeholder='后缀' />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item name='checksum' label='校验和' valuePropName='checked'>
-                                <Switch />
-                            </Form.Item>
-                        </Col>
-                    </Row>
+                    <Form.Item name='status' label='状态' valuePropName='checked'>
+                        <Switch checkedChildren='启用' unCheckedChildren='禁用' />
+                    </Form.Item>
                 </Form>
             </Modal>
 
@@ -778,131 +564,67 @@ const IndexGenerationRules: React.FC = () => {
                 title='主索引生成规则详情'
                 open={detailModalVisible}
                 onCancel={() => setDetailModalVisible(false)}
-                footer={null}
-                width={800}
+                footer={[
+                    <Button key='close' onClick={() => setDetailModalVisible(false)}>
+                        关闭
+                    </Button>,
+                ]}
+                width={700}
             >
                 {viewingRecord && (
-                    <>
-                        <Descriptions bordered column={2}>
-                            <Descriptions.Item label='规则名称' span={2}>
-                                {viewingRecord.name}
-                            </Descriptions.Item>
-                            <Descriptions.Item label='规则编码'>
-                                <code
-                                    style={{
-                                        background: '#f5f5f5',
-                                        padding: '2px 4px',
-                                        borderRadius: '4px',
-                                    }}
-                                >
-                                    {viewingRecord.code}
-                                </code>
-                            </Descriptions.Item>
-                            <Descriptions.Item label='规则类型'>
-                                <Tag color={getRuleTypeColor(viewingRecord.ruleType)}>
-                                    {viewingRecord.ruleType === 'hash'
-                                        ? '哈希'
-                                        : viewingRecord.ruleType === 'sequence'
-                                          ? '序列'
-                                          : viewingRecord.ruleType === 'uuid'
-                                            ? 'UUID'
-                                            : viewingRecord.ruleType === 'composite'
-                                              ? '复合'
-                                              : '自定义'}
-                                </Tag>
-                            </Descriptions.Item>
-                            <Descriptions.Item label='适用范围'>
-                                <Tag color={getScopeColor(viewingRecord.scope)}>
-                                    {viewingRecord.scope === 'patient'
-                                        ? '患者'
-                                        : viewingRecord.scope === 'visit'
-                                          ? '就诊'
-                                          : viewingRecord.scope === 'order'
-                                            ? '医嘱'
-                                            : viewingRecord.scope === 'document'
-                                              ? '文档'
-                                              : '通用'}
-                                </Tag>
-                            </Descriptions.Item>
-                            <Descriptions.Item label='唯一性级别'>
-                                <Tag color='blue'>{viewingRecord.uniquenessLevel}</Tag>
-                            </Descriptions.Item>
-                            <Descriptions.Item label='算法'>
-                                <Tag color='orange'>{viewingRecord.algorithm}</Tag>
-                            </Descriptions.Item>
-                            <Descriptions.Item label='状态'>
-                                <Tag color={getStatusColor(viewingRecord.status)}>
-                                    {getStatusText(viewingRecord.status)}
-                                </Tag>
-                            </Descriptions.Item>
-                            <Descriptions.Item label='长度'>
-                                {viewingRecord.length}
-                            </Descriptions.Item>
-                            <Descriptions.Item label='前缀'>
-                                {viewingRecord.prefix || '-'}
-                            </Descriptions.Item>
-                            <Descriptions.Item label='后缀'>
-                                {viewingRecord.suffix || '-'}
-                            </Descriptions.Item>
-                            <Descriptions.Item label='校验和'>
-                                <Tag color={viewingRecord.checksum ? 'green' : 'red'}>
-                                    {viewingRecord.checksum ? '启用' : '禁用'}
-                                </Tag>
-                            </Descriptions.Item>
-                            <Descriptions.Item label='大小写敏感'>
-                                <Tag color={viewingRecord.caseSensitive ? 'green' : 'red'}>
-                                    {viewingRecord.caseSensitive ? '是' : '否'}
-                                </Tag>
-                            </Descriptions.Item>
-                            <Descriptions.Item label='描述' span={2}>
-                                {viewingRecord.description}
-                            </Descriptions.Item>
-                            <Descriptions.Item label='成功率'>
-                                <Tag
-                                    color={
-                                        viewingRecord.successRate >= 95
-                                            ? 'success'
-                                            : viewingRecord.successRate >= 80
-                                              ? 'warning'
-                                              : 'error'
-                                    }
-                                >
-                                    {viewingRecord.successRate.toFixed(1)}%
-                                </Tag>
-                            </Descriptions.Item>
-                            <Descriptions.Item label='生成数量'>
-                                <span style={{ fontWeight: 'bold' }}>
-                                    {viewingRecord.totalGenerated.toLocaleString()}
-                                </span>
-                            </Descriptions.Item>
-                            <Descriptions.Item label='创建人'>
-                                {viewingRecord.creator}
-                            </Descriptions.Item>
-                            <Descriptions.Item label='最后执行人'>
-                                {viewingRecord.lastExecutor || '-'}
-                            </Descriptions.Item>
-                            <Descriptions.Item label='创建时间'>
-                                {viewingRecord.createTime}
-                            </Descriptions.Item>
-                            <Descriptions.Item label='更新时间'>
-                                {viewingRecord.updateTime}
-                            </Descriptions.Item>
-                        </Descriptions>
-
-                        <Divider orientation='left'>参数配置</Divider>
-                        <pre
-                            style={{
-                                background: '#f5f5f5',
-                                padding: '12px',
-                                borderRadius: '4px',
-                                fontSize: '12px',
-                                maxHeight: '200px',
-                                overflow: 'auto',
-                            }}
-                        >
-                            {JSON.stringify(viewingRecord.parameters, null, 2)}
-                        </pre>
-                    </>
+                    <Descriptions bordered column={1}>
+                        <Descriptions.Item label='规则名称'>
+                            <strong>{viewingRecord.name}</strong>
+                        </Descriptions.Item>
+                        <Descriptions.Item label='编码'>
+                            <code
+                                style={{
+                                    background: '#f5f5f5',
+                                    padding: '2px 4px',
+                                    borderRadius: '4px',
+                                }}
+                            >
+                                {viewingRecord.code}
+                            </code>
+                        </Descriptions.Item>
+                        <Descriptions.Item label='依据表'>
+                            <code
+                                style={{
+                                    background: '#e6f7ff',
+                                    padding: '2px 4px',
+                                    borderRadius: '4px',
+                                }}
+                            >
+                                {viewingRecord.sourceTable}
+                            </code>
+                        </Descriptions.Item>
+                        <Descriptions.Item label='依据字段'>
+                            <Space size='small' wrap>
+                                {viewingRecord.sourceFields.map((field, index) => (
+                                    <Tag key={index} color='blue'>
+                                        {field}
+                                    </Tag>
+                                ))}
+                            </Space>
+                        </Descriptions.Item>
+                        <Descriptions.Item label='描述'>
+                            {viewingRecord.description}
+                        </Descriptions.Item>
+                        <Descriptions.Item label='状态'>
+                            <Tag color={getStatusColor(viewingRecord.status)}>
+                                {getStatusText(viewingRecord.status)}
+                            </Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label='创建人'>
+                            {viewingRecord.creator}
+                        </Descriptions.Item>
+                        <Descriptions.Item label='创建时间'>
+                            {viewingRecord.createTime}
+                        </Descriptions.Item>
+                        <Descriptions.Item label='更新时间'>
+                            {viewingRecord.updateTime}
+                        </Descriptions.Item>
+                    </Descriptions>
                 )}
             </Modal>
         </div>
