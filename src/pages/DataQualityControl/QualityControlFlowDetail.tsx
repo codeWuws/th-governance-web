@@ -2,19 +2,20 @@ import {
     ArrowLeftOutlined,
     ReloadOutlined,
     EyeOutlined,
-    PlayCircleOutlined,
     BarChartOutlined,
     PieChartOutlined,
     LinkOutlined,
     HeartOutlined,
 } from '@ant-design/icons'
-import { Button, Card, Progress, Spin, Steps, Tag, Typography, Modal, Space } from 'antd'
-import uiMessage from '@/utils/uiMessage'
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { logger } from '@/utils/logger'
+import { Button, Card, Steps, Tag, Typography, Modal, Space, Spin, Progress } from 'antd'
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { dataQualityControlService } from '@/services/dataQualityControlService'
 import type { QCTaskLogDetailData } from '@/types'
+import uiMessage from '@/utils/uiMessage'
+import { useAppSelector } from '@/store/hooks'
+import { selectQCMessages, selectQCExecutionByTaskId } from '@/store/slices/qcExecutionSlice'
+import type { QCExecutionMessage } from '@/store/slices/qcExecutionSlice'
 
 const { Title, Text } = Typography
 const { Step } = Steps
@@ -48,524 +49,199 @@ const statusConfig = {
     0: { text: '待执行', color: 'default' },
     1: { text: '执行中', color: 'processing' },
     2: { text: '已完成', color: 'success' },
+    3: { text: '暂停', color: 'warning' },
     4: { text: '跳过', color: 'default' },
     5: { text: '失败', color: 'error' },
 }
 
-// 步骤状态接口
-interface QCStepStatus {
-    stepIndex: number
-    status: number // 0未执行, 1执行中, 2已完成, 4跳过, 5失败
-    completedQuantity?: number
-    totalQuantity?: number
-    startTime?: string
-    endTime?: string
-    resultSummary?: string
-    errorMessage?: string
-}
-
-// 质控流程详情接口
-interface QCFlowDetail {
-    taskId: string
-    types: string[]
-    status: number
-    startTime: number
-    endTime?: number
-    steps: QCStepStatus[]
-}
-
 const QualityControlFlowDetail: React.FC = () => {
-    const { taskId } = useParams<{ taskId: string }>()
-    const [searchParams] = useSearchParams()
     const navigate = useNavigate()
-
-    // 从URL参数获取质控类型
-    const typesParam = searchParams.get('types') || ''
-    const types = useMemo(() => typesParam.split(',').filter(Boolean), [typesParam])
+    const { taskId } = useParams<{ taskId: string }>()
 
     // 状态管理
     const [loading, setLoading] = useState(false)
-    const [flowDetail, setFlowDetail] = useState<QCFlowDetail | null>(null)
     const [logDetailData, setLogDetailData] = useState<QCTaskLogDetailData | null>(null)
     const [resultModalVisible, setResultModalVisible] = useState(false)
     const [selectedStepResult, setSelectedStepResult] = useState<{
         title: string
         resultSummary: string
-        stepIndex: number
     } | null>(null)
-    const [continueLoading, setContinueLoading] = useState(false)
-    const executionRef = useRef<{ [key: number]: boolean }>({}) // 跟踪每个步骤是否正在执行
-    const intervalRef = useRef<NodeJS.Timeout | null>(null) // 存储定时器引用
 
-    // 根据类型生成执行步骤（优先使用接口返回的数据）
-    const executionSteps = useMemo(() => {
-        if (logDetailData?.logList && logDetailData.logList.length > 0) {
-            // 使用接口返回的logList
-            return logDetailData.logList.map((log, index) => {
-                // 根据node_type查找对应的类型信息
-                const nodeTypeToValue: Record<string, string> = {
-                    TimelinessQC: 'comprehensive',
-                    CompletenessQC: 'completeness',
-                    ConsistencyQC: 'basic-medical-logic',
-                    AccuracyQC: 'core-data',
-                }
-                const type = nodeTypeToValue[log.node_type] || log.node_type
-                const typeInfo = QC_TYPE_MAP[type]
-                return {
-                    stepIndex: log.step_no - 1,
-                    title: log.step_name,
-                    description: typeInfo?.description || '',
-                    icon: typeInfo?.icon,
-                    type: type,
-                }
-            })
-        }
-        // 如果没有接口数据，使用URL参数中的types
-        return types.map((type, index) => {
-            const typeInfo = QC_TYPE_MAP[type]
-            return {
-                stepIndex: index,
-                title: typeInfo?.label || type,
-                description: typeInfo?.description || '',
-                icon: typeInfo?.icon,
-                type: type,
-            }
-        })
-    }, [logDetailData, types])
+    // 用于跟踪是否已经在 SSE 结束时调用过 fetchLogDetail
+    const hasFetchedOnEndRef = useRef<boolean>(false)
 
-    // 初始化模拟数据（当接口没有返回数据时使用）
-    const initializeMockData = useCallback(() => {
-        if (!taskId || types.length === 0) return
+    // 从 Redux 获取消息列表
+    const qcMessages = useAppSelector(
+        state => (taskId ? selectQCMessages(taskId)(state) : [])
+    )
 
-        const processName = searchParams.get('name') || '质控流程'
-        const startTime = Date.now()
 
-        // 根据类型创建步骤
-        const steps: QCStepStatus[] = types.map((type, index) => {
-            const typeInfo = QC_TYPE_MAP[type]
-            return {
-                stepIndex: index,
-                status: index === 0 ? 1 : 0, // 第一个步骤状态为执行中
-                completedQuantity: index === 0 ? 0 : 0,
-                totalQuantity: 100,
-                startTime: index === 0 ? new Date().toLocaleString('zh-CN') : undefined,
-                endTime: undefined,
-                resultSummary: undefined,
-                errorMessage: undefined,
-            }
-        })
+    console.log({
+        qcMessages,
+    }, '===>');
 
-        const mockFlowDetail: QCFlowDetail = {
-            taskId,
-            types,
-            status: 1, // 执行中
-            startTime,
-            endTime: undefined,
-            steps,
-        }
-
-        setFlowDetail(mockFlowDetail)
-        
-        // 更新执行历史状态为 running（如果历史记录存在）
-        const key = 'qcExecutionHistory'
-        const prevStorage = localStorage.getItem(key)
-        if (prevStorage) {
-            const list = JSON.parse(prevStorage)
-            const index = list.findIndex((item: any) => item.id === taskId)
-            if (index !== -1 && list[index].status === 'starting') {
-                list[index].status = 'running'
-                localStorage.setItem(key, JSON.stringify(list))
-            } else if (index === -1) {
-                // 如果历史记录不存在，创建新记录
-                const processName = searchParams.get('name') || '质控流程'
-                const historyItem = {
-                    id: taskId,
-                    name: processName,
-                    types,
-                    status: 'running',
-                    start_time: startTime,
-                    end_time: null,
-                }
-                list.unshift(historyItem)
-                localStorage.setItem(key, JSON.stringify(list))
-            }
-        } else {
-            // 如果没有历史记录，创建新记录
-            const processName = searchParams.get('name') || '质控流程'
-            const historyItem = {
-                id: taskId,
-                name: processName,
-                types,
-                status: 'running',
-                start_time: startTime,
-                end_time: null,
-            }
-            localStorage.setItem(key, JSON.stringify([historyItem]))
-        }
-        
-        logger.info('初始化模拟质控流程数据', { taskId, types, processName })
-    }, [taskId, types, searchParams])
 
     // 获取质控任务日志详情
     const fetchLogDetail = useCallback(async () => {
-        if (!taskId) {
-            return
-        }
-
-        try {
-            setLoading(true)
-            logger.info('开始获取质控任务日志详情', { taskId })
-            const response = await dataQualityControlService.getQCTaskLogDetail(taskId)
-
-            if (response.code === 200 && response.data) {
-                setLogDetailData(response.data)
-                logger.info('成功获取质控任务日志详情', {
-                    taskId,
-                    logCount: response.data.logList?.length || 0,
-                })
-
-                // 将接口数据转换为flowDetail格式
-                const summary = response.data.logSummary
-                const logList = response.data.logList || []
-
-                // 从task_types或logList中获取类型，并转换为内部使用的类型值
-                const nodeTypeToValue: Record<string, string> = {
-                    TimelinessQC: 'comprehensive',
-                    CompletenessQC: 'completeness',
-                    ConsistencyQC: 'basic-medical-logic',
-                    AccuracyQC: 'core-data',
-                }
-                
-                const taskTypes = summary.task_types
-                    ? summary.task_types.split(',').map(type => nodeTypeToValue[type.trim()] || type.trim()).filter(Boolean)
-                    : logList.map(log => nodeTypeToValue[log.node_type] || log.node_type).filter(Boolean)
-
-                // 将logList转换为steps
-                const steps: QCStepStatus[] = logList.map((log) => ({
-                    stepIndex: log.step_no - 1, // step_no从1开始，stepIndex从0开始
-                    status: log.step_status,
-                    completedQuantity: log.step_status === 2 ? 100 : log.step_status === 1 ? 50 : 0,
-                    totalQuantity: 100,
-                    startTime: log.create_time,
-                    endTime: log.end_time || undefined,
-                    resultSummary: log.step_status === 2 ? `${log.step_name}执行完成` : undefined,
-                    errorMessage: log.step_status === 5 ? '执行失败' : undefined,
-                }))
-
-                setFlowDetail({
-                    taskId: String(summary.batch_id),
-                    types: taskTypes,
-                    status: summary.status,
-                    startTime: new Date(summary.start_time).getTime(),
-                    endTime: summary.end_time ? new Date(summary.end_time).getTime() : undefined,
-                    steps,
-                })
-            } else {
-                // 接口没有返回数据或失败，使用模拟数据
-                logger.warn('获取质控任务日志详情失败，使用模拟数据', response.msg)
-                initializeMockData()
-            }
-        } catch (error) {
-            // 接口调用异常，使用模拟数据
-            const errorMsg = error instanceof Error ? error.message : '获取日志详情时发生未知错误'
-            logger.warn('获取质控任务日志详情异常，使用模拟数据', errorMsg)
-            initializeMockData()
-        } finally {
-            setLoading(false)
-        }
-    }, [taskId, initializeMockData])
-
-    // 初始化流程详情 - 调用接口获取数据
-    useEffect(() => {
         if (!taskId) {
             uiMessage.error('任务ID不存在')
             navigate('/data-quality-control/flow-management')
             return
         }
 
-        // 调用接口获取日志详情
+        try {
+            setLoading(true)
+            const response = await dataQualityControlService.getQCTaskLogDetail(taskId)
+
+            if (response.code === 200 && response.data) {
+                setLogDetailData(response.data)
+            } else {
+                uiMessage.error(response.msg || '获取任务详情失败')
+            }
+        } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : '获取任务详情时发生未知错误'
+            uiMessage.error(errorMsg)
+        } finally {
+            setLoading(false)
+        }
+    }, [taskId, navigate])
+
+    // 初始化时获取数据
+    useEffect(() => {
         fetchLogDetail()
-    }, [taskId, navigate, fetchLogDetail])
+        // 重置标记，允许新的任务重新监听
+        hasFetchedOnEndRef.current = false
+    }, [taskId, fetchLogDetail])
 
-    // 更新执行历史记录
-    const updateExecutionHistory = useCallback((status: 'starting' | 'running' | 'completed' | 'error' | 'cancelled', endTime?: number | null) => {
-        if (!taskId) return
-        
-        const key = 'qcExecutionHistory'
-        const prevStorage = localStorage.getItem(key)
-        const list = prevStorage ? JSON.parse(prevStorage) : []
-        const index = list.findIndex((item: any) => item.id === taskId)
-        
-        if (index !== -1) {
-            list[index] = {
-                ...list[index],
-                status,
-                ...(endTime !== undefined && { end_time: endTime }),
-            }
-            localStorage.setItem(key, JSON.stringify(list))
-        } else {
-            // 如果历史记录不存在，创建新记录
-            const processName = searchParams.get('name') || '质控流程'
-            const typesParam = searchParams.get('types') || ''
-            const types = typesParam.split(',').filter(Boolean)
-            
-            const historyItem = {
-                id: taskId,
-                name: processName,
-                types,
-                status,
-                start_time: Date.now(),
-                end_time: endTime || null,
-            }
-            list.unshift(historyItem)
-            localStorage.setItem(key, JSON.stringify(list))
+    // 监听 SSE 消息，当执行结束时重新获取详情
+    useEffect(() => {
+        if (!taskId || qcMessages.length === 0) return
+
+        // 获取最后一条消息
+        const lastMessage = qcMessages[qcMessages.length - 1]
+        const executionStatus = lastMessage?.executionStatus
+
+        // 检测是否执行结束
+        if (
+            (executionStatus === 'end' || executionStatus === 'completed') &&
+            !hasFetchedOnEndRef.current
+        ) {
+            // 标记已调用，避免重复调用
+            hasFetchedOnEndRef.current = true
+
+            // 延迟一小段时间后调用，确保后端数据已更新
+            setTimeout(() => {
+                fetchLogDetail()
+            }, 500)
         }
-    }, [taskId, searchParams])
+    }, [taskId, qcMessages, fetchLogDetail])
 
-    // 模拟执行步骤
-    const executeStep = useCallback(async (stepIndex: number) => {
-        // 防止重复执行
-        if (executionRef.current[stepIndex]) {
-            return
+    // 结合 SSE 消息和接口数据，生成实时进度数据
+    const displayDetail = useMemo(() => {
+        // 深拷贝 logDetailData，避免直接修改原始数据
+        const detail = logDetailData
+            ? (JSON.parse(JSON.stringify(logDetailData)) as QCTaskLogDetailData)
+            : null
+
+        if (!detail || !detail.logList || qcMessages.length === 0) {
+            return detail
         }
 
-        executionRef.current[stepIndex] = true
+        // 遍历 SSE 消息，更新步骤信息
+        qcMessages.forEach((msgInfo: QCExecutionMessage) => {
+            // 从消息中提取节点类型和进度信息
+            const nodeType = msgInfo.node?.nodeType
+            const progress = msgInfo.progress // 使用 progress 作为进度百分比
+            const status = msgInfo.status
+            const executionStatus = msgInfo.executionStatus
+            const tableName = msgInfo.tableName
+            const table = msgInfo.table
 
-        // 先更新步骤状态为执行中
-        setFlowDetail(prev => {
-            if (!prev) return prev
+            // 根据 nodeType 找到对应的步骤
+            if (nodeType && detail.logList) {
+                const step = detail.logList.find(log => log.node_type === nodeType)
 
-            const step = prev.steps[stepIndex]
-            if (!step || step.status === 2) {
-                executionRef.current[stepIndex] = false
-                return prev
+                if (step) {
+                    // 更新进度信息（使用 progress 字段）
+                    if (progress !== undefined) {
+                        (step as any).progress = Number(progress)
+                    }
+
+                    // 更新表信息
+                    if (tableName !== undefined) {
+                        (step as any).tableName = tableName
+                    }
+                    if (table !== undefined) {
+                        (step as any).table = table
+                    }
+
+                    // 更新步骤状态
+                    if (status !== undefined) {
+                        step.step_status = Number(status)
+                    } else if (executionStatus === 'running' || executionStatus === 'start') {
+                        step.step_status = 1 // 执行中
+                    } else if (executionStatus === 'end' || executionStatus === 'completed') {
+                        step.step_status = 2 // 已完成
+                    }
+                }
             }
-
-            // 更新步骤状态为执行中
-            const updatedSteps = [...prev.steps]
-            updatedSteps[stepIndex] = {
-                ...step,
-                status: 1,
-                startTime: new Date().toLocaleString('zh-CN'),
-            }
-            
-            // 如果是第一个步骤开始执行，更新主流程状态为 running
-            const isFirstStep = stepIndex === 0
-            const newStatus = isFirstStep && prev.status === 0 ? 1 : prev.status
-
-            // 更新执行历史状态为 running（如果刚开始执行）
-            if (isFirstStep && prev.status === 0) {
-                updateExecutionHistory('running')
-            }
-
-            return { ...prev, status: newStatus, steps: updatedSteps }
         })
 
-        // 模拟执行过程
-        let progress = 0
-        if (intervalRef.current) {
-            clearInterval(intervalRef.current)
-        }
-
-        // 随机生成每个步骤的执行时间（3~8秒）
-        const stepDuration = Math.floor(Math.random() * 5000) + 3000 // 3000ms ~ 8000ms
-        // 更新间隔设置为100ms，确保进度条流畅
-        const updateInterval = 100
-        // 计算需要更新的次数
-        const totalUpdates = Math.ceil(stepDuration / updateInterval)
-        // 每次更新的增量
-        const progressIncrement = 100 / totalUpdates
-
-        // 使用定时器更新进度
-        intervalRef.current = setInterval(() => {
-            progress += progressIncrement
+        // 获取最后一个消息，确定最新执行的步骤
+        const lastMessage = qcMessages[qcMessages.length - 1]
+        if (lastMessage && detail.logList) {
+            const lastNodeType = lastMessage.node?.nodeType
             
-            setFlowDetail(current => {
-                if (!current) return current
-                const newSteps = [...current.steps]
-                const existingStep = newSteps[stepIndex]
-                if (existingStep) {
-                    newSteps[stepIndex] = {
-                        ...existingStep,
-                        completedQuantity: Math.min(progress, 100),
-                        totalQuantity: 100,
+            if (lastNodeType) {
+                // 找到最后一个执行的步骤
+                const lastExecutingStep = detail.logList.find(log => log.node_type === lastNodeType)
+                
+                if (lastExecutingStep) {
+                    // 更新 logSummary 的 node_type 为最后一个正在执行的步骤
+                    if (detail.logSummary) {
+                        detail.logSummary.node_type = lastNodeType
                     }
-                }
-                return { ...current, steps: newSteps }
-            })
 
-            if (progress >= 100) {
-                if (intervalRef.current) {
-                    clearInterval(intervalRef.current)
-                    intervalRef.current = null
-                }
-
-                // 完成当前步骤
-                setFlowDetail(current => {
-                    if (!current) return current
-                    const finalSteps = [...current.steps]
-                    const currentStep = finalSteps[stepIndex]
-                    const stepInfo = executionSteps[stepIndex]
+                    // 将最后一个执行步骤之前的所有步骤标记为已完成
+                    // 先按 step_no 排序，找到最后一个执行步骤的索引
+                    const sortedLogList = [...detail.logList].sort((a, b) => a.step_no - b.step_no)
+                    const lastStepIndex = sortedLogList.findIndex(log => log.log_id === lastExecutingStep.log_id)
                     
-                    if (currentStep && stepInfo) {
-                        // 生成详细的执行结果
-                        const processedRecords = Math.floor(Math.random() * 10000) + 1000
-                        // 生成带小数的通过率（80-100之间，保留两位小数）
-                        const passRate = Math.round((Math.random() * 20 + 80) * 100) / 100
-                        const errorCount = Math.floor(processedRecords * (100 - passRate) / 100)
-                        // 生成带小数的准点率（88-98之间，保留两位小数）
-                        const punctualRate = Math.round((Math.random() * 10 + 88) * 100) / 100
-                        
-                        // 根据不同的质控类型生成不同的结果摘要
-                        let resultSummary = ''
-                        switch (stepInfo.type) {
-                            case 'comprehensive':
-                                resultSummary = `及时性质控执行完成\n\n` +
-                                    `• 处理记录数：${processedRecords.toLocaleString()} 条\n` +
-                                    `• 通过率：${formatPercentage(passRate)}\n` +
-                                    `• 异常记录：${errorCount} 条\n` +
-                                    `• 平均延迟：${Math.floor(Math.random() * 10) + 5} 分钟\n` +
-                                    `• 准点率：${formatPercentage(punctualRate)}`
-                                break
-                            case 'completeness':
-                                resultSummary = `完整性质控执行完成\n\n` +
-                                    `• 检查表数：${Math.floor(Math.random() * 20) + 10} 张\n` +
-                                    `• 检查字段数：${Math.floor(Math.random() * 100) + 50} 个\n` +
-                                    `• 完整率：${formatPercentage(passRate)}\n` +
-                                    `• 缺失字段：${errorCount} 个\n` +
-                                    `• 空值记录：${Math.floor(errorCount * 0.6)} 条`
-                                break
-                            case 'basic-medical-logic':
-                                resultSummary = `一致性质控执行完成\n\n` +
-                                    `• 检查记录数：${processedRecords.toLocaleString()} 条\n` +
-                                    `• 一致性通过率：${formatPercentage(passRate)}\n` +
-                                    `• 不一致记录：${errorCount} 条\n` +
-                                    `• 主附表关联检查：${Math.floor(processedRecords * 0.8).toLocaleString()} 条\n` +
-                                    `• 基础规则检查：${Math.floor(processedRecords * 0.6).toLocaleString()} 条`
-                                break
-                            case 'core-data':
-                                resultSummary = `准确性质控执行完成\n\n` +
-                                    `• 检查记录数：${processedRecords.toLocaleString()} 条\n` +
-                                    `• 准确率：${formatPercentage(passRate)}\n` +
-                                    `• 错误记录：${errorCount} 条\n` +
-                                    `• 编码规范检查：${Math.floor(processedRecords * 0.7).toLocaleString()} 条\n` +
-                                    `• 字段值校验：${Math.floor(processedRecords * 0.9).toLocaleString()} 条`
-                                break
-                            default:
-                                resultSummary = `成功完成${stepInfo.title}，处理了 ${processedRecords.toLocaleString()} 条记录，通过率 ${formatPercentage(passRate)}`
-                        }
-                        
-                        finalSteps[stepIndex] = {
-                            ...currentStep,
-                            status: 2,
-                            completedQuantity: 100,
-                            endTime: new Date().toLocaleString('zh-CN'),
-                            resultSummary,
-                        }
-                    }
-
-                    // 如果还有下一步，自动开始执行
-                    if (stepIndex < executionSteps.length - 1) {
-                        const nextStep = finalSteps[stepIndex + 1]
-                        if (nextStep) {
-                            finalSteps[stepIndex + 1] = {
-                                ...nextStep,
-                                status: 1,
-                                startTime: new Date().toLocaleString('zh-CN'),
+                    // 将最后一个执行步骤之前的所有步骤标记为已完成
+                    if (lastStepIndex > 0) {
+                        for (let i = 0; i < lastStepIndex; i++) {
+                            const sortedStep = sortedLogList[i]
+                            if (sortedStep) {
+                                // 在原始 logList 中找到对应的步骤并更新
+                                const originalStep = detail.logList.find(log => log.log_id === sortedStep.log_id)
+                                if (originalStep) {
+                                    // 只更新未执行或执行中的步骤，跳过已经失败或暂停的步骤
+                                    if (originalStep.step_status === 0 || originalStep.step_status === 1) {
+                                        originalStep.step_status = 2 // 已完成
+                                    }
+                                }
                             }
                         }
-                    } else {
-                        // 所有步骤完成，更新主流程状态和历史记录
-                        const endTime = Date.now()
-                        updateExecutionHistory('completed', endTime)
                     }
-
-                    return {
-                        ...current,
-                        status: stepIndex < executionSteps.length - 1 ? current.status : 2, // 2 表示已完成
-                        endTime: stepIndex < executionSteps.length - 1 ? current.endTime : Date.now(),
-                        steps: finalSteps,
-                    }
-                })
-
-                // 延迟执行下一步，避免状态更新冲突
-                if (stepIndex < executionSteps.length - 1) {
-                    setTimeout(() => {
-                        executionRef.current[stepIndex + 1] = false
-                        executeStep(stepIndex + 1)
-                    }, 500)
                 }
-
-                executionRef.current[stepIndex] = false
             }
-        }, updateInterval) // 每100ms更新一次进度，总时间随机3~8秒
-    }, [executionSteps, taskId, updateExecutionHistory])
 
-    // 继续执行（移除暂停功能，此函数保留用于可能的后续需求）
-    const handleContinueExecution = async () => {
-        if (!flowDetail) return
-
-        const currentStepIndex = flowDetail.steps.findIndex(step => step.status === 1)
-        if (currentStepIndex === -1) {
-            // 找到第一个未执行的步骤
-            const nextStepIndex = flowDetail.steps.findIndex(step => step.status === 0)
-            if (nextStepIndex !== -1) {
-                await executeStep(nextStepIndex)
-            }
-        } else {
-            setContinueLoading(true)
-            await executeStep(currentStepIndex)
-            setContinueLoading(false)
-        }
-    }
-
-    // 自动开始执行第一个步骤（只执行一次）
-    const hasStartedRef = useRef(false)
-    useEffect(() => {
-        if (flowDetail && flowDetail.steps.length > 0 && !hasStartedRef.current) {
-            const firstStep = flowDetail.steps[0]
-            // 如果第一个步骤状态为执行中且进度为0，或者状态为未执行，则开始执行
-            if (firstStep && (firstStep.status === 1 || firstStep.status === 0)) {
-                hasStartedRef.current = true
-                // 如果状态为未执行，先更新为执行中
-                if (firstStep.status === 0) {
-                    setFlowDetail(prev => {
-                        if (!prev) return prev
-                        const updatedSteps = [...prev.steps]
-                        const firstStepData = updatedSteps[0]
-                        if (firstStepData) {
-                            updatedSteps[0] = {
-                                ...firstStepData,
-                                stepIndex: firstStepData.stepIndex ?? 0,
-                                status: 1,
-                                startTime: new Date().toLocaleString('zh-CN'),
-                            }
-                        }
-                        // 更新主流程状态为执行中
-                        const newStatus = prev.status === 0 ? 1 : prev.status
-                        // 更新执行历史状态为 running
-                        if (prev.status === 0) {
-                            updateExecutionHistory('running')
-                        }
-                        return { ...prev, status: newStatus, steps: updatedSteps }
-                    })
+            // 更新整体状态
+            const lastExecutionStatus = lastMessage.executionStatus
+            if (lastExecutionStatus === 'end' || lastExecutionStatus === 'completed') {
+                if (detail.logSummary) {
+                    detail.logSummary.status = 2 // 已完成
                 }
-                // 延迟一下再执行，确保状态更新完成
-                setTimeout(() => {
-                    executeStep(0)
-                }, 100)
+            } else if (lastExecutionStatus === 'running' || lastExecutionStatus === 'start') {
+                if (detail.logSummary) {
+                    detail.logSummary.status = 1 // 执行中
+                }
             }
         }
-    }, [flowDetail, executeStep, updateExecutionHistory])
 
-    // 清理定时器
-    useEffect(() => {
-        return () => {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current)
-            }
-        }
-    }, [])
+        return detail
+    }, [taskId, qcMessages, logDetailData])
+
 
     // 返回上一页
     const goBack = () => {
@@ -584,14 +260,15 @@ const QualityControlFlowDetail: React.FC = () => {
 
     // 查看执行结果
     const handleViewResult = (stepIndex: number) => {
-        const step = executionSteps[stepIndex]
-        const stepStatus = flowDetail?.steps[stepIndex]
-        if (!step || !stepStatus) return
+        if (!logDetailData?.logList) return
+
+        const sortedLogList = [...logDetailData.logList].sort((a, b) => a.step_no - b.step_no)
+        const step = sortedLogList[stepIndex]
+        if (!step) return
 
         setSelectedStepResult({
-            title: step.title,
-            resultSummary: stepStatus.resultSummary || '暂无执行结果',
-            stepIndex,
+            title: step.step_name,
+            resultSummary: '暂无执行结果',
         })
         setResultModalVisible(true)
     }
@@ -602,46 +279,29 @@ const QualityControlFlowDetail: React.FC = () => {
         setSelectedStepResult(null)
     }
 
-    // 获取当前步骤索引（用于 Steps 组件的 current 属性）
-    const getCurrentStep = useMemo(() => {
-        if (!flowDetail || !flowDetail.steps.length) return 0
-        
-        // 查找第一个执行中的步骤
-        const executingIndex = flowDetail.steps.findIndex(step => step.status === 1)
-        if (executingIndex >= 0) {
-            return executingIndex
-        }
-        
-        // 如果没有执行中的步骤，查找最后一个已完成的步骤
-        let lastCompletedIndex = -1
-        for (let i = flowDetail.steps.length - 1; i >= 0; i--) {
-            const step = flowDetail.steps[i]
-            if (step && step.status === 2) {
-                lastCompletedIndex = i
-                break
-            }
-        }
-        
-        // 如果找到了已完成的步骤，返回下一个步骤的索引（如果存在）
-        if (lastCompletedIndex >= 0) {
-            return lastCompletedIndex < flowDetail.steps.length - 1 
-                ? lastCompletedIndex + 1 
-                : flowDetail.steps.length
-        }
-        
-        // 如果都没有，返回 0（第一个步骤）
-        return 0
-    }, [flowDetail])
-    
-    // 获取步骤的状态（用于 Steps 组件的 status 属性）
-    const getStepStatus = (stepStatus: QCStepStatus): 'wait' | 'process' | 'finish' | 'error' => {
-        switch (stepStatus.status) {
+    // 获取状态标签
+    const getStatusTag = (status: number) => {
+        const config = statusConfig[status as keyof typeof statusConfig] || statusConfig[0]
+        return <Tag color={config.color}>{config.text}</Tag>
+    }
+
+    // 获取状态文本
+    const getStatusText = (status: number): string => {
+        const config = statusConfig[status as keyof typeof statusConfig] || statusConfig[0]
+        return config.text
+    }
+
+    // 获取步骤状态（用于 Steps 组件）
+    const getStepStatus = (stepStatus: number): 'wait' | 'process' | 'finish' | 'error' => {
+        switch (stepStatus) {
             case 0: // 未执行
                 return 'wait'
             case 1: // 执行中
                 return 'process'
             case 2: // 已完成
                 return 'finish'
+            case 3: // 暂停
+                return 'wait'
             case 5: // 失败
                 return 'error'
             case 4: // 跳过
@@ -649,71 +309,114 @@ const QualityControlFlowDetail: React.FC = () => {
                 return 'wait'
         }
     }
-    
-    // 获取状态标签
-    const getStatusTag = (status: number) => {
-        const config = statusConfig[status as keyof typeof statusConfig] || statusConfig[0]
-        return <Tag color={config.color}>{config.text}</Tag>
-    }
-    
-    // 获取状态文本（用于显示）
-    const getStatusText = (status: number): string => {
-        const config = statusConfig[status as keyof typeof statusConfig] || statusConfig[0]
-        return config.text
-    }
-    
-    // 格式化百分比，最多显示两位小数
-    const formatPercentage = (value: number): string => {
-        // 保留两位小数，去除末尾的0和小数点
-        const formatted = value.toFixed(2)
-        // 移除末尾的0和小数点（如果小数部分全为0）
-        const cleaned = formatted.replace(/\.?0+$/, '')
-        return cleaned + '%'
+
+    // 根据 node_type 获取类型信息
+    const getTypeInfo = (nodeType: string) => {
+        const nodeTypeToValue: Record<string, string> = {
+            TimelinessQC: 'comprehensive',
+            CompletenessQC: 'completeness',
+            ConsistencyQC: 'basic-medical-logic',
+            AccuracyQC: 'core-data',
+        }
+        const type = nodeTypeToValue[nodeType] || nodeType
+        return QC_TYPE_MAP[type] || { label: nodeType, icon: null, description: '' }
     }
 
-    // 计算是否全部步骤已完成
-    const isFlowCompleted = useMemo(() => {
-        return flowDetail?.status === 2 || flowDetail?.steps.every(step => step.status === 2)
-    }, [flowDetail])
+    // 获取当前步骤索引（用于 Steps 组件的 current 属性）
+    const getCurrentStep = () => {
+        if (!displayDetail?.logList || displayDetail.logList.length === 0) return 0
+        if (!displayDetail?.logSummary?.node_type) return 0
+
+        const sortedLogList = [...displayDetail.logList].sort((a, b) => a.step_no - b.step_no)
+        const currentNodeType = displayDetail.logSummary.node_type
+
+        // 根据 logSummary.node_type 在 logList 中查找匹配的步骤
+        const matchedStep = sortedLogList.find(log => log.node_type === currentNodeType)
+        
+        if (matchedStep) {
+            // 返回步骤在排序列表中的索引（从0开始）
+            return sortedLogList.findIndex(log => log.step_no === matchedStep.step_no)
+        }
+
+        // 如果没有找到匹配的步骤，回退到原来的逻辑
+        // 查找第一个执行中的步骤
+        const executingIndex = sortedLogList.findIndex(log => log.step_status === 1)
+        if (executingIndex >= 0) {
+            return executingIndex
+        }
+
+        // 如果没有执行中的步骤，查找最后一个已完成的步骤
+        let lastCompletedIndex = -1
+        for (let i = sortedLogList.length - 1; i >= 0; i--) {
+            const log = sortedLogList[i]
+            if (log && log.step_status === 2) {
+                lastCompletedIndex = i
+                break
+            }
+        }
+
+        // 如果找到了已完成的步骤，返回下一个步骤的索引（如果存在）
+        if (lastCompletedIndex >= 0) {
+            return lastCompletedIndex < sortedLogList.length - 1
+                ? lastCompletedIndex + 1
+                : sortedLogList.length
+        }
+
+        return 0
+    }
 
     // 渲染进度条
-    const renderProgressBar = (step: QCStepStatus) => {
-        if ([2, 4, 5].includes(step.status)) {
+    const renderProgressBar = (step: any) => {
+        // 已完成、跳过、失败状态不显示进度条
+        if ([2, 4, 5].includes(step.step_status)) {
             return null
         }
 
-        if (!step.completedQuantity || !step.totalQuantity) return null
+        // 暂停状态也不显示进度条
+        if (step.step_status === 3) {
+            return null
+        }
 
-        const percentage = (step.completedQuantity / step.totalQuantity) * 100
-        const percentageRounded = Math.round(percentage * 100) / 100 // 保留两位小数并四舍五入
-        // 进度条前面的数字取整数
-        const completedInt = Math.round(step.completedQuantity)
-        const totalInt = Math.round(step.totalQuantity)
+        // 检查是否有进度数据（使用 progress 字段）
+        if (step.progress === undefined || step.progress === null) return null
+
+        const percentage = Math.round(Number(step.progress))
+        const isRunning = step.step_status === 1
 
         return (
-            <div
-                style={{
-                    marginTop: 8,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                }}
-            >
-                <Progress
-                    percent={percentageRounded}
-                    size='small'
-                    status={percentageRounded >= 100 ? 'success' : 'active'}
-                    showInfo={false}
-                    style={{ width: 250 }}
-                />
-                <Text type='secondary' style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-                    {completedInt}/{totalInt} ({formatPercentage(percentage)})
-                </Text>
+            <div style={{ marginTop: 8 }}>
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        marginBottom: isRunning ? 8 : 0,
+                    }}
+                >
+                    <Progress
+                        percent={percentage}
+                        size='small'
+                        status={percentage === 100 ? 'success' : 'active'}
+                        showInfo={false}
+                        style={{ width: 250 }}
+                    />
+                    <Text type='secondary' style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                        {percentage}%
+                    </Text>
+                </div>
+                {/* 在进度条下方显示表信息 */}
+                {isRunning && (step.table || step.tableName) && (
+                    <div>
+                        <Text type='secondary' style={{ fontSize: 12 }}>
+                            正在处理数据表{step.table}({step.tableName})
+                        </Text>
+                    </div>
+                )}
             </div>
         )
     }
 
-    if (loading || !flowDetail) {
+    if (loading) {
         return (
             <div style={{ textAlign: 'center', padding: '50px' }}>
                 <Spin size='large' />
@@ -723,6 +426,12 @@ const QualityControlFlowDetail: React.FC = () => {
             </div>
         )
     }
+
+    // 使用 displayDetail（结合了 SSE 消息和接口数据）
+    const logSummary = displayDetail?.logSummary || logDetailData?.logSummary
+    const logList = displayDetail?.logList || logDetailData?.logList || []
+    const sortedLogList = [...logList].sort((a, b) => a.step_no - b.step_no)
+    const currentStepIndex = getCurrentStep()
 
     return (
         <div>
@@ -765,78 +474,40 @@ const QualityControlFlowDetail: React.FC = () => {
                     <div>
                         <Text strong>任务ID：</Text>
                         <Text copyable>
-                            {logDetailData?.logSummary?.batch_id
-                                ? String(logDetailData.logSummary.batch_id)
-                                : flowDetail?.taskId || '无'}
+                            {logSummary?.batch_id ? String(logSummary.batch_id) : '--'}
                         </Text>
                     </div>
                     <div>
                         <Text strong>任务名称：</Text>
-                        <Text>{logDetailData?.logSummary?.name || '无'}</Text>
+                        <Text>{logSummary?.name || '--'}</Text>
                     </div>
                     <div>
                         <Text strong>质控类型：</Text>
                         <Space>
-                            {logDetailData?.logList && logDetailData.logList.length > 0
-                                ? logDetailData.logList.map((log, index) => {
-                                      const nodeTypeToValue: Record<string, string> = {
-                                          TimelinessQC: 'comprehensive',
-                                          CompletenessQC: 'completeness',
-                                          ConsistencyQC: 'basic-medical-logic',
-                                          AccuracyQC: 'core-data',
-                                      }
-                                      const type = nodeTypeToValue[log.node_type] || log.node_type
-                                      const typeInfo = QC_TYPE_MAP[type]
+                            {sortedLogList.length > 0
+                                ? sortedLogList.map((log) => {
+                                      const typeInfo = getTypeInfo(log.node_type)
                                       return (
-                                          <Tag key={`${log.log_id}-${index}`} color='blue'>
-                                              {typeInfo?.icon}
+                                          <Tag key={`${log.log_id}-${log.step_no}`} color='blue'>
+                                              {typeInfo.icon}
                                               <span style={{ marginLeft: 4 }}>
-                                                  {log.step_name || typeInfo?.label || log.node_type}
+                                                  {log.step_name || typeInfo.label || log.node_type}
                                               </span>
                                           </Tag>
                                       )
                                   })
-                                : flowDetail?.types.map(type => {
-                                      const typeInfo = QC_TYPE_MAP[type]
-                                      return (
-                                          <Tag key={type} color='blue'>
-                                              {typeInfo?.icon}
-                                              <span style={{ marginLeft: 4 }}>{typeInfo?.label || type}</span>
-                                          </Tag>
-                                      )
-                                  }) || []}
+                                : null}
                         </Space>
                     </div>
                     <div>
                         <Text strong>状态：</Text>
-                        {getStatusTag(
-                            logDetailData?.logSummary?.status ?? flowDetail?.status ?? 0
-                        )}
+                        {getStatusTag(logSummary?.status ?? 0)}
                     </div>
-                    <div>
-                        <Text strong>开始时间：</Text>
-                        <Text>
-                            {logDetailData?.logSummary?.start_time
-                                ? new Date(logDetailData.logSummary.start_time).toLocaleString('zh-CN')
-                                : flowDetail?.startTime
-                                  ? new Date(flowDetail.startTime).toLocaleString('zh-CN')
-                                  : '未开始'}
-                        </Text>
-                    </div>
-                    <div>
-                        <Text strong>结束时间：</Text>
-                        <Text>
-                            {logDetailData?.logSummary?.end_time
-                                ? new Date(logDetailData.logSummary.end_time).toLocaleString('zh-CN')
-                                : flowDetail?.endTime
-                                  ? new Date(flowDetail.endTime).toLocaleString('zh-CN')
-                                  : '进行中'}
-                        </Text>
-                    </div>
-                    {logDetailData?.logSummary?.remark && (
+                    
+                    {logSummary?.remark && (
                         <div style={{ gridColumn: '1 / -1' }}>
                             <Text strong>备注：</Text>
-                            <Text>{logDetailData.logSummary.remark}</Text>
+                            <Text>{logSummary.remark}</Text>
                         </div>
                     )}
                 </div>
@@ -845,59 +516,72 @@ const QualityControlFlowDetail: React.FC = () => {
             {/* 执行步骤 */}
             <Card title='执行步骤' style={{ marginBottom: 24 }}>
                 <Steps
-                    current={getCurrentStep}
+                    current={currentStepIndex}
                     direction='vertical'
                     size='small'
                     style={{ marginBottom: 24 }}
                 >
-                    {executionSteps.map((step, index) => {
-                        const stepStatus = flowDetail.steps[index]
-                        if (!stepStatus) return null
-
-                        const stepStatusType = getStepStatus(stepStatus)
-                        const statusText = getStatusText(stepStatus.status)
+                    {sortedLogList.map((log, index) => {
+                        const typeInfo = getTypeInfo(log.node_type)
+                        const statusText = getStatusText(log.step_status)
+                        
+                        // 根据 current 和 step_status 综合判断每个 Step 的 status
+                        // 如果索引小于 current，应该是 finish；如果等于 current，根据 step_status 判断；如果大于 current，应该是 wait
+                        let stepStatusType: 'wait' | 'process' | 'finish' | 'error'
+                        if (index < currentStepIndex) {
+                            // 已完成的步骤
+                            stepStatusType = 'finish'
+                        } else if (index === currentStepIndex) {
+                            // 当前步骤，根据 step_status 判断
+                            stepStatusType = getStepStatus(log.step_status)
+                            // 如果当前步骤已完成，也显示为 finish
+                            if (log.step_status === 2) {
+                                stepStatusType = 'finish'
+                            }
+                        } else {
+                            // 未执行的步骤
+                            stepStatusType = 'wait'
+                        }
 
                         return (
                             <Step
-                                key={index}
+                                key={`${log.log_id}-${log.step_no}`}
                                 status={stepStatusType}
                                 title={
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <span>{step.title}</span>
-                                        {getStatusTag(stepStatus.status)}
+                                        <span>{log.step_name || typeInfo.label || log.node_type}</span>
+                                        {getStatusTag(log.step_status)}
                                     </div>
                                 }
                                 description={
                                     <div>
                                         <div style={{ marginBottom: 8 }}>
-                                            <Text type='secondary'>{step.description}</Text>
+                                            <Text type='secondary'>{typeInfo.description}</Text>
                                         </div>
-                                        
+
                                         {/* 状态信息 */}
-                                        <div style={{ marginBottom: 8, display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
+                                        <div
+                                            style={{
+                                                marginBottom: 8,
+                                                display: 'flex',
+                                                flexWrap: 'wrap',
+                                                gap: '16px',
+                                                alignItems: 'center',
+                                            }}
+                                        >
                                             <div>
                                                 <Text strong>状态：</Text>
                                                 <Text style={{ marginLeft: 4 }}>{statusText}</Text>
                                             </div>
-                                            {stepStatus.startTime && (
-                                                <div>
-                                                    <Text strong>开始时间：</Text>
-                                                    <Text style={{ marginLeft: 4 }}>{stepStatus.startTime}</Text>
-                                                </div>
-                                            )}
-                                            {stepStatus.endTime && (
-                                                <div>
-                                                    <Text strong>结束时间：</Text>
-                                                    <Text style={{ marginLeft: 4 }}>{stepStatus.endTime}</Text>
-                                                </div>
-                                            )}
+                                           
+                                            
                                         </div>
-                                        
+
                                         {/* 进度条展示 */}
-                                        {renderProgressBar(stepStatus)}
+                                        {renderProgressBar(log)}
 
                                         {/* 查看执行结果按钮 - 仅在已完成的步骤显示 */}
-                                        {stepStatus.status === 2 && (
+                                        {log.step_status === 2 && (
                                             <Button
                                                 type='link'
                                                 size='small'
@@ -908,34 +592,17 @@ const QualityControlFlowDetail: React.FC = () => {
                                                 查看执行结果
                                             </Button>
                                         )}
-
-                                        {/* 错误信息 */}
-                                        {stepStatus.status === 5 && stepStatus.errorMessage && (
-                                            <div style={{ marginTop: 8 }}>
-                                                <Text type='danger'>{stepStatus.errorMessage}</Text>
-                                            </div>
-                                        )}
                                     </div>
                                 }
                             />
                         )
                     })}
                 </Steps>
-
-                {/* 全部完成后显示提示 */}
-                {isFlowCompleted && (
-                    <div style={{ marginTop: 8 }}>
-                        <Tag color='success' style={{ fontSize: 14, padding: '4px 12px' }}>
-                            所有质控步骤已完成
-                        </Tag>
-                    </div>
-                )}
             </Card>
-
 
             {/* 执行结果查看弹窗 */}
             <Modal
-                title={`执行结果 - ${selectedStepResult?.title}`}
+                title={`执行结果 - ${selectedStepResult?.title || ''}`}
                 open={resultModalVisible}
                 onCancel={handleCloseResultModal}
                 footer={[
@@ -952,7 +619,9 @@ const QualityControlFlowDetail: React.FC = () => {
                             <Text>{selectedStepResult.title}</Text>
                         </div>
                         <div>
-                            <Text strong style={{ display: 'block', marginBottom: 8 }}>执行结果：</Text>
+                            <Text strong style={{ display: 'block', marginBottom: 8 }}>
+                                执行结果：
+                            </Text>
                             <div
                                 style={{
                                     marginTop: 8,
@@ -977,4 +646,3 @@ const QualityControlFlowDetail: React.FC = () => {
 }
 
 export default QualityControlFlowDetail
-

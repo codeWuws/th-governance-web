@@ -102,7 +102,7 @@ const FlowManagement: React.FC = () => {
         // 将 selectedTypes（映射后的值）转换为原始的 nodeType 数组
         const selectedNodeTypes = selectedTypes.map(value => {
             // 从 qcConfigList 中找到对应的 nodeType
-            const config = qcConfigList.find(item => 
+            const config = qcConfigList.find(item =>
                 (NODE_TYPE_TO_VALUE_MAP[item.nodeType] || item.nodeType) === value
             )
             return config?.nodeType || value
@@ -112,31 +112,11 @@ const FlowManagement: React.FC = () => {
             const result = await showDialog(StartQCProcessDialog, {
                 title: '启动质控流程',
                 selectedTypes: selectedNodeTypes, // 传递原始的 nodeType 数组
-                onStartSuccess: (taskId: string, processName: string) => {
-                    // 保存到历史记录
-                    const historyItem = {
-                        id: taskId,
-                        name: processName,
-                        types: selectedTypes,
-                        status: 'starting',
-                        start_time: Date.now(),
-                        end_time: null as number | null,
-                    }
-
-                    const key = 'qcExecutionHistory'
-                    const prev = localStorage.getItem(key)
-                    const list = prev ? JSON.parse(prev) : []
-                    list.unshift(historyItem)
-                    localStorage.setItem(key, JSON.stringify(list))
-
-                    uiMessage.success('质控流程已启动并记录历史')
-
+                onStartSuccess: (taskId: string) => {
                     // 延迟一下再跳转，确保弹窗关闭动画完成
                     setTimeout(() => {
-                        // 导航到流程详情页
-                        const typesParam = selectedTypes.join(',')
                         navigate(
-                            `/data-quality-control/flow/${taskId}?types=${encodeURIComponent(typesParam)}&name=${encodeURIComponent(processName)}`
+                            `/data-quality-control/flow/${taskId}`
                         )
                     }, 100)
                 },
@@ -156,13 +136,13 @@ const FlowManagement: React.FC = () => {
     const toggleType = (value: string) => {
         const option = qcOptions.find(opt => opt.value === value)
         if (!option) return
-        
+
         // 如果选项被禁用，不允许选择
         if (!option.enabled) {
             uiMessage.warning(`${option.label} 当前未启用，无法选择`)
             return
         }
-        
+
         setSelectedTypes(prev => {
             if (prev.includes(value)) return prev.filter(v => v !== value)
             if (prev.length >= MAX_SELECT) {

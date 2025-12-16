@@ -611,9 +611,9 @@ export interface QCTaskConfigListResponse {
 /** 质控任务日志摘要 */
 export interface QCTaskLogSummary {
     /** 任务ID */
-    id: number
+    id: number | string
     /** 批次ID */
-    batch_id: number
+    batch_id: number | string
     /** 任务名称 */
     name: string
     /** 任务状态 0未执行, 1执行中, 2已完成, 3暂停, 4跳过, 5失败 */
@@ -626,6 +626,8 @@ export interface QCTaskLogSummary {
     node_type: string
     /** 任务类型列表（逗号分隔） */
     task_types: string
+    /** 类型名称列表（逗号分隔） */
+    type_names?: string
     /** 概览信息 */
     overview: string | null
     /** 备注 */
@@ -635,9 +637,9 @@ export interface QCTaskLogSummary {
 /** 质控任务日志项 */
 export interface QCTaskLogItem {
     /** 日志ID */
-    log_id: number
+    log_id: number | string
     /** 批次ID */
-    batch_id: number
+    batch_id: number | string
     /** 步骤序号 */
     step_no: number
     /** 步骤状态 0未执行, 1执行中, 2已完成, 3暂停, 4跳过, 5失败 */

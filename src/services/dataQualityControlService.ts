@@ -65,23 +65,85 @@ export class DataQualityControlService {
 
     /**
      * 获取质控任务分页列表
-     * @description 根据筛选条件分页查询质控任务执行历史
+     * @description 分页查询质控任务执行历史记录
      * @param params 查询参数
      * @returns Promise<QCTaskPageResponse>
      */
     static async getQCTaskPage(params: QCTaskPageParams): Promise<QCTaskPageResponse> {
         try {
+            // 打印请求参数
+            console.log('=== 调用接口 /data/qc/task/page ===')
+            console.log('=== 请求参数 ===', params)
+
             logger.debug('发送获取质控任务分页列表请求到: /data/qc/task/page', params)
-            
-            // 处理 taskTypes：如果是数组，转换为字符串（根据后端要求）
-            const requestParams = {
-                ...params,
-                taskTypes: Array.isArray(params.taskTypes)
-                    ? params.taskTypes.join(',')
-                    : params.taskTypes,
+
+            // 构建请求体，确保参数格式正确
+            const requestBody: QCTaskPageParams = {
+                pageNum: params.pageNum,
+                pageSize: params.pageSize,
             }
-            
-            const response = await api.post<QCTaskPageResponse>('/data/qc/task/page', requestParams)
+
+            // 添加可选参数
+            if (params.condition) {
+                requestBody.condition = params.condition
+            }
+            if (params.sortField) {
+                requestBody.sortField = params.sortField
+            }
+            if (params.sortOrder) {
+                requestBody.sortOrder = params.sortOrder
+            }
+            if (params.idOrName) {
+                requestBody.idOrName = params.idOrName
+            }
+            if (params.status !== undefined) {
+                requestBody.status = params.status
+            }
+            if (params.taskTypes) {
+                // 确保 taskTypes 是数组格式
+                requestBody.taskTypes = Array.isArray(params.taskTypes)
+                    ? params.taskTypes
+                    : [params.taskTypes]
+            }
+            if (params.startTimeFrom) {
+                requestBody.startTimeFrom = params.startTimeFrom
+            }
+            if (params.startTimeTo) {
+                requestBody.startTimeTo = params.startTimeTo
+            }
+
+            console.log('=== 最终请求体 ===', requestBody)
+
+            // 使用 POST 方法调用接口
+            const response = await api.post<QCTaskPageResponse>('/data/qc/task/page', requestBody)
+
+            // 打印响应数据
+            console.log('=== 接口响应 ===', {
+                code: response.code,
+                msg: response.msg,
+                data: response.data,
+                timestamp: new Date().toISOString(),
+            })
+
+            if (response.data) {
+                console.log('=== 分页数据详情 ===', {
+                    records: response.data.records,
+                    recordsCount: response.data.records?.length || 0,
+                    total: response.data.total,
+                    size: response.data.size,
+                    current: response.data.current,
+                    pages: response.data.pages,
+                })
+
+                // 打印每条记录
+                if (response.data.records && response.data.records.length > 0) {
+                    console.log('=== 任务记录列表 ===')
+                    response.data.records.forEach((record, index) => {
+                        console.log(`=== 任务记录 ${index + 1} ===`, record)
+                    })
+                }
+            }
+
             logger.debug('获取质控任务分页列表API响应:', response)
             return response
         } catch (error) {
@@ -89,6 +151,8 @@ export class DataQualityControlService {
                 '获取质控任务分页列表API调用失败:',
                 error instanceof Error ? error : new Error(String(error))
             )
+            console.error('=== 接口调用失败 ===', error)
+            // 直接抛出原始错误，保留错误堆栈信息
             throw error
         }
     }

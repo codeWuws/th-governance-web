@@ -4,6 +4,7 @@ import userReducer from './slices/userSlice'
 import dataGovernanceReducer from './slices/dataGovernanceSlice'
 import workflowExecutionReducer from './slices/workflowExecutionSlice'
 import systemSettingsReducer from './slices/systemSettingsSlice'
+import qcExecutionReducer from './slices/qcExecutionSlice'
 
 // 配置 Redux store
 // 扩展 Window 接口以支持 Redux DevTools
@@ -20,6 +21,7 @@ export const store = configureStore({
         dataGovernance: dataGovernanceReducer,
         workflowExecution: workflowExecutionReducer,
         systemSettings: systemSettingsReducer,
+        qcExecution: qcExecutionReducer,
     },
     // 开发环境启用 Redux DevTools
     devTools: typeof window !== 'undefined' && !!window.__REDUX_DEVTOOLS_EXTENSION__,

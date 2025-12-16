@@ -91,9 +91,12 @@ const ExecutionHistory: React.FC = () => {
                 pageSize,
             }
 
-            // 任务ID或名称
+            // 任务ID或名称（同时设置 idOrName 和 condition）
             if (values.idOrName) {
-                params.idOrName = values.idOrName.trim()
+                const idOrNameValue = values.idOrName.trim()
+                params.idOrName = idOrNameValue
+                // condition 用于关键字段模糊查询，与 idOrName 保持一致
+                params.condition = idOrNameValue
             }
 
             // 状态筛选（将字符串状态转换为数字）
@@ -137,10 +140,6 @@ const ExecutionHistory: React.FC = () => {
                     params.startTimeTo = end.format('YYYY-MM-DD HH:mm:ss')
                 }
             }
-
-            // 排序（如果需要）
-            // params.sortField = 'startTime'
-            // params.sortOrder = 'desc'
 
             await fetchData(params)
         } catch (error) {
