@@ -7,6 +7,7 @@ import axios, {
 } from 'axios'
 import { getEnv } from './env'
 import { logger } from './logger'
+import { handleMockRequest } from './mockAdapter'
 
 // 扩展 InternalAxiosRequestConfig 接口
 declare module 'axios' {
@@ -85,6 +86,25 @@ const handleApiError = (error: AxiosError): Promise<never> => {
     return Promise.reject(new Error(errorMessage))
 }
 
+// 创建自定义 adapter 以支持模拟数据
+const createCustomAdapter = (): ((config: InternalAxiosRequestConfig) => Promise<AxiosResponse>) => {
+    return async (config: InternalAxiosRequestConfig) => {
+        // 检查是否应该使用模拟数据
+        const mockResponse = await handleMockRequest(config)
+        if (mockResponse) {
+            // 直接返回模拟响应，不发送真实请求
+            // 确保响应对象包含 config
+            mockResponse.config = config
+            return mockResponse
+        }
+        
+        // 使用默认的 adapter 发送真实请求
+        // 获取默认的 adapter（xhr 或 http）
+        const defaultAdapter = axios.getAdapter(['xhr', 'http'])
+        return defaultAdapter(config)
+    }
+}
+
 // 创建 Axios 实例
 const createAxiosInstance = (): AxiosInstance => {
     const instance = axios.create({
@@ -96,6 +116,8 @@ const createAxiosInstance = (): AxiosInstance => {
         },
         // 允许携带 cookies
         withCredentials: true,
+        // 使用自定义 adapter 支持模拟数据
+        adapter: createCustomAdapter(),
     })
 
     return instance

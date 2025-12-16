@@ -676,6 +676,77 @@ export interface QCTaskLogDetailResponse {
     data: QCTaskLogDetailData
 }
 
+/** 质控任务分页查询参数 */
+export interface QCTaskPageParams {
+    /** 条件查询 */
+    condition?: string
+    /** 页码 */
+    pageNum: number
+    /** 每页大小 */
+    pageSize: number
+    /** 排序字段 */
+    sortField?: string
+    /** 排序顺序 */
+    sortOrder?: 'asc' | 'desc'
+    /** ID或名称 */
+    idOrName?: string
+    /** 状态 */
+    status?: number | string
+    /** 任务类型（多个） */
+    taskTypes?: string | string[]
+    /** 开始时间（从） */
+    startTimeFrom?: string
+    /** 开始时间（到） */
+    startTimeTo?: string
+}
+
+/** 质控任务记录 */
+export interface QCTaskRecord {
+    /** 任务ID */
+    id: string
+    /** 批次ID */
+    batchId: string
+    /** 任务名称 */
+    name: string
+    /** 状态（数字） */
+    status: number
+    /** 开始时间 */
+    startTime: string
+    /** 结束时间 */
+    endTime: string | null
+    /** 节点类型 */
+    nodeType: string
+    /** 任务类型 */
+    taskTypes: string
+    /** 类型名称 */
+    typeNames: string
+    /** 概览 */
+    overview: string | null
+    /** 备注 */
+    remark: string | null
+}
+
+/** 质控任务分页响应数据 */
+export interface QCTaskPageData {
+    /** 记录列表 */
+    records: QCTaskRecord[]
+    /** 总数 */
+    total: string
+    /** 每页大小 */
+    size: string
+    /** 当前页 */
+    current: string
+    /** 总页数 */
+    pages: string
+}
+
+/** 质控任务分页响应 */
+export interface QCTaskPageResponse {
+    code: number
+    msg: string
+    data: QCTaskPageData
+}
+
 /** 步骤状态标签映射 */
 export const ExecutionStepStatusLabels = {
     [ExecutionStepStatus.SUCCESS]: '成功',

@@ -18,3 +18,4 @@ alwaysApply: true
 - 生成时需要优先查看系统内是否有相同模块或者封装的函数
 - 弹窗尽量使用封装好的showDialog以及使用CustomDialog来自定义Dialog(新增的Dialog放入components文件夹中新建文件夹见名知意)
 - 修改模块的时候检查代码，删除未使用的引用和变量
+- 编写页面模拟数据的时候要区分开发版本和演示版本，可查看VERSION_CONTROL.MD后继续定义

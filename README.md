@@ -149,7 +149,11 @@ npm run build:analyze
 - `VITE_APP_ENV` - 环境标识（development/production）
 - `VITE_APP_TITLE` - 应用标题
 - `VITE_APP_API_BASE_URL` - API 基础地址
-- `VITE_APP_VERSION` - 应用版本号
+- `VITE_APP_VERSION` - 应用版本模式（demo/dev）
+  - `demo`: 演示版本，只保留数据治理模块的接口，其他模块使用模拟数据
+  - `dev`: 开发版本，所有模块都支持接口调用（默认值）
+- `VITE_APP_VERSION_NUMBER` - 应用版本号
+- `VITE_APP_USE_MOCK_DATA_RETRIEVAL` - 数据检索模块是否使用模拟数据（独立配置）
 
 **注意**：
 - 开发环境使用 Vite 代理，API 请求会被代理到 `http://192.168.110.34:8888`

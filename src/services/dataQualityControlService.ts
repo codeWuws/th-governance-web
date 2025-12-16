@@ -3,7 +3,12 @@
  * 提供数据质控任务相关的API接口
  */
 
-import type { QCTaskConfigListResponse, QCTaskLogDetailResponse } from '@/types'
+import type {
+    QCTaskConfigListResponse,
+    QCTaskLogDetailResponse,
+    QCTaskPageParams,
+    QCTaskPageResponse,
+} from '@/types'
 import { api } from '@/utils/request'
 import { logger } from '@/utils/logger'
 
@@ -57,6 +62,36 @@ export class DataQualityControlService {
             throw error
         }
     }
+
+    /**
+     * 获取质控任务分页列表
+     * @description 根据筛选条件分页查询质控任务执行历史
+     * @param params 查询参数
+     * @returns Promise<QCTaskPageResponse>
+     */
+    static async getQCTaskPage(params: QCTaskPageParams): Promise<QCTaskPageResponse> {
+        try {
+            logger.debug('发送获取质控任务分页列表请求到: /data/qc/task/page', params)
+            
+            // 处理 taskTypes：如果是数组，转换为字符串（根据后端要求）
+            const requestParams = {
+                ...params,
+                taskTypes: Array.isArray(params.taskTypes)
+                    ? params.taskTypes.join(',')
+                    : params.taskTypes,
+            }
+            
+            const response = await api.post<QCTaskPageResponse>('/data/qc/task/page', requestParams)
+            logger.debug('获取质控任务分页列表API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取质控任务分页列表API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw error
+        }
+    }
 }
 
 /**
@@ -66,6 +101,7 @@ export class DataQualityControlService {
 export const dataQualityControlService = {
     getQCTaskConfigList: DataQualityControlService.getQCTaskConfigList,
     getQCTaskLogDetail: DataQualityControlService.getQCTaskLogDetail,
+    getQCTaskPage: DataQualityControlService.getQCTaskPage,
 }
 
 export default dataQualityControlService
