@@ -441,10 +441,7 @@ const WorkflowDetail: React.FC = () => {
                     total: response.data.total || 0,
                 })
             } else {
-                const errorMsg =
-                    (response as { msg?: string; message?: string }).msg ||
-                    (response as { msg?: string; message?: string }).message ||
-                    '获取数据清洗结果失败'
+                const errorMsg = (response as { msg?: string }).msg || '获取数据清洗结果失败'
                 uiMessage.error(errorMsg)
                 setCleaningResultData([])
             }
@@ -471,10 +468,7 @@ const WorkflowDetail: React.FC = () => {
                     total: response.data.total || 0,
                 })
             } else {
-                const errorMsg =
-                    (response as { msg?: string; message?: string }).msg ||
-                    (response as { msg?: string; message?: string }).message ||
-                    '获取去重步骤结果失败'
+                const errorMsg = (response as { msg?: string }).msg || '获取去重步骤结果失败'
                 uiMessage.error(errorMsg)
                 setDeduplicateResultData([])
             }
@@ -508,10 +502,7 @@ const WorkflowDetail: React.FC = () => {
                     total: response.data.total || 0,
                 })
             } else {
-                const errorMsg =
-                    (response as { msg?: string; message?: string }).msg ||
-                    (response as { msg?: string; message?: string }).message ||
-                    '获取丢孤儿步骤结果失败'
+                const errorMsg = (response as { msg?: string }).msg || '获取丢孤儿步骤结果失败'
                 uiMessage.error(errorMsg)
                 setOrphanResultData([])
             }
@@ -545,10 +536,7 @@ const WorkflowDetail: React.FC = () => {
                     total: response.data.total || 0,
                 })
             } else {
-                const errorMsg =
-                    (response as { msg?: string; message?: string }).msg ||
-                    (response as { msg?: string; message?: string }).message ||
-                    '获取数据脱敏步骤结果失败'
+                const errorMsg = (response as { msg?: string }).msg || '获取数据脱敏步骤结果失败'
                 uiMessage.error(errorMsg)
                 setSensitiveResultData([])
             }
@@ -703,17 +691,13 @@ const WorkflowDetail: React.FC = () => {
             const response = await WorkflowService.syncTaskData(taskId)
 
             if (response.code === 200) {
-                const successMsg = (response as { msg?: string; message?: string }).msg || 
-                                   (response as { msg?: string; message?: string }).message || 
-                                   '数据录入成功'
+                const successMsg = (response as { msg?: string }).msg || '数据录入成功'
                 uiMessage.success(successMsg)
                 logger.info('数据录入（同步）成功', { taskId })
                 // 刷新展示数据
                 await fetchLogDetail()
             } else {
-                const errorMsg = (response as { msg?: string; message?: string }).msg || 
-                                 (response as { msg?: string; message?: string }).message || 
-                                 '数据录入失败'
+                const errorMsg = (response as { msg?: string }).msg || '数据录入失败'
                 uiMessage.error(errorMsg)
                 logger.error('数据录入失败', new Error(errorMsg), { taskId, response })
             }

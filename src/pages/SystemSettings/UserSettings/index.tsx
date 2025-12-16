@@ -74,6 +74,10 @@ const UserSettings: React.FC = () => {
 
     // 本地状态管理
     const [total, setTotal] = useState(0)
+    const [saving, setSaving] = useState(false)
+    const [deleting, setDeleting] = useState<string | null>(null)
+    const [toggling, setToggling] = useState<string | null>(null)
+    const [assigningRoles, setAssigningRoles] = useState(false)
 
     // 查询参数
     const [queryParams, setQueryParams] = useState<UserQueryParams>({
@@ -209,6 +213,7 @@ const UserSettings: React.FC = () => {
      */
     const handleStatusToggle = async (user: RBACUser) => {
         try {
+            setToggling(user.id)
             const newStatus =
                 user.status === UserStatus.ACTIVE ? UserStatus.DISABLED : UserStatus.ACTIVE
             const response = await mockApi.user.updateUser(user.id, { status: newStatus })
@@ -219,6 +224,8 @@ const UserSettings: React.FC = () => {
         } catch (error) {
             message.error('状态更新失败')
             console.error('Update status error:', error)
+        } finally {
+            setToggling(null)
         }
     }
 
@@ -227,6 +234,7 @@ const UserSettings: React.FC = () => {
      */
     const handleDelete = async (user: RBACUser) => {
         try {
+            setDeleting(user.id)
             const response = await mockApi.user.deleteUser(user.id)
             if (response.data.success) {
                 message.success('删除用户成功')
@@ -235,6 +243,8 @@ const UserSettings: React.FC = () => {
         } catch (error) {
             message.error('删除用户失败')
             console.error('Delete user error:', error)
+        } finally {
+            setDeleting(null)
         }
     }
 
@@ -243,6 +253,7 @@ const UserSettings: React.FC = () => {
      */
     const handleFormSubmit = async (values: UserFormData) => {
         try {
+            setSaving(true)
             let response
             if (editingUser) {
                 // 编辑用户
@@ -260,6 +271,8 @@ const UserSettings: React.FC = () => {
         } catch (error) {
             message.error(editingUser ? '更新用户失败' : '创建用户失败')
             console.error('Submit user error:', error)
+        } finally {
+            setSaving(false)
         }
     }
 
@@ -270,6 +283,7 @@ const UserSettings: React.FC = () => {
         if (!selectedUser) return
 
         try {
+            setAssigningRoles(true)
             const response = await mockApi.user.updateUserRoles(selectedUser.id, roleIds)
             if (response.data.success) {
                 message.success('角色分配成功')
@@ -279,6 +293,8 @@ const UserSettings: React.FC = () => {
         } catch (error) {
             message.error('角色分配失败')
             console.error('Assign roles error:', error)
+        } finally {
+            setAssigningRoles(false)
         }
     }
 
@@ -392,6 +408,8 @@ const UserSettings: React.FC = () => {
                         <Switch
                             checked={record.status === UserStatus.ACTIVE}
                             onChange={() => handleStatusToggle(record)}
+                            loading={toggling === record.id}
+                            disabled={toggling === record.id}
                         />
                     </Tooltip>
                     <Popconfirm
@@ -401,7 +419,13 @@ const UserSettings: React.FC = () => {
                         cancelText='取消'
                     >
                         <Tooltip title='删除'>
-                            <Button type='text' danger icon={<DeleteOutlined />} />
+                            <Button 
+                                type='text' 
+                                danger 
+                                icon={<DeleteOutlined />}
+                                loading={deleting === record.id}
+                                disabled={deleting === record.id}
+                            />
                         </Tooltip>
                     </Popconfirm>
                 </Space>
@@ -504,6 +528,7 @@ const UserSettings: React.FC = () => {
                     roles={roles}
                     onSubmit={handleFormSubmit}
                     onCancel={() => setModalVisible(false)}
+                    loading={saving}
                 />
             </Modal>
 
@@ -521,6 +546,7 @@ const UserSettings: React.FC = () => {
                         allRoles={roles}
                         onSubmit={handleRoleAssignment}
                         onCancel={() => setRoleModalVisible(false)}
+                        loading={assigningRoles}
                     />
                 )}
             </Modal>

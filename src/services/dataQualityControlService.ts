@@ -28,9 +28,8 @@ export class DataQualityControlService {
                 '获取质控任务配置列表API调用失败:',
                 error instanceof Error ? error : new Error(String(error))
             )
-            throw new Error(
-                `获取质控任务配置列表失败: ${error instanceof Error ? error.message : '未知错误'}`
-            )
+            // 直接抛出原始错误，保留错误堆栈信息
+            throw error
         }
     }
 
@@ -41,10 +40,10 @@ export class DataQualityControlService {
      * @returns Promise<QCTaskLogDetailResponse>
      */
     static async getQCTaskLogDetail(taskId: string): Promise<QCTaskLogDetailResponse> {
+        if (!taskId) {
+            throw new Error('任务ID不能为空')
+        }
         try {
-            if (!taskId) {
-                throw new Error('任务ID不能为空')
-            }
             logger.debug(`发送获取质控任务日志详情请求到: /data/qc/task/log/${taskId}`)
             const response = await api.get<QCTaskLogDetailResponse>(`/data/qc/task/log/${taskId}`)
             logger.debug('获取质控任务日志详情API响应:', response)
@@ -54,9 +53,8 @@ export class DataQualityControlService {
                 '获取质控任务日志详情API调用失败:',
                 error instanceof Error ? error : new Error(String(error))
             )
-            throw new Error(
-                `获取质控任务日志详情失败: ${error instanceof Error ? error.message : '未知错误'}`
-            )
+            // 直接抛出原始错误，保留错误堆栈信息
+            throw error
         }
     }
 }

@@ -37,20 +37,17 @@ export const ExecutionHistory: React.FC = () => {
 
                 try {
                     // 尝试调用真实接口
+                    // 业务异常已在响应拦截器中统一处理，如果执行到这里说明操作成功
                     const response = await WorkflowService.getExecutionLogPage({
                         pageNo: page,
                         pageSize: size,
                     })
 
-                    if (response.code === 200) {
-                        const { list, total } = response.data
-                        setRecords(list)
-                        setTotal(total)
-                        setUsingMockData(false)
-                        logger.info('成功获取执行历史数据', list.length)
-                    } else {
-                        throw new Error(response.msg || '接口返回错误')
-                    }
+                    const { list, total } = response
+                    setRecords(list)
+                    setTotal(total)
+                    setUsingMockData(false)
+                    logger.info('成功获取执行历史数据', list.length)
                 } catch (apiError) {
                     // 接口调用失败时使用模拟数据
                     logger.warn('接口调用失败，使用模拟数据', apiError)

@@ -27,14 +27,14 @@ export interface RequestConfig extends AxiosRequestConfig {
 // API 响应数据结构
 export interface ApiResponse<T = unknown> {
     code: number
-    message: string
+    msg: string
     data: T
 }
 
 // 错误响应结构
 export interface ApiError {
     code: number
-    message: string
+    msg: string
     details?: unknown
 }
 
@@ -69,43 +69,19 @@ const handleApiError = (error: AxiosError): Promise<never> => {
 
     const { status, data } = response
 
-    // HTTP 状态码错误处理
-    switch (status) {
-        case 400:
-            return Promise.reject(
-                new Error((data as { message?: string })?.message || '请求参数错误')
-            )
-        case 401:
-            // 未授权：清除本地凭证，但不进行路由跳转，交由调用方自行处理
-            // 说明：当前项目没有 /login 页面，且用户期望在错误时不跳转页面
-            localStorage.removeItem('access_token')
-            localStorage.removeItem('refresh_token')
-            return Promise.reject(
-                new Error((data as { message?: string })?.message || '未授权访问')
-            )
-        case 403:
-            return Promise.reject(new Error((data as { message?: string })?.message || '权限不足'))
-        case 404:
-            return Promise.reject(new Error('请求的资源不存在'))
-        case 422:
-            return Promise.reject(
-                new Error((data as { message?: string })?.message || '请求参数验证失败')
-            )
-        case 429:
-            return Promise.reject(new Error('请求过于频繁，请稍后重试'))
-        case 500:
-            return Promise.reject(new Error('服务器内部错误'))
-        case 502:
-            return Promise.reject(new Error('网关错误'))
-        case 503:
-            return Promise.reject(new Error('服务暂时不可用'))
-        case 504:
-            return Promise.reject(new Error('网关超时'))
-        default:
-            return Promise.reject(
-                new Error((data as { message?: string })?.message || `请求失败 (${status})`)
-            )
+    // 401状态码特殊处理：清除本地凭证
+    if (status === 401) {
+        // 未授权：清除本地凭证，但不进行路由跳转，交由调用方自行处理
+        // 说明：当前项目没有 /login 页面，且用户期望在错误时不跳转页面
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('refresh_token')
     }
+
+    // 所有非200状态码统一处理：优先返回后端提供的msg
+    const errorData = data as { msg?: string }
+    const errorMessage = errorData?.msg || `请求失败 (${status})`
+    
+    return Promise.reject(new Error(errorMessage))
 }
 
 // 创建 Axios 实例
@@ -178,7 +154,21 @@ request.interceptors.response.use(
             data: data,
         })
 
-        // 只返回响应数据，不返回完整的response对象
+        // 检查业务状态码，如果不是200或0，当作错误处理
+        const responseData = data as { code?: number; msg?: string; data?: unknown }
+        if (responseData?.code !== undefined && responseData.code !== 200 && responseData.code !== 0) {
+            // 优先返回后端提供的msg，最后使用默认值
+            const errorMessage = responseData.msg || `请求失败 (业务状态码: ${responseData.code})`
+            throw new Error(errorMessage)
+        }
+
+        // 业务状态码为200/0时，如果有data字段则返回data，否则返回整个响应对象
+        // 这样调用方就不需要再检查code了，业务异常已经统一抛出错误
+        if (responseData?.data !== undefined) {
+            return responseData.data as unknown as AxiosResponse
+        }
+
+        // 如果没有data字段，返回整个响应对象（兼容某些特殊接口）
         return data
     },
     (error: AxiosError) => {

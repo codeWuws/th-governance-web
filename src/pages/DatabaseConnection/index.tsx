@@ -59,41 +59,39 @@ const DatabaseConnection: React.FC = () => {
     const fetchDbConnections = async (pageNo = 1, pageSize = 10) => {
         try {
             setTableLoading(true)
+            // 业务异常已在响应拦截器中统一处理，如果执行到这里说明操作成功
             const result = await databaseConnectionService.getDbConnectionPage({
                 pageNo,
                 pageSize,
             })
 
-            if (result.code === 200) {
-                // 直接使用API返回的数据，不再进行格式转换
-                setConnections(result.data.list || [])
-                setPagination({
-                    current: result.data.pageNo || pageNo,
-                    pageSize: result.data.pageSize || pageSize,
-                    total: result.data.total || 0,
-                })
+            // 直接使用API返回的数据，不再进行格式转换
+            setConnections(result.list || [])
+            setPagination({
+                current: result.pageNo || pageNo,
+                pageSize: result.pageSize || pageSize,
+                total: result.total || 0,
+            })
 
-                // 计算状态统计
-                const totalConnections = result.data.list?.length || 0
-                const connectedCount =
-                    result.data.list?.filter((conn: DbConnection) => conn.dbStatus === 1)
-                        .length || 0
-                const abnormalCount = totalConnections - connectedCount
+            // 计算状态统计
+            const totalConnections = result.list?.length || 0
+            const connectedCount =
+                result.list?.filter((conn: DbConnection) => conn.dbStatus === 1).length || 0
+            const abnormalCount = totalConnections - connectedCount
 
-                setStatusStats({
-                    totalConnections,
-                    connectedCount,
-                    abnormalCount,
-                })
-            } else {
-                uiMessage.error(result.msg || '获取数据库连接列表失败')
-            }
+            setStatusStats({
+                totalConnections,
+                connectedCount,
+                abnormalCount,
+            })
         } catch (error) {
+            // 业务异常和网络异常都会在这里捕获，错误信息已由响应拦截器处理
+            const errorMessage = error instanceof Error ? error.message : '获取数据库连接列表失败'
             logger.error(
                 '获取数据库连接列表失败:',
                 error instanceof Error ? error : new Error(String(error))
             )
-            uiMessage.error('获取数据库连接列表失败')
+            uiMessage.error(errorMessage)
         } finally {
             setTableLoading(false)
         }
@@ -120,16 +118,15 @@ const DatabaseConnection: React.FC = () => {
         try {
             // 获取当前用户，如果没有则使用默认值
             const updateUser = 'system' // 可以从 store 或 localStorage 获取实际用户
-            const result = await databaseConnectionService.deleteDbConnection(id, updateUser)
-            if (result.code === 200) {
-                uiMessage.success('删除成功')
-                await fetchDbConnections(pagination.current, pagination.pageSize)
-            } else {
-                uiMessage.error(result.message || '删除失败')
-            }
+            // 业务异常已在响应拦截器中统一处理，如果执行到这里说明操作成功
+            await databaseConnectionService.deleteDbConnection(id, updateUser)
+            uiMessage.success('删除成功')
+            await fetchDbConnections(pagination.current, pagination.pageSize)
         } catch (error) {
+            // 业务异常和网络异常都会在这里捕获，错误信息已由响应拦截器处理
+            const errorMessage = error instanceof Error ? error.message : '删除失败'
             logger.error('删除连接失败:', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('删除失败')
+            uiMessage.error(errorMessage)
         }
     }
 
@@ -137,18 +134,16 @@ const DatabaseConnection: React.FC = () => {
     const handleTestConnection = async (id: string) => {
         try {
             setTestingConnections(prev => ({ ...prev, [id]: true }))
-            const result = await databaseConnectionService.testDbConnection(id)
-
-            if (result.code === 200) {
-                uiMessage.success('连接测试成功')
-                // 刷新列表以更新连接状态
-                await fetchDbConnections(pagination.current, pagination.pageSize)
-            } else {
-                uiMessage.error(result.message || '连接测试失败')
-            }
+            // 业务异常已在响应拦截器中统一处理，如果执行到这里说明操作成功
+            await databaseConnectionService.testDbConnection(id)
+            uiMessage.success('连接测试成功')
+            // 刷新列表以更新连接状态
+            await fetchDbConnections(pagination.current, pagination.pageSize)
         } catch (error) {
+            // 业务异常和网络异常都会在这里捕获，错误信息已由响应拦截器处理
+            const errorMessage = error instanceof Error ? error.message : '连接测试失败'
             logger.error('测试连接失败:', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('连接测试失败')
+            uiMessage.error(errorMessage)
         } finally {
             setTestingConnections(prev => ({ ...prev, [id]: false }))
         }
@@ -311,33 +306,24 @@ const DatabaseConnection: React.FC = () => {
                     updateUser: 'current_user', // 这里应该从用户上下文获取
                 }
                 try {
-                    const result = await databaseConnectionService.updateDbConnection(
+                    // 业务异常已在响应拦截器中统一处理，如果执行到这里说明操作成功
+                    await databaseConnectionService.updateDbConnection(
                         editingConnection.id,
                         connectionData
                     )
+                    uiMessage.success('数据库连接已更新')
 
-                    if (result.code === 200) {
-                        // 更新本地状态
-                        setConnections(prev =>
-                            prev.map(conn =>
-                                conn.id === editingConnection.id ? { ...conn, ...values } : conn
-                            )
-                        )
-                        uiMessage.success('数据库连接已更新')
-
-                        // 重新获取列表以确保数据同步
-                        await fetchDbConnections(pagination.current, pagination.pageSize)
-                    } else {
-                        uiMessage.error(result.message || '更新数据库连接失败')
-                    }
+                    // 重新获取列表以确保数据同步
+                    await fetchDbConnections(pagination.current, pagination.pageSize)
                 } catch (apiError) {
+                    // 业务异常和网络异常都会在这里捕获，错误信息已由响应拦截器处理
+                    const errorMessage =
+                        apiError instanceof Error ? apiError.message : '更新数据库连接失败'
                     logger.error(
                         'API调用失败:',
                         apiError instanceof Error ? apiError : new Error(String(apiError))
                     )
-                    uiMessage.error(
-                        apiError instanceof Error ? apiError.message : '更新数据库连接失败'
-                    )
+                    uiMessage.error(errorMessage)
                 }
             } else {
                 // 新增模式 - 调用 addDbConnection 接口
@@ -355,24 +341,21 @@ const DatabaseConnection: React.FC = () => {
                 }
 
                 try {
-                    const result = await databaseConnectionService.addDbConnection(connectionData)
+                    // 业务异常已在响应拦截器中统一处理，如果执行到这里说明操作成功
+                    await databaseConnectionService.addDbConnection(connectionData)
+                    uiMessage.success('数据库连接已成功添加')
 
-                    if (result.code === 200) {
-                        uiMessage.success('数据库连接已成功添加')
-
-                        // 重新获取列表以确保数据同步
-                        await fetchDbConnections(pagination.current, pagination.pageSize)
-                    } else {
-                        uiMessage.error(result.message || '添加数据库连接失败')
-                    }
+                    // 重新获取列表以确保数据同步
+                    await fetchDbConnections(pagination.current, pagination.pageSize)
                 } catch (apiError) {
+                    // 业务异常和网络异常都会在这里捕获，错误信息已由响应拦截器处理
+                    const errorMessage =
+                        apiError instanceof Error ? apiError.message : '添加数据库连接失败'
                     logger.error(
                         'API调用失败:',
                         apiError instanceof Error ? apiError : new Error(String(apiError))
                     )
-                    uiMessage.error(
-                        apiError instanceof Error ? apiError.message : '添加数据库连接失败'
-                    )
+                    uiMessage.error(errorMessage)
                 }
             }
 

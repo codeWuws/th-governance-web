@@ -16,12 +16,13 @@ interface UserFormProps {
     roles: Role[]
     onSubmit: (values: UserFormData) => void
     onCancel: () => void
+    loading?: boolean
 }
 
 /**
  * 用户表单组件
  */
-const UserForm: React.FC<UserFormProps> = ({ initialValues, roles, onSubmit, onCancel }) => {
+const UserForm: React.FC<UserFormProps> = ({ initialValues, roles, onSubmit, onCancel, loading = false }) => {
     const [form] = Form.useForm()
 
     /**
@@ -273,8 +274,8 @@ const UserForm: React.FC<UserFormProps> = ({ initialValues, roles, onSubmit, onC
             {/* 操作按钮 */}
             <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
                 <Space>
-                    <Button onClick={onCancel}>取消</Button>
-                    <Button type='primary' onClick={handleSubmit}>
+                    <Button onClick={onCancel} disabled={loading}>取消</Button>
+                    <Button type='primary' onClick={handleSubmit} loading={loading}>
                         {initialValues ? '更新' : '创建'}
                     </Button>
                 </Space>

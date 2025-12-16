@@ -189,8 +189,9 @@ export const fetchWorkflowConfig = createAsyncThunk(
     'dataGovernance/fetchWorkflowConfig',
     async (_, { rejectWithValue }) => {
         try {
-            const response = await workflowService.getWorkflowConfig()
-            return response.data
+            // 响应拦截器已处理业务异常，直接返回data字段（WorkflowNode[]）
+            const response = await workflowService.getWorkflowConfig();
+            return response
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : '获取工作流配置失败'
             return rejectWithValue(errorMessage)

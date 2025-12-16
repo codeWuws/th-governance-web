@@ -44,14 +44,11 @@ const Dashboard: React.FC = () => {
     const fetchDashboardStatistics = useCallback(async () => {
         try {
             setLoadingStats(true)
+            // 业务异常已在响应拦截器中统一处理，如果执行到这里说明操作成功
             const response = await DashboardService.getDashboardStatistics()
-            
-            if (response.code === 200) {
-                setDashboardStats(response.data)
-            } else {
-                logger.warn('获取仪表盘统计数据失败', response.msg)
-            }
+            setDashboardStats(response)
         } catch (error) {
+            // 业务异常和网络异常都会在这里捕获，错误信息已由响应拦截器处理
             logger.error('获取仪表盘统计数据失败', error as Error)
         } finally {
             setLoadingStats(false)
@@ -65,16 +62,12 @@ const Dashboard: React.FC = () => {
             await mockApiDelay(500)
             
             try {
+                // 业务异常已在响应拦截器中统一处理，如果执行到这里说明操作成功
                 const response = await DashboardService.getExecutionLogPage({
                     pageNo: 1,
                     pageSize: 5,
                 })
-                
-                if (response.code === 200) {
-                    setRecentRecords(response.data.list)
-                } else {
-                    throw new Error(response.msg || '接口返回错误')
-                }
+                setRecentRecords(response.list)
             } catch (apiError) {
                 logger.warn('接口调用失败，使用模拟数据', apiError)
                 const mockResponse = getMockExecutionHistoryResponse(10, 1, 5)

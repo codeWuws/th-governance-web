@@ -62,17 +62,30 @@ const PermissionSettings: React.FC = () => {
     const treeData = useMemo(() => toTreeData(menuItems as any), [])
     const allLeafKeys = useMemo(() => collectLeafKeys(treeData), [treeData])
 
+    // 根据实际菜单结构定义权限分组
+    // 分组定义与 Sidebar 中的菜单结构保持一致
     const groupDefs = useMemo(
         () => [
             {
                 key: '数据治理',
                 prefixes: ['/dashboard', '/database-connection', '/data-governance'],
+                description: '包含仪表盘、数据源管理、工作流配置和执行历史',
             },
-            { key: '数据质控', prefixes: ['/data-quality-control'] },
-            { key: '数据管理', prefixes: ['/data-management'] },
-            { key: '数据解析', prefixes: ['/data-parsing'] },
-            { key: '数据检索', prefixes: ['/data-retrieval'] },
-            { key: '系统设置', prefixes: ['/system-settings'] },
+            {
+                key: '数据质控',
+                prefixes: ['/data-quality-control'],
+                description: '包含质控流程管理、执行历史和综合质控管理',
+            },
+            {
+                key: '数据管理',
+                prefixes: ['/data-management'],
+                description: '包含数据资产管理、标准数据集管理、主索引管理等',
+            },
+            {
+                key: '系统设置',
+                prefixes: ['/system-settings'],
+                description: '包含用户管理、角色管理和权限管理',
+            },
         ],
         []
     )

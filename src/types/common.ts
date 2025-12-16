@@ -28,7 +28,7 @@ export interface PageResponse<T> {
  */
 export interface ApiResponse<T = any> {
     code: number
-    message: string
+    msg: string
     data: T
     success: boolean
 }

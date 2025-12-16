@@ -3561,6 +3561,7 @@ const DataAssetManagement: React.FC = () => {
     const [viewMode, setViewMode] = useState<ViewMode>('empty')
     const [selectedCategory, setSelectedCategory] = useState<AssetCategory | null>(null)
     const [selectedTable, setSelectedTable] = useState<TableInfo | null>(null)
+    const [saving, setSaving] = useState(false)
 
     const debouncedSearchText = useDebounce(searchText, 300)
 
@@ -3745,6 +3746,10 @@ const DataAssetManagement: React.FC = () => {
                 return
             }
             
+            setSaving(true)
+            // 模拟异步操作
+            await new Promise(resolve => setTimeout(resolve, 300))
+            
             if (editingAsset) {
                 // 编辑模式
                 const updatedDataSource: DataSource = {
@@ -3774,6 +3779,8 @@ const DataAssetManagement: React.FC = () => {
             form.resetFields()
         } catch (error) {
             console.error('操作失败:', error)
+        } finally {
+            setSaving(false)
         }
     }
 
@@ -3804,6 +3811,10 @@ const DataAssetManagement: React.FC = () => {
                 message.error('请至少选择一个表')
                 return
             }
+
+            setSaving(true)
+            // 模拟异步操作
+            await new Promise(resolve => setTimeout(resolve, 300))
 
             if (editingCategory) {
                 // 编辑模式
@@ -3847,6 +3858,8 @@ const DataAssetManagement: React.FC = () => {
             if (error && typeof error === 'object' && 'errorFields' in error) {
                 message.error('请检查表单填写是否正确')
             }
+        } finally {
+            setSaving(false)
         }
     }
 
@@ -4509,6 +4522,7 @@ const DataAssetManagement: React.FC = () => {
                     setEditingAsset(null)
                     form.resetFields()
                 }}
+                confirmLoading={saving}
                 width={600}
             >
                 <Form form={form} layout='vertical'>
@@ -4566,6 +4580,7 @@ const DataAssetManagement: React.FC = () => {
                     setSelectedDatabase('')
                     categoryForm.resetFields()
                 }}
+                confirmLoading={saving}
                 width={700}
             >
                 <Form form={categoryForm} layout='vertical'>

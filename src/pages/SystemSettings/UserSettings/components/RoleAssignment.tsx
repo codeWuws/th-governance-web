@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react'
-import { Transfer, Alert, Space, Typography } from 'antd'
+import { Transfer, Alert, Space, Typography, Button } from 'antd'
 import { RBACUser, Role } from '@/types/rbac'
 import { useSystemSettings } from '@/store/hooks'
 
@@ -15,6 +15,7 @@ interface RoleAssignmentProps {
     allRoles: Role[]
     onSubmit: (roleIds: string[]) => void
     onCancel: () => void
+    loading?: boolean
 }
 
 interface TransferItem {
@@ -27,7 +28,7 @@ interface TransferItem {
 /**
  * 角色分配组件
  */
-const RoleAssignment: React.FC<RoleAssignmentProps> = ({ user, allRoles, onSubmit, onCancel }) => {
+const RoleAssignment: React.FC<RoleAssignmentProps> = ({ user, allRoles, onSubmit, onCancel, loading = false }) => {
     const { getUserRoles, setUserRoles } = useSystemSettings()
     const [targetKeys, setTargetKeys] = useState<string[]>([])
     const [selectedKeys, setSelectedKeys] = useState<string[]>([])
@@ -138,12 +139,10 @@ const RoleAssignment: React.FC<RoleAssignmentProps> = ({ user, allRoles, onSubmi
             {/* 操作按钮 */}
             <div style={{ textAlign: 'right', marginTop: 16 }}>
                 <Space>
-                    <button className='ant-btn' onClick={handleCancel}>
-                        取消
-                    </button>
-                    <button className='ant-btn ant-btn-primary' onClick={handleSubmit}>
+                    <Button onClick={handleCancel} disabled={loading}>取消</Button>
+                    <Button type='primary' onClick={handleSubmit} loading={loading}>
                         确认分配
-                    </button>
+                    </Button>
                 </Space>
             </div>
         </div>

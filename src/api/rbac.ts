@@ -144,6 +144,20 @@ export const roleApi = {
     batchOperation: (params: BatchOperationParams) => {
         return request.post<ApiResponse<void>>('/api/roles/batch-operation', params)
     },
+
+    /**
+     * 获取角色权限列表
+     */
+    getRolePermissions: (id: string) => {
+        return request.get<ApiResponse<string[]>>(`/api/roles/${id}/permissions`)
+    },
+
+    /**
+     * 更新角色权限
+     */
+    updateRolePermissions: (id: string, permissions: string[]) => {
+        return request.put<ApiResponse<string[]>>(`/api/roles/${id}/permissions`, { permissions })
+    },
 }
 
 /**

@@ -173,22 +173,21 @@ const WorkflowConfig: React.FC = () => {
         try {
             setLoadingDataSources(true)
             // 获取所有数据源，使用较大的 pageSize 来获取全部数据
+            // 业务异常已在响应拦截器中统一处理，如果执行到这里说明操作成功
             const result = await databaseConnectionService.getDbConnectionPage({
                 pageNo: 1,
                 pageSize: 1000, // 假设不超过1000个数据源
             })
 
-            if (result.code === 200) {
-                setDataSourceList(result.data.list || [])
-            } else {
-                uiMessage.error(result.msg || '获取数据源列表失败')
-            }
+            setDataSourceList(result.list || [])
         } catch (error) {
+            // 业务异常和网络异常都会在这里捕获，错误信息已由响应拦截器处理
+            const errorMessage = error instanceof Error ? error.message : '获取数据源列表失败'
             logger.error(
                 '获取数据源列表失败:',
                 error instanceof Error ? error : new Error(String(error))
             )
-            uiMessage.error('获取数据源列表失败')
+            uiMessage.error(errorMessage)
         } finally {
             setLoadingDataSources(false)
         }

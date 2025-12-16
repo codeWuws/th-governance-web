@@ -9,13 +9,14 @@ interface RoleFormProps {
     initialValues?: Role
     onSubmit: (values: RoleFormData) => Promise<void>
     onCancel: () => void
+    loading?: boolean
 }
 
 /**
  * 角色表单组件
  * 用于创建和编辑角色信息
  */
-const RoleForm: React.FC<RoleFormProps> = ({ initialValues, onSubmit, onCancel }) => {
+const RoleForm: React.FC<RoleFormProps> = ({ initialValues, onSubmit, onCancel, loading = false }) => {
     const [form] = Form.useForm()
 
     // 表单提交处理
@@ -113,8 +114,8 @@ const RoleForm: React.FC<RoleFormProps> = ({ initialValues, onSubmit, onCancel }
 
             <Form.Item {...tailFormItemLayout}>
                 <Space>
-                    <Button onClick={onCancel}>取消</Button>
-                    <Button type='primary' htmlType='submit'>
+                    <Button onClick={onCancel} disabled={loading}>取消</Button>
+                    <Button type='primary' htmlType='submit' loading={loading}>
                         {initialValues ? '更新' : '创建'}
                     </Button>
                 </Space>

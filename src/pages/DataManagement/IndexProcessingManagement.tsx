@@ -106,7 +106,7 @@ const MergeHistoryDialog: React.FC = () => {
                     total: data.total,
                 })
             } else {
-                const errorMsg = (response as any).msg || (response as any).message || '获取合并历史记录失败'
+                const errorMsg = (response as any).msg || '获取合并历史记录失败'
                 uiMessage.error(errorMsg)
                 logger.error('获取合并历史记录失败', new Error(errorMsg))
             }
@@ -1141,8 +1141,7 @@ const IndexProcessingManagement: React.FC = () => {
                     // 刷新数据以获取最新状态
                     await fetchData()
                 } else {
-                    // 兼容 msg 和 message 字段
-                    const errorMsg = (response as any).msg || (response as any).message || '合并失败，请稍后重试'
+                    const errorMsg = (response as any).msg || '合并失败，请稍后重试'
                     message.error(errorMsg)
                     logger.error('合并患者失败', new Error(errorMsg))
                     throw new Error(errorMsg)

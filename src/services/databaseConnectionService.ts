@@ -3,7 +3,7 @@
  * 提供数据库连接配置管理相关的API接口
  */
 
-import type { ApiResponse, DbConnectionPageParams, DbConnectionPageResponse } from '@/types'
+import type { ApiResponse, DbConnectionPageParams, DbConnectionPageData } from '@/types'
 import { api } from '@/utils/request'
 import { logger } from '@/utils/logger'
 
@@ -29,36 +29,24 @@ export class DatabaseConnectionService {
         remark: string
         createUser: string
     }): Promise<ApiResponse<{ id: string }>> {
-        try {
-            return await api.post<ApiResponse<{ id: string }>>(
-                '/data/governance/db-connection',
-                connection
-            )
-        } catch (error) {
-            throw new Error(
-                `新增数据库连接失败: ${error instanceof Error ? error.message : '未知错误'}`
-            )
-        }
+        return await api.post<ApiResponse<{ id: string }>>(
+            '/data/governance/db-connection',
+            connection
+        )
     }
 
     /**
      * 分页查询数据库连接配置列表
      * @description 根据条件分页查询数据库连接信息
      * @param params 查询参数 { pageNo, pageSize, dbType?, dbStatus? }
-     * @returns Promise<DbConnectionPageResponse>
+     * @returns Promise<DbConnectionPageData> 响应拦截器已处理业务异常，直接返回data字段
      */
     static async getDbConnectionPage(
         params: DbConnectionPageParams
-    ): Promise<DbConnectionPageResponse> {
-        try {
-            return await api.get<DbConnectionPageResponse>('/data/governance/db-connection/page', {
-                params,
-            })
-        } catch (error) {
-            throw new Error(
-                `获取数据库连接列表失败: ${error instanceof Error ? error.message : '未知错误'}`
-            )
-        }
+    ): Promise<DbConnectionPageData> {
+        return await api.get<DbConnectionPageData>('/data/governance/db-connection/page', {
+            params,
+        })
     }
 
     /**
@@ -68,15 +56,9 @@ export class DatabaseConnectionService {
      * @returns Promise<ApiResponse<boolean>>
      */
     static async deleteDbConnection(id: string, updateUser: string): Promise<ApiResponse<boolean>> {
-        try {
-            return await api.delete<ApiResponse<boolean>>(`/data/governance/db-connection/${id}`, {
-                params: { updateUser },
-            })
-        } catch (error) {
-            throw new Error(
-                `删除数据库连接失败: ${error instanceof Error ? error.message : '未知错误'}`
-            )
-        }
+        return await api.delete<ApiResponse<boolean>>(`/data/governance/db-connection/${id}`, {
+            params: { updateUser },
+        })
     }
 
     /**
@@ -99,16 +81,10 @@ export class DatabaseConnectionService {
             updateUser: string
         }
     ): Promise<ApiResponse<boolean>> {
-        try {
-            return await api.put<ApiResponse<boolean>>(
-                `/data/governance/db-connection/${id}`,
-                connection
-            )
-        } catch (error) {
-            throw new Error(
-                `更新数据库连接失败: ${error instanceof Error ? error.message : '未知错误'}`
-            )
-        }
+        return await api.put<ApiResponse<boolean>>(
+            `/data/governance/db-connection/${id}`,
+            connection
+        )
     }
 
     /**
@@ -119,15 +95,9 @@ export class DatabaseConnectionService {
     static async testDbConnection(
         id: string
     ): Promise<ApiResponse<{ status: 'success' | 'failed'; message: string }>> {
-        try {
-            return await api.post<ApiResponse<{ status: 'success' | 'failed'; message: string }>>(
-                `/data/governance/db-connection/mock-test/${id}`
-            )
-        } catch (error) {
-            throw new Error(
-                `测试数据库连接失败: ${error instanceof Error ? error.message : '未知错误'}`
-            )
-        }
+        return await api.post<ApiResponse<{ status: 'success' | 'failed'; message: string }>>(
+            `/data/governance/db-connection/mock-test/${id}`
+        )
     }
 }
 

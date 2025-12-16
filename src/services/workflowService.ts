@@ -6,12 +6,13 @@
 import type {
     ApiResponse,
     ExecutionLogPageParams,
-    ExecutionLogPageResponse,
+    ExecutionLogPageData,
     WorkflowConfigResponse,
     WorkflowConfigUpdateItem,
     WorkflowConfigUpdateResponse,
     WorkflowDetailResponse,
     WorkflowLogDetailResponse,
+    WorkflowNode,
 } from '@/types'
 import { api } from '@/utils/request'
 import { logger } from '@/utils/logger'
@@ -24,16 +25,10 @@ export class WorkflowService {
     /**
      * 获取工作流配置列表
      * @description 获取所有工作流步骤的配置信息
-     * @returns Promise<WorkflowConfigResponse>
+     * @returns Promise<WorkflowNode[]> 响应拦截器已处理业务异常，直接返回data字段
      */
-    static async getWorkflowConfig(): Promise<WorkflowConfigResponse> {
-        try {
-            return await api.get<WorkflowConfigResponse>('/data/governance/task/config/list')
-        } catch (error) {
-            throw new Error(
-                `获取工作流配置失败: ${error instanceof Error ? error.message : '未知错误'}`
-            )
-        }
+    static async getWorkflowConfig(): Promise<WorkflowNode[]> {
+        return await api.get<WorkflowNode[]>('/data/governance/task/config/list')
     }
 
     /**
@@ -45,16 +40,10 @@ export class WorkflowService {
     static async updateWorkflowConfig(
         configs: WorkflowConfigUpdateItem[]
     ): Promise<WorkflowConfigUpdateResponse> {
-        try {
-            return await api.post<WorkflowConfigUpdateResponse>(
-                '/data/governance/task/config/update',
-                configs
-            )
-        } catch (error) {
-            throw new Error(
-                `更新工作流配置失败: ${error instanceof Error ? error.message : '未知错误'}`
-            )
-        }
+        return await api.post<WorkflowConfigUpdateResponse>(
+            '/data/governance/task/config/update',
+            configs
+        )
     }
 
     /**
@@ -89,35 +78,23 @@ export class WorkflowService {
      * @returns Promise<WorkflowLogDetailResponse>
      */
     static async getLogDetail(logId: string): Promise<WorkflowLogDetailResponse> {
-        try {
-            if (!logId) {
-                throw new Error('日志ID不能为空')
-            }
-            return await api.get<WorkflowLogDetailResponse>(`/data/governance/task/log/${logId}`)
-        } catch (error) {
-            throw new Error(
-                `获取日志详情失败: ${error instanceof Error ? error.message : '未知错误'}`
-            )
+        if (!logId) {
+            throw new Error('日志ID不能为空')
         }
+        return await api.get<WorkflowLogDetailResponse>(`/data/governance/task/log/${logId}`)
     }
 
     /**
      * 获取执行历史日志分页列表
      * @param params 分页参数 { pageNo, pageSize }
-     * @returns 执行历史日志分页数据
+     * @returns 执行历史日志分页数据 响应拦截器已处理业务异常，直接返回data字段
      */
     static async getExecutionLogPage(
         params: ExecutionLogPageParams
-    ): Promise<ExecutionLogPageResponse> {
-        try {
-            return await api.get<ExecutionLogPageResponse>('/data/governance/task/log/page', {
-                params,
-            })
-        } catch (error) {
-            throw new Error(
-                `获取日志列表失败: ${error instanceof Error ? error.message : '未知错误'}`
-            )
-        }
+    ): Promise<ExecutionLogPageData> {
+        return await api.get<ExecutionLogPageData>('/data/governance/task/log/page', {
+            params,
+        })
     }
 
     /**
@@ -141,25 +118,19 @@ export class WorkflowService {
             pages: number
         }>
     > {
-        try {
-            return await api.post<
-                ApiResponse<{
-                    records: Array<Record<string, unknown>>
-                    total: number
-                    size: number
-                    current: number
-                    pages: number
-                }>
-            >('/data/governance/task/logs/cleaning/page', {
-                batchId: Number(batchId),
-                pageNum,
-                pageSize,
-            })
-        } catch (error) {
-            throw new Error(
-                `获取数据清洗结果失败: ${error instanceof Error ? error.message : '未知错误'}`
-            )
-        }
+        return await api.post<
+            ApiResponse<{
+                records: Array<Record<string, unknown>>
+                total: number
+                size: number
+                current: number
+                pages: number
+            }>
+        >('/data/governance/task/logs/cleaning/page', {
+            batchId: Number(batchId),
+            pageNum,
+            pageSize,
+        })
     }
 
     /**
@@ -189,31 +160,25 @@ export class WorkflowService {
             pages: number
         }>
     > {
-        try {
-            return await api.post<
-                ApiResponse<{
-                    records: Array<{
-                        id: number
-                        batchId: number
-                        ids: string
-                        tableName: string
-                        columnName: string
-                    }>
-                    total: number
-                    size: number
-                    current: number
-                    pages: number
+        return await api.post<
+            ApiResponse<{
+                records: Array<{
+                    id: number
+                    batchId: number
+                    ids: string
+                    tableName: string
+                    columnName: string
                 }>
-            >('/data/governance/task/logs/deduplicate/page', {
-                batchId: Number(batchId),
-                pageNum,
-                pageSize,
-            })
-        } catch (error) {
-            throw new Error(
-                `获取去重步骤结果失败: ${error instanceof Error ? error.message : '未知错误'}`
-            )
-        }
+                total: number
+                size: number
+                current: number
+                pages: number
+            }>
+        >('/data/governance/task/logs/deduplicate/page', {
+            batchId: Number(batchId),
+            pageNum,
+            pageSize,
+        })
     }
 
     /**
@@ -237,25 +202,19 @@ export class WorkflowService {
             pages: number
         }>
     > {
-        try {
-            return await api.post<
-                ApiResponse<{
-                    records: Array<Record<string, unknown>>
-                    total: number
-                    size: number
-                    current: number
-                    pages: number
-                }>
-            >('/data/governance/task/logs/orphan/page', {
-                batchId: Number(batchId),
-                pageNum,
-                pageSize,
-            })
-        } catch (error) {
-            throw new Error(
-                `获取丢孤儿步骤结果失败: ${error instanceof Error ? error.message : '未知错误'}`
-            )
-        }
+        return await api.post<
+            ApiResponse<{
+                records: Array<Record<string, unknown>>
+                total: number
+                size: number
+                current: number
+                pages: number
+            }>
+        >('/data/governance/task/logs/orphan/page', {
+            batchId: Number(batchId),
+            pageNum,
+            pageSize,
+        })
     }
 
     /**
@@ -279,25 +238,19 @@ export class WorkflowService {
             pages: number
         }>
     > {
-        try {
-            return await api.post<
-                ApiResponse<{
-                    records: Array<Record<string, unknown>>
-                    total: number
-                    size: number
-                    current: number
-                    pages: number
-                }>
-            >('/data/governance/task/logs/sensitive/page', {
-                batchId: Number(batchId),
-                pageNum,
-                pageSize,
-            })
-        } catch (error) {
-            throw new Error(
-                `获取数据脱敏步骤结果失败: ${error instanceof Error ? error.message : '未知错误'}`
-            )
-        }
+        return await api.post<
+            ApiResponse<{
+                records: Array<Record<string, unknown>>
+                total: number
+                size: number
+                current: number
+                pages: number
+            }>
+        >('/data/governance/task/logs/sensitive/page', {
+            batchId: Number(batchId),
+            pageNum,
+            pageSize,
+        })
     }
 
     /**
@@ -307,16 +260,10 @@ export class WorkflowService {
      * @returns Promise<ApiResponse<null>>
      */
     static async syncTaskData(taskId: string): Promise<ApiResponse<null>> {
-        try {
-            if (!taskId) {
-                throw new Error('任务ID不能为空')
-            }
-            return await api.post<ApiResponse<null>>(`/data/governance/task/data/sync/${taskId}`)
-        } catch (error) {
-            throw new Error(
-                `数据录入失败: ${error instanceof Error ? error.message : '未知错误'}`
-            )
+        if (!taskId) {
+            throw new Error('任务ID不能为空')
         }
+        return await api.post<ApiResponse<null>>(`/data/governance/task/data/sync/${taskId}`)
     }
 }
 

@@ -61,6 +61,9 @@ const RoleSettings: React.FC = () => {
     // 状态管理
     const [roles, setRoles] = useState<Role[]>([])
     const [loading, setLoading] = useState(false)
+    const [saving, setSaving] = useState(false)
+    const [deleting, setDeleting] = useState<string | null>(null)
+    const [toggling, setToggling] = useState<string | null>(null)
     const [total, setTotal] = useState(0)
 
     const [stats, setStats] = useState({
@@ -183,6 +186,7 @@ const RoleSettings: React.FC = () => {
      */
     const handleStatusToggle = async (role: Role) => {
         try {
+            setToggling(role.id)
             const newStatus = role.status === 'active' ? 'disabled' : 'active'
             const response = await mockApi.role.updateRole(role.id, { status: newStatus })
             if (response.data.success) {
@@ -192,6 +196,8 @@ const RoleSettings: React.FC = () => {
         } catch (error) {
             message.error('状态更新失败')
             console.error('Update status error:', error)
+        } finally {
+            setToggling(null)
         }
     }
 
@@ -200,6 +206,7 @@ const RoleSettings: React.FC = () => {
      */
     const handleDelete = async (role: Role) => {
         try {
+            setDeleting(role.id)
             const response = await mockApi.role.deleteRole(role.id)
             if (response.data.success) {
                 message.success('删除角色成功')
@@ -208,6 +215,8 @@ const RoleSettings: React.FC = () => {
         } catch (error) {
             message.error('删除角色失败')
             console.error('Delete role error:', error)
+        } finally {
+            setDeleting(null)
         }
     }
 
@@ -216,6 +225,7 @@ const RoleSettings: React.FC = () => {
      */
     const handleFormSubmit = async (values: RoleFormData) => {
         try {
+            setSaving(true)
             let response
             if (editingRole) {
                 // 编辑角色
@@ -233,6 +243,8 @@ const RoleSettings: React.FC = () => {
         } catch (error) {
             message.error(editingRole ? '更新角色失败' : '创建角色失败')
             console.error('Submit role error:', error)
+        } finally {
+            setSaving(false)
         }
     }
 
@@ -318,6 +330,8 @@ const RoleSettings: React.FC = () => {
                         <Switch
                             checked={record.status === 'active'}
                             onChange={() => handleStatusToggle(record)}
+                            loading={toggling === record.id}
+                            disabled={toggling === record.id}
                         />
                     </Tooltip>
                     <Popconfirm
@@ -327,7 +341,13 @@ const RoleSettings: React.FC = () => {
                         cancelText='取消'
                     >
                         <Tooltip title='删除'>
-                            <Button type='text' danger icon={<DeleteOutlined />} />
+                            <Button 
+                                type='text' 
+                                danger 
+                                icon={<DeleteOutlined />} 
+                                loading={deleting === record.id}
+                                disabled={deleting === record.id}
+                            />
                         </Tooltip>
                     </Popconfirm>
                 </Space>
@@ -430,6 +450,7 @@ const RoleSettings: React.FC = () => {
                     initialValues={editingRole || undefined}
                     onSubmit={handleFormSubmit}
                     onCancel={() => setModalVisible(false)}
+                    loading={saving}
                 />
             </Modal>
 
