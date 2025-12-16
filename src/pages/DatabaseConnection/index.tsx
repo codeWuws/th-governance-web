@@ -24,7 +24,7 @@ import {
     Typography,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { logger } from '@/utils/logger'
 import uiMessage from '@/utils/uiMessage'
 
@@ -54,6 +54,40 @@ const DatabaseConnection: React.FC = () => {
         total: 0,
     })
     const [form] = Form.useForm()
+    const tableContainerRef = useRef<HTMLDivElement>(null)
+    const [tableHeight, setTableHeight] = useState<number>(560)
+
+    // 计算表格高度
+    useEffect(() => {
+        const calculateTableHeight = () => {
+            if (tableContainerRef.current) {
+                const container = tableContainerRef.current
+                const rect = container.getBoundingClientRect()
+                // 计算可用高度：视口高度 - 容器距离顶部距离 - 底部边距
+                // 减去统计卡片高度(约120px) - 标题高度(约60px) - Card padding(约48px) - 分页器高度(约64px) - 额外边距(约40px)
+                const availableHeight = window.innerHeight - rect.top - 332
+                // 设置最小高度为400px，最大高度为800px
+                const height = Math.max(400, Math.min(800, availableHeight))
+                setTableHeight(height)
+            }
+        }
+
+        // 使用 requestAnimationFrame 确保 DOM 已经渲染
+        const rafId = requestAnimationFrame(() => {
+            calculateTableHeight()
+        })
+
+        // 监听窗口大小变化
+        const handleResize = () => {
+            calculateTableHeight()
+        }
+        window.addEventListener('resize', handleResize)
+
+        return () => {
+            cancelAnimationFrame(rafId)
+            window.removeEventListener('resize', handleResize)
+        }
+    }, [connections]) // 当数据变化时也重新计算
 
     // 获取数据库连接列表
     const fetchDbConnections = async (pageNo = 1, pageSize = 10) => {
@@ -65,7 +99,7 @@ const DatabaseConnection: React.FC = () => {
                 pageSize,
             })
 
-            // 直接使用API返回的数据，不再进行格式转换
+            // 使用转换后的数据格式（服务层已处理格式转换）
             setConnections(result.list || [])
             setPagination({
                 current: result.pageNo || pageNo,
@@ -73,16 +107,11 @@ const DatabaseConnection: React.FC = () => {
                 total: result.total || 0,
             })
 
-            // 计算状态统计
-            const totalConnections = result.list?.length || 0
-            const connectedCount =
-                result.list?.filter((conn: DbConnection) => conn.dbStatus === 1).length || 0
-            const abnormalCount = totalConnections - connectedCount
-
+            // 使用服务层返回的状态统计信息
             setStatusStats({
-                totalConnections,
-                connectedCount,
-                abnormalCount,
+                totalConnections: result.statusStats?.totalConnections || 0,
+                connectedCount: result.statusStats?.connectedCount || 0,
+                abnormalCount: result.statusStats?.abnormalCount || 0,
             })
         } catch (error) {
             // 业务异常和网络异常都会在这里捕获，错误信息已由响应拦截器处理
@@ -294,6 +323,7 @@ const DatabaseConnection: React.FC = () => {
             if (editingConnection) {
                 // 编辑模式 - 调用 updateDbConnection 接口
                 const connectionData = {
+                    id: editingConnection.id,
                     connectionName: values.connectionName,
                     dbType: values.type,
                     dbHost: values.host,
@@ -301,16 +331,12 @@ const DatabaseConnection: React.FC = () => {
                     dbName: values.database,
                     dbUsername: values.username,
                     dbPassword: values.password,
-                    dbStatus: 1, // 默认启用状态
+                    dbStatus: editingConnection.dbStatus || 0, // 保持原有状态，如果没有则默认为0
                     remark: values.remark || '',
-                    updateUser: 'current_user', // 这里应该从用户上下文获取
                 }
                 try {
                     // 业务异常已在响应拦截器中统一处理，如果执行到这里说明操作成功
-                    await databaseConnectionService.updateDbConnection(
-                        editingConnection.id,
-                        connectionData
-                    )
+                    await databaseConnectionService.updateDbConnection(connectionData)
                     uiMessage.success('数据库连接已更新')
 
                     // 重新获取列表以确保数据同步
@@ -335,9 +361,8 @@ const DatabaseConnection: React.FC = () => {
                     dbName: values.database,
                     dbUsername: values.username,
                     dbPassword: values.password,
-                    dbStatus: 1, // 默认启用状态
+                    dbStatus: 0, // 默认状态为0（未连接）
                     remark: values.remark || '',
-                    createUser: 'current_user', // 这里应该从用户上下文获取
                 }
 
                 try {
@@ -427,27 +452,30 @@ const DatabaseConnection: React.FC = () => {
                     </Button>
                 }
             >
-                <Table
-                    columns={columns}
-                    dataSource={connections}
-                    rowKey='id'
-                    loading={tableLoading}
-                    pagination={{
-                        current: pagination.current,
-                        pageSize: pagination.pageSize,
-                        total: pagination.total,
-                        showSizeChanger: true,
-                        showQuickJumper: true,
-                        showTotal: total => `共 ${total} 条记录`,
-                        onChange: (page, size) => {
-                            fetchDbConnections(page, size)
-                        },
-                        onShowSizeChange: (_current, size) => {
-                            fetchDbConnections(1, size)
-                        },
-                    }}
-                    scroll={{ x: 1200 }}
-                />
+                <div ref={tableContainerRef}>
+                    <Table
+                        columns={columns}
+                        dataSource={connections}
+                        rowKey='id'
+                        loading={tableLoading}
+                        pagination={{
+                            current: pagination.current,
+                            pageSize: pagination.pageSize,
+                            total: pagination.total,
+                            showSizeChanger: true,
+                            showQuickJumper: true,
+                            showTotal: total => `共 ${total} 条记录`,
+                            onChange: (page, size) => {
+                                fetchDbConnections(page, size)
+                            },
+                            onShowSizeChange: (_current, size) => {
+                                fetchDbConnections(1, size)
+                            },
+                        }}
+                        scroll={{ x: 1200, y: tableHeight }}
+                        size='middle'
+                    />
+                </div>
             </Card>
 
             {/* 新增/编辑连接弹窗 */}

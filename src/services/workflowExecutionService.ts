@@ -105,7 +105,7 @@ class WorkflowExecutionService {
                 url,
                 method: 'POST',
                 data: Object.keys(requestData).length > 0 ? requestData : undefined,
-                maxReconnectAttempts: 3,
+                maxReconnectAttempts: 1,
                 reconnectInterval: 5000,
                 onOpen: _event => {
                     // 工作流SSE连接已建立

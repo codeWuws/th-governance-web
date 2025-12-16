@@ -190,6 +190,8 @@ const WorkflowDetail: React.FC = () => {
             const response: WorkflowLogDetailResponse =
                 await WorkflowService.getLogDetail(taskId)
 
+            console.log(response, '===>');
+            
             if (response.code === 200 && response.data) {
                 setLogDetailData(response.data)
                 logger.info('成功获取工作流日志详情', {

@@ -242,7 +242,6 @@ const WorkflowConfig: React.FC = () => {
                     uiMessage.success('工作流启动成功！')
                 },
                 onError: error => {
-                    uiMessage.error(`工作流启动失败: ${error}`)
                 },
                 onMessage: msg => {
                     logger.debug('收到工作流消息:', msg)

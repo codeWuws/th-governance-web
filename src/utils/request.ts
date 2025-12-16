@@ -22,6 +22,7 @@ export interface RequestConfig extends AxiosRequestConfig {
     skipErrorHandler?: boolean // 是否跳过全局错误处理
     showLoading?: boolean // 是否显示加载状态
     timeout?: number // 请求超时时间
+    returnDataOnly?: boolean // 是否只返回data字段，默认false返回完整响应对象（包含code、msg、data）
 }
 
 // API 响应数据结构
@@ -162,13 +163,16 @@ request.interceptors.response.use(
             throw new Error(errorMessage)
         }
 
-        // 业务状态码为200/0时，如果有data字段则返回data，否则返回整个响应对象
-        // 这样调用方就不需要再检查code了，业务异常已经统一抛出错误
-        if (responseData?.data !== undefined) {
+        // 默认返回完整响应对象（包含code、msg、data），保持向后兼容
+        // 调用方可以根据需要判断 code === 200 或直接使用 data 字段
+        
+        // 如果配置了只返回data字段，则提取data返回（用于简化调用方代码）
+        const requestConfig = config as InternalAxiosRequestConfig & RequestConfig
+        if (requestConfig.returnDataOnly && responseData?.data !== undefined) {
             return responseData.data as unknown as AxiosResponse
         }
 
-        // 如果没有data字段，返回整个响应对象（兼容某些特殊接口）
+        // 返回完整响应对象（包含code、msg、data）
         return data
     },
     (error: AxiosError) => {

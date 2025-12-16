@@ -18,7 +18,9 @@ export class DashboardService {
      * @returns Promise<DashboardStatistics> 响应拦截器已处理业务异常，直接返回data字段
      */
     static async getDashboardStatistics(): Promise<DashboardStatistics> {
-        return await api.get<DashboardStatistics>('/data/governance/dashboard/statistics')
+        return await api.get<DashboardStatistics>('/data/governance/dashboard/statistics', {
+            returnDataOnly: true,
+        })
     }
 
     /**
@@ -31,6 +33,7 @@ export class DashboardService {
     ): Promise<ExecutionLogPageData> {
         return await api.get<ExecutionLogPageData>('/data/governance/task/log/page', {
             params,
+            returnDataOnly: true,
         })
     }
 }

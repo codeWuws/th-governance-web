@@ -28,7 +28,9 @@ export class WorkflowService {
      * @returns Promise<WorkflowNode[]> 响应拦截器已处理业务异常，直接返回data字段
      */
     static async getWorkflowConfig(): Promise<WorkflowNode[]> {
-        return await api.get<WorkflowNode[]>('/data/governance/task/config/list')
+        return await api.get<WorkflowNode[]>('/data/governance/task/config/list', {
+            returnDataOnly: true,
+        })
     }
 
     /**
@@ -94,6 +96,7 @@ export class WorkflowService {
     ): Promise<ExecutionLogPageData> {
         return await api.get<ExecutionLogPageData>('/data/governance/task/log/page', {
             params,
+            returnDataOnly: true,
         })
     }
 

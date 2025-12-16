@@ -354,16 +354,43 @@ export interface DbConnection {
 }
 
 export interface DbConnectionPageParams {
-    pageNo: number
+    /** 页码，前端使用 pageNo，后端需要转换为 pageNum */
+    pageNo?: number
+    /** 每页数量 */
     pageSize: number
+    /** 关键字段模糊查询 */
+    condition?: string
+    /** 排序字段 */
+    sortField?: string
+    /** 排序顺序：asc | desc */
+    sortOrder?: 'asc' | 'desc'
+    /** 连接名称 */
+    connectionName?: string
+    /** 数据库类型 */
     dbType?: string
+    /** 数据库状态 */
     dbStatus?: number
+    /** Schema名称 */
+    schemaName?: string
+    /** 表名 */
+    tableName?: string
 }
 
+/** 后端返回的原始数据结构 */
+export interface DbConnectionPageResponseRaw {
+    records: DbConnection[]
+    total: string
+    size: string
+    current: string
+    pages: string
+}
+
+/** 前端使用的数据结构（转换后） */
 export interface DbConnectionPageData {
     pageNo: number
     pageSize: number
     total: number
+    pages: number
     list: DbConnection[]
     statusStats: {
         abnormalCount: number
