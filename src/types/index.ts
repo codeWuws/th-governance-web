@@ -902,3 +902,211 @@ export interface PatientEmpiListResponse {
     /** 响应数据 */
     data: PatientEmpiListData
 }
+
+// ==================== 数据资产树相关类型定义 ====================
+
+/** 资产树节点 */
+export interface AssetTreeNode {
+    /** 节点ID */
+    id: string
+    /** 节点名称 */
+    name: string
+    /** 节点类型：0-数据源，1-资产类别 */
+    nodeType: 0 | 1
+    /** 状态：0-禁用，1-启用 */
+    status: 0 | 1
+    /** 数据库主机地址（仅数据源节点有值） */
+    dbHost: string | null
+    /** 数据库端口（仅数据源节点有值） */
+    dbPort: string | null
+    /** 数据库名称（仅数据源节点有值） */
+    dbName: string | null
+    /** 数据库类型（仅数据源节点有值） */
+    dbType: string | null
+    /** 数据库连接状态（仅数据源节点有值） */
+    dbStatus: number | null
+    /** 子节点列表 */
+    children: AssetTreeNode[]
+    /** 表名列表（仅资产类别节点有值） */
+    tables: string[]
+    /** 描述信息 */
+    description: string | null
+}
+
+/** 资产树查询参数 */
+export interface AssetTreeParams {
+    /** 名称（可选，用于模糊查询） */
+    name?: string
+}
+
+/** 资产树查询响应 */
+export interface AssetTreeResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 资产树数据 */
+    data: AssetTreeNode[]
+}
+
+/** 表信息 */
+export interface AssetTableInfo {
+    /** 表名 */
+    tableName: string
+    /** 数据库名 */
+    databaseName: string
+    /** 表注释 */
+    tableComment: string
+    /** 记录数 */
+    rowCount: string
+    /** 字段数 */
+    columnCount: number
+    /** 表类型 */
+    tableType: string
+    /** 存储引擎 */
+    storageEngine: string
+    /** 创建时间 */
+    createTime: string | null
+    /** 更新时间 */
+    updateTime: string | null
+}
+
+/** 表列表查询响应 */
+export interface AssetTableListResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 表列表数据 */
+    data: AssetTableInfo[]
+}
+
+/** 数据库选项 */
+export interface DatabaseOption {
+    /** 数据库ID */
+    id: string
+    /** 数据库名称 */
+    dbName: string
+    /** 数据库类型 */
+    dbType: string
+}
+
+/** 数据库选项列表响应 */
+export interface DatabaseOptionsResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 数据库选项列表 */
+    data: DatabaseOption[]
+}
+
+/** 字段详情信息 */
+export interface ColumnDetailInfo {
+    /** 字段名 */
+    columnName: string
+    /** 数据类型 */
+    dataType: string
+    /** 是否可为空：YES-可为空，NO-不可为空 */
+    isNullable: 'YES' | 'NO'
+    /** 默认值 */
+    columnDefault: string | null
+    /** 字段注释 */
+    columnComment: string
+}
+
+/** 字段详情响应数据 */
+export interface ColumnDetailsData {
+    /** 模式/数据库名 */
+    schema: string
+    /** 表大小 */
+    size: string
+    /** 字段列表 */
+    list: ColumnDetailInfo[]
+    /** 表名 */
+    tableName: string
+}
+
+/** 字段详情查询参数 */
+export interface ColumnDetailsParams {
+    /** 类别ID */
+    id: string
+    /** 表名 */
+    tableName: string
+}
+
+/** 字段详情查询响应 */
+export interface ColumnDetailsResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 字段详情数据 */
+    data: ColumnDetailsData
+}
+
+/** 新增资产请求参数 */
+export interface AddAssetRequest {
+    /** 库节点的父节点ID，0表示根节点 */
+    parentId: number
+    /** 资产名称 */
+    assetName: string
+    /** 节点类型，0表示库节点，1表示类别节点 */
+    nodeType: 0 | 1
+    /** 数据源ID，仅库节点使用 */
+    sourceId?: number | null
+    /** 连接状态，仅库节点使用，0为未连接，1为已连接 */
+    status?: 0 | 1
+    /** 排序字段 */
+    sort?: number
+    /** 表名列表，只有在节点类型为类别时才会使用，表节点多选（可为空） */
+    tableNames?: string[]
+    /** 描述信息 */
+    description?: string | null
+}
+
+/** 新增资产响应 */
+export interface AddAssetResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data?: unknown
+}
+
+/** 更新资产请求参数 */
+export interface UpdateAssetRequest {
+    /** 资产或类别ID */
+    id: number
+    /** 资产名称 */
+    assetName: string
+    /** 节点类型，0表示资产，1表示类别 */
+    nodeType: 0 | 1
+    /** 连接状态，仅资产节点使用，0为未连接，1为已连接 */
+    status?: 0 | 1
+    /** 数据源ID，仅资产节点使用 */
+    sourceId?: number | null
+    /** 排序字段 */
+    sort?: number
+    /** 描述信息 */
+    description?: string | null
+}
+
+/** 表信息（用于获取表信息接口） */
+export interface TableInfoItem {
+    /** 表名 */
+    tableName: string
+    /** 表注释 */
+    tableComment: string
+}
+
+/** 获取表信息响应 */
+export interface TableInfoResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 表信息列表 */
+    data: TableInfoItem[]
+}

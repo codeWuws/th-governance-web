@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
     Layout,
     Tree,
@@ -20,6 +20,7 @@ import {
     MenuProps,
     Tabs,
     Alert,
+    Spin,
 } from 'antd'
 import type { DataNode } from 'antd/es/tree'
 import {
@@ -37,6 +38,10 @@ import {
 } from '@ant-design/icons'
 import { useDebounce } from '../../hooks/useDebounce'
 import { showConfirm } from '../../utils/showConfirm'
+import { dataManagementService } from '../../services/dataManagementService'
+import { isDevVersion } from '../../utils/versionControl'
+import { logger } from '../../utils/logger'
+import type { AssetTreeNode, DatabaseOption, AddAssetRequest, UpdateAssetRequest, TableInfoItem } from '../../types'
 import styles from './DataAssetManagement.module.scss'
 
 const { Sider, Content } = Layout
@@ -54,6 +59,7 @@ interface DataSource {
     database: string
     status: 'connected' | 'disconnected'
     description?: string // 描述信息
+    dbStatus?: number | null // 数据库连接状态（0-未连接，1-已连接，2-连接中）
 }
 
 // 资产类别
@@ -3562,32 +3568,87 @@ const DataAssetManagement: React.FC = () => {
     const [selectedCategory, setSelectedCategory] = useState<AssetCategory | null>(null)
     const [selectedTable, setSelectedTable] = useState<TableInfo | null>(null)
     const [saving, setSaving] = useState(false)
+    const [loading, setLoading] = useState(false)
+    const [tableList, setTableList] = useState<Array<{
+        key: string
+        name: string
+        schema: string
+        comment: string
+        rowCount: string | number
+        fieldCount: number
+        createTime: string
+        updateTime: string | null
+        tableType: string
+        engine: string
+    }>>([])
+    const [contentLoading, setContentLoading] = useState(false) // 查看表和查看字段公用一个loading
+    const [databaseOptions, setDatabaseOptions] = useState<DatabaseOption[]>([])
+    const [databaseOptionsLoading, setDatabaseOptionsLoading] = useState(false)
+    const [tableInfoList, setTableInfoList] = useState<TableInfoItem[]>([])
+    const [tableInfoLoading, setTableInfoLoading] = useState(false)
+    const [columnDetailsData, setColumnDetailsData] = useState<{
+        schema: string
+        size: string
+        tableName: string
+        fields: Array<{
+            name: string
+            type: string
+            nullable: boolean
+            default: string | null
+            comment: string
+        }>
+    } | null>(null)
 
     const debouncedSearchText = useDebounce(searchText, 300)
 
     // 模拟数据：每个数据源下的数据库列表
-    const getDatabasesByDataSource = (dataSourceId: string): string[] => {
+    const getDatabasesByDataSource = useCallback((dataSourceId: string): string[] => {
         const dataSource = dataSources.find(ds => ds.id === dataSourceId)
         if (!dataSource) return []
         
         // 根据数据源返回可用的数据库列表
+        // 支持多种ID格式：'ds1', '1', '7' 等
         const databaseMap: Record<string, string[]> = {
             'ds1': ['hospital_his', 'hospital_emr', 'hospital_pacs', 'hospital_archive'],
+            '1': ['hospital_his', 'hospital_emr', 'hospital_pacs', 'hospital_archive'],
             'ds2': ['research_warehouse', 'research_archive', 'research_temp', 'research_analysis'],
+            '2': ['research_warehouse', 'research_archive', 'research_temp', 'research_analysis'],
             'ds3': ['emr_system', 'emr_backup', 'emr_archive'],
+            '3': ['emr_system', 'emr_backup', 'emr_archive'],
             'ds4': ['pacs_db', 'pacs_archive', 'pacs_backup'],
+            '4': ['pacs_db', 'pacs_archive', 'pacs_backup'],
             'ds5': ['lis_system', 'lis_backup', 'lis_archive'],
+            '5': ['lis_system', 'lis_backup', 'lis_archive'],
             'ds6': ['anesthesia_system', 'anesthesia_backup'],
+            '6': ['anesthesia_system', 'anesthesia_backup'],
             'ds7': ['pharmacy_system', 'pharmacy_backup', 'pharmacy_archive'],
+            '7': ['pharmacy_system', 'pharmacy_backup', 'pharmacy_archive'],
             'ds8': ['pathology_system', 'pathology_backup', 'pathology_archive'],
+            '8': ['pathology_system', 'pathology_backup', 'pathology_archive'],
             'ds9': ['blood_transfusion', 'blood_transfusion_backup'],
+            '9': ['blood_transfusion', 'blood_transfusion_backup'],
             'ds10': ['health_examination', 'health_examination_backup', 'health_examination_archive'],
+            '10': ['health_examination', 'health_examination_backup', 'health_examination_archive'],
             'ds11': ['finance_system', 'finance_backup', 'finance_archive'],
+            '11': ['finance_system', 'finance_backup', 'finance_archive'],
             'ds12': ['equipment_management', 'equipment_backup'],
+            '12': ['equipment_management', 'equipment_backup'],
         }
         
-        return databaseMap[dataSourceId] || [dataSource.database]
-    }
+        // 优先使用精确匹配，如果没有则尝试提取数字部分匹配
+        if (databaseMap[dataSourceId]) {
+            return databaseMap[dataSourceId]
+        }
+        
+        // 尝试提取数字部分进行匹配（处理 'ds1' -> '1' 的情况）
+        const numericId = dataSourceId.replace(/[^0-9]/g, '')
+        if (numericId && databaseMap[numericId]) {
+            return databaseMap[numericId]
+        }
+        
+        // 如果都没有匹配到，返回数据源的默认数据库
+        return dataSource.database ? [dataSource.database] : []
+    }, [dataSources])
 
     // 模拟数据：根据数据库获取表列表
     const getTablesByDatabase = (database: string): string[] => {
@@ -3600,17 +3661,377 @@ const DataAssetManagement: React.FC = () => {
     // 处理点击添加资产类别按钮/右键菜单
     const handleAddCategoryClick = useCallback((dataSource: DataSource) => {
         // 直接打开表单弹窗
-        setSelectedDataSourceId(dataSource.id)
-        const databases = getDatabasesByDataSource(dataSource.id)
-        const defaultDatabase = databases.length > 0 ? databases[0] : dataSource.database
-        setSelectedDatabase(defaultDatabase || '')
+        // 处理数据源ID匹配：需要找到对应的 databaseOptions 中的 ID
+        let matchedDataSourceId = dataSource.id
+        if (isDevVersion() && databaseOptions.length > 0) {
+            // 开发版本：尝试在 databaseOptions 中匹配
+            const directMatch = databaseOptions.find(db => db.id === dataSource.id)
+            if (directMatch) {
+                matchedDataSourceId = directMatch.id
+            } else {
+                // 尝试提取数字部分进行匹配（处理 "ds1" -> "1" 的情况）
+                const numericId = dataSource.id.replace(/[^0-9]/g, '')
+                if (numericId) {
+                    const numericMatch = databaseOptions.find(db => db.id === numericId)
+                    if (numericMatch) {
+                        matchedDataSourceId = numericMatch.id
+                    }
+                }
+            }
+        }
+        
         categoryForm.setFieldsValue({
-            dataSourceId: dataSource.id,
-            database: defaultDatabase || dataSource.database,
+            dataSourceId: matchedDataSourceId,
             tables: [],
         })
         setAddCategoryModalVisible(true)
-    }, [categoryForm, dataSources])
+    }, [categoryForm, dataSources, databaseOptions])
+
+    /**
+     * 将接口返回的资产树数据转换为页面需要的格式
+     * @param treeNodes 接口返回的资产树节点数组
+     * @returns 转换后的数据源和资产类别数组
+     */
+    const convertAssetTreeToPageData = useCallback((treeNodes: AssetTreeNode[]): {
+        dataSources: DataSource[]
+        categories: AssetCategory[]
+    } => {
+        const convertedDataSources: DataSource[] = []
+        const convertedCategories: AssetCategory[] = []
+
+        /**
+         * 递归处理资产类别节点
+         * @param categoryNode 资产类别节点
+         * @param dataSourceId 数据源ID
+         * @param categories 资产类别数组（用于收集结果）
+         */
+        const processCategoryNode = (
+            categoryNode: AssetTreeNode,
+            dataSourceId: string,
+            categories: AssetCategory[]
+        ) => {
+            // 节点类型为 1 表示资产类别
+            if (categoryNode.nodeType === 1) {
+                const category: AssetCategory = {
+                    id: categoryNode.id,
+                    name: categoryNode.name,
+                    dataSourceId: dataSourceId,
+                    database: categoryNode.dbName || '',
+                    tables: categoryNode.tables || [],
+                    description: categoryNode.description || '',
+                }
+                categories.push(category)
+
+                // 递归处理子节点（资产类别可能有嵌套的子类别）
+                if (categoryNode.children && categoryNode.children.length > 0) {
+                    categoryNode.children.forEach((childNode) => {
+                        processCategoryNode(childNode, dataSourceId, categories)
+                    })
+                }
+            }
+        }
+
+        treeNodes.forEach((node) => {
+            // 节点类型为 0 表示数据源
+            if (node.nodeType === 0) {
+                // 将数据库类型字符串转换为 DataSource 的 type 类型
+                const getDataSourceType = (dbType: string | null): 'mysql' | 'postgresql' | 'oracle' | 'sqlserver' => {
+                    if (!dbType) return 'mysql'
+                    const lowerType = dbType.toLowerCase()
+                    if (lowerType.includes('mysql')) return 'mysql'
+                    if (lowerType.includes('postgres')) return 'postgresql'
+                    if (lowerType.includes('oracle')) return 'oracle'
+                    if (lowerType.includes('sqlserver') || lowerType.includes('sql server')) return 'sqlserver'
+                    return 'mysql' // 默认值
+                }
+
+                // 将数据源节点转换为 DataSource 格式
+                const dataSource: DataSource = {
+                    id: node.id,
+                    name: node.name,
+                    type: getDataSourceType(node.dbType),
+                    host: node.dbHost || '',
+                    port: node.dbPort ? parseInt(node.dbPort, 10) : 3306,
+                    database: node.dbName || '',
+                    status: node.status === 1 ? 'connected' : 'disconnected',
+                    description: node.description || '',
+                    dbStatus: node.dbStatus,
+                }
+                convertedDataSources.push(dataSource)
+
+                // 处理子节点（资产类别，支持递归处理嵌套结构）
+                if (node.children && node.children.length > 0) {
+                    node.children.forEach((childNode) => {
+                        processCategoryNode(childNode, node.id, convertedCategories)
+                    })
+                }
+            }
+        })
+
+        return {
+            dataSources: convertedDataSources,
+            categories: convertedCategories,
+        }
+    }, [])
+
+    // 使用 ref 跟踪是否正在加载，防止重复调用
+    const isLoadingTree = useRef(false)
+
+    /**
+     * 加载资产树数据（仅在开发版本中调用）
+     */
+    const loadAssetTree = useCallback(async (searchName?: string) => {
+        // 仅在开发版本中调用接口
+        if (!isDevVersion()) {
+            return
+        }
+
+        // 如果正在加载，直接返回，避免重复调用
+        if (isLoadingTree.current) {
+            return
+        }
+
+        try {
+            isLoadingTree.current = true
+            setLoading(true)
+            const response = await dataManagementService.getAssetTree({
+                name: searchName,
+            })
+
+            if (response.code === 200 && response.data) {
+                const { dataSources: convertedDataSources, categories: convertedCategories } =
+                    convertAssetTreeToPageData(response.data)
+                setDataSources(convertedDataSources)
+                setCategories(convertedCategories)
+            } else {
+                message.error(response.msg || '加载资产树失败')
+            }
+        } catch (error) {
+            console.error('加载资产树失败:', error)
+            message.error('加载资产树失败，请稍后重试')
+        } finally {
+            isLoadingTree.current = false
+            setLoading(false)
+        }
+    }, [convertAssetTreeToPageData])
+
+    // 使用 ref 跟踪是否已经初始化加载
+    const hasInitialized = useRef(false)
+    // 使用 ref 跟踪上一次的搜索文本，避免重复调用
+    const lastSearchText = useRef<string | undefined>(undefined)
+
+    // 开发版本：初始加载资产树数据（仅在组件挂载时调用一次）
+    useEffect(() => {
+        if (!isDevVersion()) {
+            return
+        }
+
+        // 如果是首次加载，执行初始加载
+        // 使用请求锁确保即使 StrictMode 导致多次挂载，也只调用一次
+        if (!hasInitialized.current && !isLoadingTree.current) {
+            hasInitialized.current = true
+            lastSearchText.current = debouncedSearchText || undefined
+            loadAssetTree()
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []) // 空依赖数组，确保只在组件挂载时调用一次
+
+    // 开发版本：搜索时重新加载资产树数据
+    useEffect(() => {
+        if (!isDevVersion() || !hasInitialized.current) {
+            return
+        }
+
+        // 如果搜索文本发生变化，才重新加载
+        const currentSearchText = debouncedSearchText || undefined
+        if (lastSearchText.current !== currentSearchText && !isLoadingTree.current) {
+            lastSearchText.current = currentSearchText
+            loadAssetTree(currentSearchText)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [debouncedSearchText]) // 只依赖 debouncedSearchText
+
+    /**
+     * 加载数据库选项列表
+     * @description 在组件初始化时调用，获取可用的数据库选项
+     */
+    const loadDatabaseOptions = useCallback(async () => {
+        try {
+            setDatabaseOptionsLoading(true)
+            const response = await dataManagementService.getDatabaseOptions()
+            
+            if (response.code === 200 && response.data) {
+                setDatabaseOptions(response.data)
+            } else {
+                message.error(response.msg || '加载数据库选项失败')
+                setDatabaseOptions([])
+            }
+        } catch (error) {
+            console.error('加载数据库选项失败:', error)
+            message.error('加载数据库选项失败，请稍后重试')
+            setDatabaseOptions([])
+        } finally {
+            setDatabaseOptionsLoading(false)
+        }
+    }, [])
+
+    // 初始化时加载数据库选项列表
+    useEffect(() => {
+        loadDatabaseOptions()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []) // 空依赖数组，确保只在组件挂载时调用一次
+
+    // 当 databaseOptions 加载完成后，如果正在编辑资产，重新设置表单值以确保正确回显
+    useEffect(() => {
+        if (isDevVersion() && editingAsset && databaseOptions.length > 0 && addAssetModalVisible) {
+            // 重新匹配数据源ID
+            let matchedDataSourceId = editingAsset.id
+            const directMatch = databaseOptions.find(db => db.id === editingAsset.id)
+            if (directMatch) {
+                matchedDataSourceId = directMatch.id
+            } else {
+                const numericId = editingAsset.id.replace(/[^0-9]/g, '')
+                if (numericId) {
+                    const numericMatch = databaseOptions.find(db => db.id === numericId)
+                    if (numericMatch) {
+                        matchedDataSourceId = numericMatch.id
+                    }
+                }
+            }
+            // 更新表单值
+            form.setFieldsValue({
+                dataSourceId: matchedDataSourceId,
+            })
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [databaseOptions, editingAsset, addAssetModalVisible])
+
+    // 当 databaseOptions 加载完成后，如果正在编辑类别，重新设置数据源ID以确保正确显示
+    useEffect(() => {
+        if (isDevVersion() && editingCategory && databaseOptions.length > 0 && addCategoryModalVisible) {
+            // 重新匹配数据源ID
+            let matchedDataSourceId = editingCategory.dataSourceId
+            const directMatch = databaseOptions.find(db => db.id === editingCategory.dataSourceId)
+            if (directMatch) {
+                matchedDataSourceId = directMatch.id
+            } else {
+                const numericId = editingCategory.dataSourceId.replace(/[^0-9]/g, '')
+                if (numericId) {
+                    const numericMatch = databaseOptions.find(db => db.id === numericId)
+                    if (numericMatch) {
+                        matchedDataSourceId = numericMatch.id
+                    }
+                }
+            }
+            // 更新表单值
+            categoryForm.setFieldsValue({
+                dataSourceId: matchedDataSourceId,
+            })
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [databaseOptions, editingCategory, addCategoryModalVisible])
+
+    /**
+     * 加载表信息列表
+     * @description 当新增资产类别弹窗打开且选择了数据源时，调用接口获取表信息
+     */
+    const loadTableInfo = useCallback(async () => {
+        // 仅在开发版本中调用接口
+        if (!isDevVersion()) {
+            return
+        }
+
+        try {
+            setTableInfoLoading(true)
+            setTableInfoList([])
+            const response = await dataManagementService.getTableInfo()
+            
+            if (response.code === 200 && response.data) {
+                setTableInfoList(response.data)
+            } else {
+                message.error(response.msg || '获取表信息失败')
+                setTableInfoList([])
+            }
+        } catch (error) {
+            logger.error('获取表信息失败:', error instanceof Error ? error : new Error(String(error)))
+            message.error('获取表信息失败，请稍后重试')
+            setTableInfoList([])
+        } finally {
+            setTableInfoLoading(false)
+        }
+    }, [])
+
+    // 当新增资产类别弹窗打开时，加载表信息
+    useEffect(() => {
+        if (addCategoryModalVisible && isDevVersion()) {
+            loadTableInfo()
+        } else {
+            // 弹窗关闭时清空表信息列表
+            setTableInfoList([])
+        }
+    }, [addCategoryModalVisible, loadTableInfo])
+
+    /**
+     * 加载表列表数据（仅在开发版本中调用）
+     * @param categoryId 资产类别ID
+     */
+    const loadTableList = useCallback(async (categoryId: string) => {
+        // 仅在开发版本中调用接口
+        if (!isDevVersion()) {
+            return
+        }
+
+        try {
+            setContentLoading(true)
+            // 先清空列表，避免显示旧数据
+            setTableList([])
+            const response = await dataManagementService.getAssetTableList(categoryId)
+
+            if (response.code === 200 && response.data) {
+                // 转换接口返回的数据格式
+                const convertedTableList = response.data.map((table, index) => ({
+                    key: `${categoryId}-${index}`,
+                    name: table.tableName,
+                    schema: table.databaseName,
+                    comment: table.tableComment || '-',
+                    rowCount: table.rowCount,
+                    fieldCount: table.columnCount,
+                    createTime: table.createTime
+                        ? new Date(table.createTime).toLocaleString('zh-CN', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                          })
+                        : '-',
+                    updateTime: table.updateTime
+                        ? new Date(table.updateTime).toLocaleString('zh-CN', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                          })
+                        : null,
+                    tableType: table.tableType,
+                    engine: table.storageEngine,
+                }))
+                setTableList(convertedTableList)
+            } else {
+                message.error(response.msg || '加载表列表失败')
+                setTableList([])
+            }
+        } catch (error) {
+            console.error('加载表列表失败:', error)
+            message.error('加载表列表失败，请稍后重试')
+            setTableList([])
+        } finally {
+            setContentLoading(false)
+        }
+    }, [])
 
     // 构建树形数据
     const treeData = useMemo(() => {
@@ -3655,8 +4076,34 @@ const DataAssetManagement: React.FC = () => {
         return buildTree()
     }, [dataSources, categories, handleAddCategoryClick])
 
+    // 计算当前选中数据源的显示名称（用于新增资产类别弹窗）
+    // 注意：这里使用 selectedDataSourceId，因为表单值会在弹窗打开时通过 setFieldsValue 设置
+    const currentDataSourceDisplayName = useMemo(() => {
+        if (!selectedDataSourceId) {
+            return ''
+        }
+        
+        if (isDevVersion()) {
+            // 开发版本：从 databaseOptions 中查找对应的 dbName
+            const matchedOption = databaseOptions.find(db => db.id === selectedDataSourceId)
+            return matchedOption ? matchedOption.dbName : ''
+        } else {
+            // 演示版本：从 dataSources 中查找对应的名称
+            const matchedDataSource = dataSources.find(ds => ds.id === selectedDataSourceId)
+            return matchedDataSource ? matchedDataSource.name : ''
+        }
+    }, [selectedDataSourceId, databaseOptions, dataSources])
+
     // 过滤树形数据
+    // 开发版本：接口已返回过滤后的数据，不需要前端再过滤
+    // 演示版本：使用前端过滤逻辑
     const filteredTreeData = useMemo(() => {
+        // 开发版本中，接口已经根据搜索条件返回了过滤后的数据，直接返回 treeData
+        if (isDevVersion()) {
+            return treeData
+        }
+
+        // 演示版本：使用前端过滤逻辑
         if (!debouncedSearchText) return treeData
 
         const filterTree = (nodes: ExtendedDataNode[]): ExtendedDataNode[] => {
@@ -3714,11 +4161,41 @@ const DataAssetManagement: React.FC = () => {
                         setSelectedCategory(cat)
                         setViewMode('category')
                         setSelectedTable(null) // 重置选中的表
+                        // 开发版本：加载表列表数据
+                        if (isDevVersion()) {
+                            loadTableList(cat.id)
+                        } else {
+                            // 演示版本：使用mock数据，添加loading效果
+                            setContentLoading(true)
+                            setTableList([])
+                            // 模拟异步加载
+                            setTimeout(() => {
+                                setTableList(
+                                    cat.tables.map((table, index) => {
+                                        const tableInfo = mockTables[table]
+                                        return {
+                                            key: `${cat.id}-${index}`,
+                                            name: table,
+                                            schema: tableInfo?.schema || cat.database,
+                                            comment: tableInfo?.comment || '-',
+                                            rowCount: tableInfo?.rowCount || 0,
+                                            fieldCount: tableInfo?.fields?.length || 0,
+                                            createTime: '2024-01-15 10:00:00',
+                                            updateTime: '2024-01-20 14:30:00',
+                                            tableType: 'BASE TABLE',
+                                            engine: 'InnoDB',
+                                        }
+                                    })
+                                )
+                                setContentLoading(false)
+                            }, 300)
+                        }
                     } else if (node.nodeType === 'dataSource') {
                         // 点击数据源时显示详情
                         setViewMode('empty')
                         setSelectedCategory(null)
                         setSelectedTable(null)
+                        setTableList([])
                     }
                 }
             } else {
@@ -3739,46 +4216,145 @@ const DataAssetManagement: React.FC = () => {
     const handleAddAsset = async () => {
         try {
             const values = await form.validateFields()
-            // 从选中的数据源获取信息
-            const selectedDataSource = dataSources.find(ds => ds.id === values.dataSourceId)
-            if (!selectedDataSource) {
-                message.error('请选择数据源')
-                return
-            }
             
             setSaving(true)
-            // 模拟异步操作
-            await new Promise(resolve => setTimeout(resolve, 300))
-            
-            if (editingAsset) {
-                // 编辑模式
-                const updatedDataSource: DataSource = {
-                    ...editingAsset,
-                    name: values.name,
-                    description: values.description,
+
+            // 开发版本：调用真实接口
+            if (isDevVersion()) {
+                if (editingAsset) {
+                    // 编辑模式：调用更新接口
+                    // 将资产ID转换为数字
+                    let assetId = 0
+                    const directParse = parseInt(editingAsset.id, 10)
+                    if (!isNaN(directParse)) {
+                        assetId = directParse
+                    } else {
+                        // 如果直接转换失败，尝试提取数字部分（处理"ds1"等格式）
+                        const numericId = editingAsset.id.replace(/[^0-9]/g, '')
+                        if (numericId) {
+                            const extractedId = parseInt(numericId, 10)
+                            if (!isNaN(extractedId)) {
+                                assetId = extractedId
+                            }
+                        }
+                    }
+
+                    // 处理数据源ID转换
+                    let sourceId: number | null = null
+                    if (values.dataSourceId) {
+                        const directParse = parseInt(values.dataSourceId, 10)
+                        if (!isNaN(directParse)) {
+                            sourceId = directParse
+                        }
+                    }
+
+                    // 从 databaseOptions 中查找选中的数据源，获取状态信息
+                    const selectedDatabaseOption = databaseOptions.find(db => db.id === values.dataSourceId)
+                    const status = selectedDatabaseOption ? 1 : 0 // 默认已连接
+
+                    const updateParams: UpdateAssetRequest = {
+                        id: assetId,
+                        assetName: values.name,
+                        nodeType: 0, // 0表示资产
+                        status: status,
+                        sourceId: sourceId,
+                        sort: 0,
+                        description: values.description || null,
+                    }
+
+                    const response = await dataManagementService.updateAsset(updateParams)
+                    
+                    if (response.code === 200) {
+                        message.success('资产修改成功')
+                        // 重新加载资产树数据
+                        await loadAssetTree()
+                        setAddAssetModalVisible(false)
+                        setEditingAsset(null)
+                        form.resetFields()
+                    } else {
+                        message.error(response.msg || '资产修改失败')
+                    }
+                } else {
+                    // 新增模式：调用接口
+                    // 在开发版本中，dataSourceId 来自 databaseOptions，直接使用其 id（已经是字符串格式的数字）
+                    let sourceId = 1 // 默认值
+                    if (values.dataSourceId) {
+                        // 直接转换为数字（databaseOptions 的 id 是字符串格式的数字，如 "1", "2"）
+                        const directParse = parseInt(values.dataSourceId, 10)
+                        if (!isNaN(directParse)) {
+                            sourceId = directParse
+                        }
+                    }
+
+                    // 从 databaseOptions 中查找选中的数据源，获取状态信息
+                    const selectedDatabaseOption = databaseOptions.find(db => db.id === values.dataSourceId)
+                    const status = selectedDatabaseOption ? 1 : 0 // 默认已连接
+
+                    const requestParams: AddAssetRequest = {
+                        parentId: 0, // 根节点
+                        assetName: values.name,
+                        nodeType: 0, // 0表示库节点
+                        sourceId: sourceId,
+                        status: status,
+                        sort: 0,
+                        tableNames: [] as string[],
+                        description: values.description || null,
+                    }
+
+                    const response = await dataManagementService.addAsset(requestParams)
+                    
+                    if (response.code === 200) {
+                        message.success('资产添加成功')
+                        // 重新加载资产树数据
+                        await loadAssetTree()
+                        setAddAssetModalVisible(false)
+                        form.resetFields()
+                    } else {
+                        message.error(response.msg || '资产添加失败')
+                    }
                 }
-                setDataSources(dataSources.map(ds => ds.id === editingAsset.id ? updatedDataSource : ds))
-                message.success('资产修改成功')
-                setEditingAsset(null)
             } else {
-                // 新增模式
-                const newDataSource: DataSource = {
-                    id: `ds${Date.now()}`,
-                    name: values.name,
-                    type: selectedDataSource.type,
-                    host: selectedDataSource.host,
-                    port: selectedDataSource.port,
-                    database: selectedDataSource.database,
-                    status: selectedDataSource.status,
-                    description: values.description,
+                // 演示版本或编辑模式：使用mock数据
+                await new Promise(resolve => setTimeout(resolve, 300))
+                
+                // 从选中的数据源获取信息（演示版本使用 dataSources）
+                const selectedDataSource = dataSources.find(ds => ds.id === values.dataSourceId)
+                if (!selectedDataSource) {
+                    message.error('请选择数据源')
+                    return
                 }
-                setDataSources([...dataSources, newDataSource])
-                message.success('资产添加成功')
+                
+                if (editingAsset) {
+                    // 编辑模式（演示版本）
+                    const updatedDataSource: DataSource = {
+                        ...editingAsset,
+                        name: values.name,
+                        description: values.description,
+                    }
+                    setDataSources(dataSources.map(ds => ds.id === editingAsset.id ? updatedDataSource : ds))
+                    message.success('资产修改成功')
+                    setEditingAsset(null)
+                } else {
+                    // 新增模式（演示版本）
+                    const newDataSource: DataSource = {
+                        id: `ds${Date.now()}`,
+                        name: values.name,
+                        type: selectedDataSource.type,
+                        host: selectedDataSource.host,
+                        port: selectedDataSource.port,
+                        database: selectedDataSource.database,
+                        status: selectedDataSource.status,
+                        description: values.description,
+                    }
+                    setDataSources([...dataSources, newDataSource])
+                    message.success('资产添加成功')
+                }
+                setAddAssetModalVisible(false)
+                form.resetFields()
             }
-            setAddAssetModalVisible(false)
-            form.resetFields()
         } catch (error) {
             console.error('操作失败:', error)
+            message.error(error instanceof Error ? error.message : '操作失败，请稍后重试')
         } finally {
             setSaving(false)
         }
@@ -3787,9 +4363,36 @@ const DataAssetManagement: React.FC = () => {
     // 处理编辑资产
     const handleEditAsset = (dataSource: DataSource) => {
         setEditingAsset(dataSource)
+        
+        // 处理数据源ID匹配：需要找到对应的 databaseOptions 中的 ID
+        let matchedDataSourceId = dataSource.id
+        if (isDevVersion()) {
+            // 开发版本：尝试在 databaseOptions 中匹配
+            if (databaseOptions.length > 0) {
+                // 先尝试直接匹配
+                const directMatch = databaseOptions.find(db => db.id === dataSource.id)
+                if (directMatch) {
+                    matchedDataSourceId = directMatch.id
+                } else {
+                    // 尝试提取数字部分进行匹配（处理 "ds1" -> "1" 的情况）
+                    const numericId = dataSource.id.replace(/[^0-9]/g, '')
+                    if (numericId) {
+                        const numericMatch = databaseOptions.find(db => db.id === numericId)
+                        if (numericMatch) {
+                            matchedDataSourceId = numericMatch.id
+                        }
+                    }
+                }
+            }
+            // 如果 databaseOptions 还没加载完成，使用原始ID，等待加载完成后再更新
+        } else {
+            // 演示版本：直接使用数据源ID
+            matchedDataSourceId = dataSource.id
+        }
+        
         form.setFieldsValue({
             name: dataSource.name,
-            dataSourceId: dataSource.id,
+            dataSourceId: matchedDataSourceId,
             description: dataSource.description || '',
         })
         setAddAssetModalVisible(true)
@@ -3800,8 +4403,8 @@ const DataAssetManagement: React.FC = () => {
         try {
             const values = await categoryForm.validateFields()
             
-            // 确保使用正确的数据源ID（优先使用表单值，否则使用选中的数据源ID）
-            const dataSourceId = values.dataSourceId || selectedDataSourceId
+            // 确保使用正确的数据源ID（从表单值获取）
+            const dataSourceId = values.dataSourceId
             if (!dataSourceId) {
                 message.error('请选择数据源')
                 return
@@ -3811,53 +4414,155 @@ const DataAssetManagement: React.FC = () => {
                 message.error('请至少选择一个表')
                 return
             }
+            
+            // 资产类别不需要数据库字段，从表单值中移除
+            delete values.database
 
             setSaving(true)
-            // 模拟异步操作
-            await new Promise(resolve => setTimeout(resolve, 300))
 
-            if (editingCategory) {
-                // 编辑模式
-                const updatedCategory: AssetCategory = {
-                    ...editingCategory,
-                    name: values.name,
-                    description: values.description,
-                    database: values.database,
-                    tables: values.tables || [],
+            // 开发版本：调用真实接口
+            if (isDevVersion()) {
+                if (editingCategory) {
+                    // 编辑模式：调用更新接口
+                    // 将类别ID转换为数字
+                    let categoryId = 0
+                    const directParse = parseInt(editingCategory.id, 10)
+                    if (!isNaN(directParse)) {
+                        categoryId = directParse
+                    } else {
+                        // 如果直接转换失败，尝试提取数字部分（处理"cat1"等格式）
+                        const numericId = editingCategory.id.replace(/[^0-9]/g, '')
+                        if (numericId) {
+                            const extractedId = parseInt(numericId, 10)
+                            if (!isNaN(extractedId)) {
+                                categoryId = extractedId
+                            }
+                        }
+                    }
+
+                    const updateParams: UpdateAssetRequest = {
+                        id: categoryId,
+                        assetName: values.name,
+                        nodeType: 1, // 1表示类别
+                        status: 0, // 类别节点的连接状态，0为未连接
+                        sourceId: null, // 类别节点不使用数据源ID
+                        sort: 0,
+                        description: values.description || null,
+                    }
+
+                    const response = await dataManagementService.updateAsset(updateParams)
+                    
+                    if (response.code === 200) {
+                        message.success('资产类别修改成功')
+                        // 重新加载资产树数据
+                        await loadAssetTree()
+                        // 自动展开对应的数据源节点，确保修改后的类别可见
+                        const dsKey = `ds-${dataSourceId}`
+                        if (!expandedKeys.includes(dsKey)) {
+                            setExpandedKeys([...expandedKeys, dsKey])
+                        }
+                        setAddCategoryModalVisible(false)
+                        setEditingCategory(null)
+                        categoryForm.resetFields()
+                    } else {
+                        message.error(response.msg || '资产类别修改失败')
+                    }
+                } else {
+                    // 新增模式：调用接口
+                    // 处理数据源ID转换：接口需要数字类型的parentId
+                    let parentId = 1 // 默认值
+                    if (dataSourceId) {
+                        // 先尝试直接转换为数字（处理纯数字字符串，如"7"）
+                        const directParse = parseInt(dataSourceId, 10)
+                        if (!isNaN(directParse)) {
+                            parentId = directParse
+                        } else {
+                            // 如果直接转换失败，尝试提取数字部分（处理"ds1"等格式）
+                            const numericId = dataSourceId.replace(/[^0-9]/g, '')
+                            if (numericId) {
+                                const extractedId = parseInt(numericId, 10)
+                                if (!isNaN(extractedId)) {
+                                    parentId = extractedId
+                                }
+                            }
+                        }
+                    }
+
+                    const requestParams: AddAssetRequest = {
+                        parentId: parentId, // 父节点ID，指向库节点ID
+                        assetName: values.name, // 类别名称
+                        nodeType: 1, // 1表示类别节点
+                        sourceId: null, // 类别节点不使用数据源ID
+                        status: 0, // 类别节点的连接状态，0为未连接
+                        sort: 0, // 排序字段
+                        tableNames: values.tables || [], // 多选表节点名称
+                        description: values.description || null,
+                    }
+
+                    const response = await dataManagementService.addAssetCategory(requestParams)
+                    
+                    if (response.code === 200) {
+                        message.success('资产类别添加成功')
+                        // 重新加载资产树数据
+                        await loadAssetTree()
+                        // 自动展开对应的数据源节点，确保新添加的类别可见
+                        const dsKey = `ds-${dataSourceId}`
+                        if (!expandedKeys.includes(dsKey)) {
+                            setExpandedKeys([...expandedKeys, dsKey])
+                        }
+                        setAddCategoryModalVisible(false)
+                        categoryForm.resetFields()
+                    } else {
+                        message.error(response.msg || '资产类别添加失败')
+                    }
                 }
-                setCategories(categories.map(cat => cat.id === editingCategory.id ? updatedCategory : cat))
-                message.success('资产类别修改成功')
-                setEditingCategory(null)
             } else {
-                // 新增模式
-                const newCategory: AssetCategory = {
-                    id: `cat${Date.now()}`,
-                    name: values.name,
-                    dataSourceId: dataSourceId,
-                    database: values.database,
-                    tables: values.tables || [],
-                    description: values.description,
+                // 演示版本或编辑模式：使用mock数据
+                await new Promise(resolve => setTimeout(resolve, 300))
+
+                if (editingCategory) {
+                    // 编辑模式（演示版本）
+                    const updatedCategory: AssetCategory = {
+                        ...editingCategory,
+                        name: values.name,
+                        description: values.description,
+                        tables: values.tables || [],
+                    }
+                    setCategories(categories.map(cat => cat.id === editingCategory.id ? updatedCategory : cat))
+                    message.success('资产类别修改成功')
+                    setEditingCategory(null)
+                } else {
+                    // 新增模式（演示版本）
+                    const newCategory: AssetCategory = {
+                        id: `cat${Date.now()}`,
+                        name: values.name,
+                        dataSourceId: dataSourceId,
+                        database: '', // 资产类别不需要数据库字段
+                        tables: values.tables || [],
+                        description: values.description,
+                    }
+                    setCategories([...categories, newCategory])
+                    message.success('资产类别添加成功')
+                    
+                    // 自动展开对应的数据源节点，确保新添加的类别可见
+                    const dsKey = `ds-${dataSourceId}`
+                    if (!expandedKeys.includes(dsKey)) {
+                        setExpandedKeys([...expandedKeys, dsKey])
+                    }
                 }
-                setCategories([...categories, newCategory])
-                message.success('资产类别添加成功')
                 
-                // 自动展开对应的数据源节点，确保新添加的类别可见
-                const dsKey = `ds-${dataSourceId}`
-                if (!expandedKeys.includes(dsKey)) {
-                    setExpandedKeys([...expandedKeys, dsKey])
-                }
+                setAddCategoryModalVisible(false)
+                setSelectedDataSourceId('')
+                categoryForm.resetFields()
             }
-            
-            setAddCategoryModalVisible(false)
-            setSelectedDataSourceId('')
-            setSelectedDatabase('')
-            categoryForm.resetFields()
         } catch (error) {
             console.error('操作失败:', error)
             // 显示表单验证错误
             if (error && typeof error === 'object' && 'errorFields' in error) {
                 message.error('请检查表单填写是否正确')
+                return
             }
+            message.error(error instanceof Error ? error.message : '操作失败，请稍后重试')
         } finally {
             setSaving(false)
         }
@@ -3866,12 +4571,39 @@ const DataAssetManagement: React.FC = () => {
     // 处理编辑资产类别
     const handleEditCategory = (category: AssetCategory) => {
         setEditingCategory(category)
-        setSelectedDataSourceId(category.dataSourceId)
-        setSelectedDatabase(category.database)
+        
+        // 处理数据源ID匹配：需要找到对应的数据源
+        let matchedDataSourceId = category.dataSourceId
+        if (isDevVersion()) {
+            // 开发版本：尝试在 databaseOptions 中匹配
+            if (databaseOptions.length > 0) {
+                // 先尝试直接匹配
+                const directMatch = databaseOptions.find(db => db.id === category.dataSourceId)
+                if (directMatch) {
+                    matchedDataSourceId = directMatch.id
+                } else {
+                    // 尝试提取数字部分进行匹配（处理 "ds1" -> "1" 的情况）
+                    const numericId = category.dataSourceId.replace(/[^0-9]/g, '')
+                    if (numericId) {
+                        const numericMatch = databaseOptions.find(db => db.id === numericId)
+                        if (numericMatch) {
+                            matchedDataSourceId = numericMatch.id
+                        }
+                    }
+                }
+            }
+            // 如果 databaseOptions 还没加载完成，使用原始ID，等待加载完成后再更新
+        } else {
+            // 演示版本：尝试在 dataSources 中匹配
+            const dataSourceMatch = dataSources.find(ds => ds.id === category.dataSourceId)
+            if (dataSourceMatch) {
+                matchedDataSourceId = dataSourceMatch.id
+            }
+        }
+        
         categoryForm.setFieldsValue({
             name: category.name,
-            dataSourceId: category.dataSourceId,
-            database: category.database,
+            dataSourceId: matchedDataSourceId,
             tables: category.tables,
             description: category.description || '',
         })
@@ -3879,17 +4611,79 @@ const DataAssetManagement: React.FC = () => {
     }
 
     // 处理表行点击
-    const handleTableRowClick = (tableName: string) => {
-        const tableInfo = mockTables[tableName]
-        if (tableInfo) {
-            setSelectedTable(tableInfo)
-            setViewMode('tableFields')
+    const handleTableRowClick = async (tableName: string) => {
+        if (!selectedCategory) {
+            message.error('请先选择资产类别')
+            return
+        }
+
+        if (isDevVersion()) {
+            // 开发版本：调用接口获取字段详情
+            try {
+                setContentLoading(true)
+                const response = await dataManagementService.getColumnDetails({
+                    id: selectedCategory.id,
+                    tableName: tableName,
+                })
+
+                if (response.code === 200 && response.data) {
+                    // 转换接口返回的数据格式为页面需要的格式
+                    const tableInfo: TableInfo = {
+                        name: response.data.tableName,
+                        schema: response.data.schema,
+                        rowCount: parseInt(response.data.size, 10) || 0,
+                        fields: response.data.list.map(col => ({
+                            name: col.columnName,
+                            type: col.dataType,
+                            nullable: col.isNullable === 'YES',
+                            default: col.columnDefault || undefined,
+                            comment: col.columnComment || undefined,
+                            primaryKey: false, // 接口未返回主键信息，默认为false
+                        })),
+                    }
+
+                    setSelectedTable(tableInfo)
+                    setColumnDetailsData({
+                        schema: response.data.schema,
+                        size: response.data.size,
+                        tableName: response.data.tableName,
+                        fields: response.data.list.map(col => ({
+                            name: col.columnName,
+                            type: col.dataType,
+                            nullable: col.isNullable === 'YES',
+                            default: col.columnDefault,
+                            comment: col.columnComment,
+                        })),
+                    })
+                    setViewMode('tableFields')
+                } else {
+                    message.error(response.msg || '获取字段详情失败')
+                }
+            } catch (error) {
+                console.error('获取字段详情失败:', error)
+                message.error(error instanceof Error ? error.message : '获取字段详情失败，请稍后重试')
+            } finally {
+                setContentLoading(false)
+            }
+        } else {
+            // 演示版本：使用mock数据，添加loading效果
+            setContentLoading(true)
+            // 模拟异步加载
+            setTimeout(() => {
+                const tableInfo = mockTables[tableName]
+                if (tableInfo) {
+                    setSelectedTable(tableInfo)
+                    setViewMode('tableFields')
+                }
+                setContentLoading(false)
+            }, 300)
         }
     }
 
     // 返回到表列表
     const handleBackToTableList = () => {
         setSelectedTable(null)
+        setColumnDetailsData(null)
         setViewMode('category')
     }
 
@@ -3918,14 +4712,34 @@ const DataAssetManagement: React.FC = () => {
                             <div className={styles.sectionTitle}>基本信息</div>
                             <Descriptions bordered column={2} size='small'>
                                 <Descriptions.Item label='资产名称'>{ds.name}</Descriptions.Item>
-                                <Descriptions.Item label='数据库类型'>{ds.type.toUpperCase()}</Descriptions.Item>
-                                <Descriptions.Item label='主机地址'>{ds.host}</Descriptions.Item>
-                                <Descriptions.Item label='端口'>{ds.port}</Descriptions.Item>
-                                <Descriptions.Item label='数据库名'>{ds.database}</Descriptions.Item>
+                                <Descriptions.Item label='数据库类型'>
+                                    {ds.type ? ds.type.toUpperCase() : <span style={{ color: '#bfbfbf' }}>-</span>}
+                                </Descriptions.Item>
+                                <Descriptions.Item label='主机地址'>
+                                    {ds.host || <span style={{ color: '#bfbfbf' }}>-</span>}
+                                </Descriptions.Item>
+                                <Descriptions.Item label='端口'>
+                                    {ds.port || <span style={{ color: '#bfbfbf' }}>-</span>}
+                                </Descriptions.Item>
+                                <Descriptions.Item label='数据库名'>
+                                    {ds.database || <span style={{ color: '#bfbfbf' }}>-</span>}
+                                </Descriptions.Item>
                                 <Descriptions.Item label='连接状态'>
-                                    <Tag color={ds.status === 'connected' ? 'success' : 'default'}>
-                                        {ds.status === 'connected' ? '已连接' : '未连接'}
-                                    </Tag>
+                                    {ds.dbStatus !== undefined && ds.dbStatus !== null ? (
+                                        <Tag color={
+                                            ds.dbStatus === 1 ? 'success' : 
+                                            ds.dbStatus === 2 ? 'processing' : 
+                                            'default'
+                                        }>
+                                            {ds.dbStatus === 1 ? '已连接' : 
+                                             ds.dbStatus === 2 ? '连接中' : 
+                                             '未连接'}
+                                        </Tag>
+                                    ) : (
+                                        <Tag color={ds.status === 'connected' ? 'success' : 'default'}>
+                                            {ds.status === 'connected' ? '已连接' : '未连接'}
+                                        </Tag>
+                                    )}
                                 </Descriptions.Item>
                                 <Descriptions.Item label='描述' span={2}>
                                     {ds.description || <span style={{ color: '#bfbfbf' }}>暂无描述</span>}
@@ -4010,10 +4824,9 @@ const DataAssetManagement: React.FC = () => {
                     title: '数据类型',
                     dataIndex: 'type',
                     key: 'type',
-                    width: 150,
-                    render: (type: string, record: FieldInfo) => {
-                        const length = record.length ? `(${record.length})` : ''
-                        return <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 3 }}>{`${type}${length}`}</code>
+                    width: 200,
+                    render: (type: string) => {
+                        return <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 3 }}>{type}</code>
                     },
                 },
                 {
@@ -4031,7 +4844,12 @@ const DataAssetManagement: React.FC = () => {
                     dataIndex: 'default',
                     key: 'default',
                     width: 150,
-                    render: (value: string) => value ? <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 3 }}>{value}</code> : <span style={{ color: '#bfbfbf' }}>-</span>,
+                    render: (value: string | null | undefined) => {
+                        if (value === null || value === undefined || value === '') {
+                            return <span style={{ color: '#bfbfbf' }}>-</span>
+                        }
+                        return <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 3 }}>{value}</code>
+                    },
                 },
                 {
                     title: '说明',
@@ -4041,6 +4859,10 @@ const DataAssetManagement: React.FC = () => {
                     render: (text: string) => text || <span style={{ color: '#bfbfbf' }}>-</span>,
                 },
             ]
+
+            // 获取表大小信息（如果从接口获取）
+            const tableSize = columnDetailsData?.size
+            const tableSchema = columnDetailsData?.schema || selectedTable.schema
 
             return (
                 <>
@@ -4068,23 +4890,33 @@ const DataAssetManagement: React.FC = () => {
                             <div className={styles.sectionTitle}>基本信息</div>
                             <Descriptions bordered column={3} size='small' style={{ marginBottom: 20 }}>
                                 <Descriptions.Item label='表名'>{selectedTable.name}</Descriptions.Item>
-                                <Descriptions.Item label='模式'>{selectedTable.schema}</Descriptions.Item>
-                                <Descriptions.Item label='记录数'>
-                                    {selectedTable.rowCount?.toLocaleString() || '-'}
-                                </Descriptions.Item>
+                                <Descriptions.Item label='模式'>{tableSchema}</Descriptions.Item>
+                                {tableSize && (
+                                    <Descriptions.Item label='表大小'>{tableSize}</Descriptions.Item>
+                                )}
+                                {!tableSize && (
+                                    <Descriptions.Item label='记录数'>
+                                        {selectedTable.rowCount?.toLocaleString() || '-'}
+                                    </Descriptions.Item>
+                                )}
                             </Descriptions>
                         </div>
                         <div className={styles.infoSection}>
                             <div className={styles.sectionTitle}>字段列表 ({selectedTable.fields.length})</div>
-                            <Table
-                                className={styles.infoTable}
-                                dataSource={selectedTable.fields}
-                                columns={columns}
-                                rowKey='name'
-                                pagination={false}
-                                size='small'
-                                scroll={{ x: 800 }}
-                            />
+                            <Spin spinning={contentLoading}>
+                                <Table
+                                    className={styles.infoTable}
+                                    dataSource={selectedTable.fields}
+                                    columns={columns}
+                                    rowKey='name'
+                                    pagination={false}
+                                    size='small'
+                                    scroll={{ 
+                                        x: 800,
+                                        y: 500, // 设置表格高度，超出部分显示滚动条
+                                    }}
+                                />
+                            </Spin>
                         </div>
                     </div>
                 </>
@@ -4115,28 +4947,14 @@ const DataAssetManagement: React.FC = () => {
                             items={[
                                 {
                                     key: 'tables',
-                                    label: `表 (${cat.tables.length})`,
+                                    label: `表 (${isDevVersion() ? tableList.length : cat.tables.length})`,
                                     children: (
                                         <div className={styles.infoSection}>
-                                            <Table
-                                                className={styles.infoTable}
-                                                dataSource={cat.tables.map((table, index) => {
-                                                    const tableInfo = mockTables[table]
-                                                    return {
-                                                        key: index,
-                                                        name: table,
-                                                        schema: tableInfo?.schema || cat.database,
-                                                        comment: tableInfo?.comment || '-',
-                                                        rowCount: tableInfo?.rowCount || 0,
-                                                        fieldCount: tableInfo?.fields?.length || 0,
-                                                        createTime: '2024-01-15 10:00:00',
-                                                        updateTime: '2024-01-20 14:30:00',
-                                                        tableType: 'BASE TABLE',
-                                                        engine: 'InnoDB',
-                                                        tableInfo: tableInfo, // 保存表信息用于点击
-                                                    }
-                                                })}
-                                                columns={[
+                                            <Spin spinning={contentLoading}>
+                                                <Table
+                                                    className={styles.infoTable}
+                                                    dataSource={tableList}
+                                                    columns={[
                                                     { 
                                                         title: '表名', 
                                                         dataIndex: 'name', 
@@ -4163,7 +4981,12 @@ const DataAssetManagement: React.FC = () => {
                                                         key: 'rowCount',
                                                         width: 120,
                                                         align: 'right' as const,
-                                                        render: (count: number) => count.toLocaleString(),
+                                                        render: (count: string | number) => {
+                                                            if (typeof count === 'string') {
+                                                                return count
+                                                            }
+                                                            return count.toLocaleString()
+                                                        },
                                                     },
                                                     {
                                                         title: '字段数',
@@ -4195,6 +5018,7 @@ const DataAssetManagement: React.FC = () => {
                                                         dataIndex: 'updateTime',
                                                         key: 'updateTime',
                                                         width: 160,
+                                                        render: (time: string | null) => time || '-',
                                                     },
                                                 ]}
                                                 pagination={false}
@@ -4209,6 +5033,7 @@ const DataAssetManagement: React.FC = () => {
                                                     },
                                                 })}
                                             />
+                                            </Spin>
                                         </div>
                                     ),
                                 },
@@ -4221,8 +5046,40 @@ const DataAssetManagement: React.FC = () => {
                                             <Descriptions bordered column={2} size='small'>
                                                 <Descriptions.Item label='类别名称'>{cat.name}</Descriptions.Item>
                                                 <Descriptions.Item label='所属数据源'>{ds?.name || '-'}</Descriptions.Item>
-                                                <Descriptions.Item label='数据库'>{cat.database}</Descriptions.Item>
+                                                <Descriptions.Item label='数据库'>
+                                                    {cat.database || <span style={{ color: '#bfbfbf' }}>-</span>}
+                                                </Descriptions.Item>
                                                 <Descriptions.Item label='包含表数量'>{cat.tables.length}</Descriptions.Item>
+                                                {ds && (
+                                                    <>
+                                                        <Descriptions.Item label='数据源主机地址'>
+                                                            {ds.host || <span style={{ color: '#bfbfbf' }}>-</span>}
+                                                        </Descriptions.Item>
+                                                        <Descriptions.Item label='数据源端口'>
+                                                            {ds.port || <span style={{ color: '#bfbfbf' }}>-</span>}
+                                                        </Descriptions.Item>
+                                                        <Descriptions.Item label='数据源类型'>
+                                                            {ds.type ? ds.type.toUpperCase() : <span style={{ color: '#bfbfbf' }}>-</span>}
+                                                        </Descriptions.Item>
+                                                        <Descriptions.Item label='数据源连接状态'>
+                                                            {ds.dbStatus !== undefined && ds.dbStatus !== null ? (
+                                                                <Tag color={
+                                                                    ds.dbStatus === 1 ? 'success' : 
+                                                                    ds.dbStatus === 2 ? 'processing' : 
+                                                                    'default'
+                                                                }>
+                                                                    {ds.dbStatus === 1 ? '已连接' : 
+                                                                     ds.dbStatus === 2 ? '连接中' : 
+                                                                     '未连接'}
+                                                                </Tag>
+                                                            ) : (
+                                                                <Tag color={ds.status === 'connected' ? 'success' : 'default'}>
+                                                                    {ds.status === 'connected' ? '已连接' : '未连接'}
+                                                                </Tag>
+                                                            )}
+                                                        </Descriptions.Item>
+                                                    </>
+                                                )}
                                                 <Descriptions.Item label='描述' span={2}>
                                                     {cat.description || <span style={{ color: '#bfbfbf' }}>暂无描述</span>}
                                                 </Descriptions.Item>
@@ -4339,42 +5196,63 @@ const DataAssetManagement: React.FC = () => {
                                                     okType: 'danger',
                                                     onOk: async () => {
                                                         try {
-                                                            // 使用函数式更新确保使用最新状态
-                                                            setCategories(prev => {
-                                                                // 获取该资产下的所有类别ID，用于清除选中状态
-                                                                const relatedCategories = prev.filter(cat => cat.dataSourceId === ds.id)
-                                                                const relatedCategoryIds = relatedCategories.map(cat => `cat-${cat.id}`)
+                                                            if (isDevVersion()) {
+                                                                // 开发版本：调用接口删除
+                                                                const response = await dataManagementService.deleteAsset(ds.id)
                                                                 
-                                                                // 清除展开的节点（包括该资产及其所有子类别）
-                                                                setExpandedKeys(prevKeys => {
-                                                                    const keysToRemove = [`ds-${ds.id}`, ...relatedCategoryIds]
-                                                                    return prevKeys.filter(key => !keysToRemove.includes(String(key)))
+                                                                if (response.code === 200) {
+                                                                    message.success('删除成功')
+                                                                    // 重新加载资产树数据
+                                                                    await loadAssetTree()
+                                                                    
+                                                                    // 清除所有相关状态
+                                                                    setSelectedNode(null)
+                                                                    setViewMode('empty')
+                                                                    setSelectedCategory(null)
+                                                                    setSelectedTable(null)
+                                                                    setSelectedKeys([])
+                                                                } else {
+                                                                    message.error(response.msg || '删除失败')
+                                                                }
+                                                            } else {
+                                                                // 演示版本：使用mock数据
+                                                                // 使用函数式更新确保使用最新状态
+                                                                setCategories(prev => {
+                                                                    // 获取该资产下的所有类别ID，用于清除选中状态
+                                                                    const relatedCategories = prev.filter(cat => cat.dataSourceId === ds.id)
+                                                                    const relatedCategoryIds = relatedCategories.map(cat => `cat-${cat.id}`)
+                                                                    
+                                                                    // 清除展开的节点（包括该资产及其所有子类别）
+                                                                    setExpandedKeys(prevKeys => {
+                                                                        const keysToRemove = [`ds-${ds.id}`, ...relatedCategoryIds]
+                                                                        return prevKeys.filter(key => !keysToRemove.includes(String(key)))
+                                                                    })
+                                                                    
+                                                                    // 清除选中的节点（包括该资产及其所有子类别）
+                                                                    setSelectedKeys(prevKeys => {
+                                                                        const keysToRemove = [`ds-${ds.id}`, ...relatedCategoryIds]
+                                                                        const filtered = prevKeys.filter(key => !keysToRemove.includes(String(key)))
+                                                                        return filtered.length === 0 ? [] : filtered
+                                                                    })
+                                                                    
+                                                                    // 返回过滤后的类别列表
+                                                                    return prev.filter(cat => cat.dataSourceId !== ds.id)
                                                                 })
                                                                 
-                                                                // 清除选中的节点（包括该资产及其所有子类别）
-                                                                setSelectedKeys(prevKeys => {
-                                                                    const keysToRemove = [`ds-${ds.id}`, ...relatedCategoryIds]
-                                                                    const filtered = prevKeys.filter(key => !keysToRemove.includes(String(key)))
-                                                                    return filtered.length === 0 ? [] : filtered
-                                                                })
+                                                                // 删除数据源
+                                                                setDataSources(prev => prev.filter(d => d.id !== ds.id))
                                                                 
-                                                                // 返回过滤后的类别列表
-                                                                return prev.filter(cat => cat.dataSourceId !== ds.id)
-                                                            })
-                                                            
-                                                            // 删除数据源
-                                                            setDataSources(prev => prev.filter(d => d.id !== ds.id))
-                                                            
-                                                            // 清除所有相关状态
-                                                            setSelectedNode(null)
-                                                            setViewMode('empty')
-                                                            setSelectedCategory(null)
-                                                            setSelectedTable(null)
-                                                            
-                                                            message.success('删除成功')
+                                                                // 清除所有相关状态
+                                                                setSelectedNode(null)
+                                                                setViewMode('empty')
+                                                                setSelectedCategory(null)
+                                                                setSelectedTable(null)
+                                                                
+                                                                message.success('删除成功')
+                                                            }
                                                         } catch (error) {
                                                             console.error('删除资产失败:', error)
-                                                            message.error('删除失败，请重试')
+                                                            message.error(error instanceof Error ? error.message : '删除失败，请重试')
                                                         }
                                                     },
                                                 })
@@ -4457,34 +5335,55 @@ const DataAssetManagement: React.FC = () => {
                                                     okType: 'danger',
                                                     onOk: async () => {
                                                         try {
-                                                            const categoryKey = `cat-${cat.id}`
-                                                            
-                                                            // 使用函数式更新确保使用最新状态
-                                                            setCategories(prev => prev.filter(c => c.id !== cat.id))
-                                                            
-                                                            // 清除展开的节点
-                                                            setExpandedKeys(prev => prev.filter(key => key !== categoryKey))
-                                                            
-                                                            // 清除选中的节点
-                                                            setSelectedKeys(prev => {
-                                                                const filtered = prev.filter(key => key !== categoryKey)
-                                                                // 如果删除的是当前选中的类别，清空选中状态
-                                                                if (prev.includes(categoryKey)) {
-                                                                    return []
+                                                            if (isDevVersion()) {
+                                                                // 开发版本：调用接口删除
+                                                                const response = await dataManagementService.deleteAsset(cat.id)
+                                                                
+                                                                if (response.code === 200) {
+                                                                    message.success('删除成功')
+                                                                    // 重新加载资产树数据
+                                                                    await loadAssetTree()
+                                                                    
+                                                                    // 清除所有相关状态
+                                                                    setSelectedNode(null)
+                                                                    setViewMode('empty')
+                                                                    setSelectedCategory(null)
+                                                                    setSelectedTable(null)
+                                                                    setSelectedKeys([])
+                                                                } else {
+                                                                    message.error(response.msg || '删除失败')
                                                                 }
-                                                                return filtered
-                                                            })
-                                                            
-                                                            // 清除所有相关状态
-                                                            setSelectedNode(null)
-                                                            setViewMode('empty')
-                                                            setSelectedCategory(null)
-                                                            setSelectedTable(null)
-                                                            
-                                                            message.success('删除成功')
+                                                            } else {
+                                                                // 演示版本：使用mock数据
+                                                                const categoryKey = `cat-${cat.id}`
+                                                                
+                                                                // 使用函数式更新确保使用最新状态
+                                                                setCategories(prev => prev.filter(c => c.id !== cat.id))
+                                                                
+                                                                // 清除展开的节点
+                                                                setExpandedKeys(prev => prev.filter(key => key !== categoryKey))
+                                                                
+                                                                // 清除选中的节点
+                                                                setSelectedKeys(prev => {
+                                                                    const filtered = prev.filter(key => key !== categoryKey)
+                                                                    // 如果删除的是当前选中的类别，清空选中状态
+                                                                    if (prev.includes(categoryKey)) {
+                                                                        return []
+                                                                    }
+                                                                    return filtered
+                                                                })
+                                                                
+                                                                // 清除所有相关状态
+                                                                setSelectedNode(null)
+                                                                setViewMode('empty')
+                                                                setSelectedCategory(null)
+                                                                setSelectedTable(null)
+                                                                
+                                                                message.success('删除成功')
+                                                            }
                                                         } catch (error) {
                                                             console.error('删除类别失败:', error)
-                                                            message.error('删除失败，请重试')
+                                                            message.error(error instanceof Error ? error.message : '删除失败，请重试')
                                                         }
                                                     },
                                                 })
@@ -4542,16 +5441,24 @@ const DataAssetManagement: React.FC = () => {
                             placeholder='请选择数据源' 
                             showSearch 
                             disabled={!!editingAsset}
+                            loading={databaseOptionsLoading}
                             filterOption={(input, option) => {
                                 const label = String(option?.label ?? '')
                                 return label.toLowerCase().includes(input.toLowerCase())
                             }}
                         >
-                            {dataSources.map(ds => (
-                                <Option key={ds.id} value={ds.id} label={ds.name}>
-                                    {ds.name} ({ds.type.toUpperCase()})
-                                </Option>
-                            ))}
+                            {isDevVersion() 
+                                ? databaseOptions.map(db => (
+                                    <Option key={db.id} value={db.id} label={db.dbName}>
+                                        {db.dbName} ({db.dbType})
+                                    </Option>
+                                ))
+                                : dataSources.map(ds => (
+                                    <Option key={ds.id} value={ds.id} label={ds.name}>
+                                        {ds.name} ({ds.type.toUpperCase()})
+                                    </Option>
+                                ))
+                            }
                         </Select>
                     </Form.Item>
                     <Form.Item
@@ -4577,7 +5484,6 @@ const DataAssetManagement: React.FC = () => {
                 onCancel={() => {
                     setAddCategoryModalVisible(false)
                     setEditingCategory(null)
-                    setSelectedDatabase('')
                     categoryForm.resetFields()
                 }}
                 confirmLoading={saving}
@@ -4598,60 +5504,137 @@ const DataAssetManagement: React.FC = () => {
                     >
                         <Select 
                             placeholder='请选择数据源' 
-                            disabled={!!selectedDataSourceId || !!editingCategory}
-                        >
-                            {dataSources.map(ds => (
-                                <Option key={ds.id} value={ds.id}>
-                                    {ds.name}
-                                </Option>
-                            ))}
-                        </Select>
-                    </Form.Item>
-                    <Form.Item
-                        name='database'
-                        label='数据库'
-                        rules={[{ required: true, message: '请选择数据库' }]}
-                    >
-                        <Select 
-                            placeholder='请选择数据库'
-                            onChange={(value) => {
-                                setSelectedDatabase(value)
-                                // 切换数据库时清空已选表
-                                categoryForm.setFieldsValue({ tables: [] })
-                            }}
-                            value={selectedDatabase}
-                        >
-                            {selectedDataSourceId && getDatabasesByDataSource(selectedDataSourceId).map(db => (
-                                <Option key={db} value={db}>
-                                    {db}
-                                </Option>
-                            ))}
-                        </Select>
-                    </Form.Item>
-                    <Form.Item 
-                        name='tables' 
-                        label='选择表'
-                        rules={[{ required: true, message: '请至少选择一个表' }]}
-                    >
-                        <Select
-                            mode='multiple'
-                            placeholder={selectedDatabase ? '请选择表（可多选）' : '请先选择数据库'}
-                            disabled={!selectedDatabase}
-                            showSearch
+                            showSearch 
+                            loading={databaseOptionsLoading}
                             filterOption={(input, option) => {
                                 const label = String(option?.label ?? '')
                                 return label.toLowerCase().includes(input.toLowerCase())
                             }}
+                            onChange={(value) => {
+                                // 切换数据源时清空已选表
+                                categoryForm.setFieldsValue({ tables: [] })
+                                // 如果弹窗已打开，重新加载表信息
+                                if (addCategoryModalVisible && isDevVersion()) {
+                                    loadTableInfo()
+                                }
+                            }}
                         >
-                            {selectedDatabase && getTablesByDatabase(selectedDatabase).map(tableName => {
-                                const table = mockTables[tableName]
-                                return (
-                                    <Option key={tableName} value={tableName} label={tableName}>
-                                        {tableName} - {table?.comment || '-'}
+                            {isDevVersion() 
+                                ? databaseOptions.map(db => (
+                                    <Option key={db.id} value={db.id} label={db.dbName}>
+                                        {db.dbName} ({db.dbType})
                                     </Option>
-                                )
-                            })}
+                                ))
+                                : dataSources.map(ds => (
+                                    <Option key={ds.id} value={ds.id} label={ds.name}>
+                                        {ds.name} ({ds.type.toUpperCase()})
+                                    </Option>
+                                ))
+                            }
                         </Select>
+                    </Form.Item>
+                    <Form.Item
+                        noStyle
+                        shouldUpdate={(prevValues, currentValues) => {
+                            // 监听 dataSourceId 变化，强制更新表选择器
+                            return prevValues.dataSourceId !== currentValues.dataSourceId
+                        }}
+                    >
+                        {({ getFieldValue }) => {
+                            const dataSourceId = getFieldValue('dataSourceId')
+                            if (!dataSourceId) {
+                                return (
+                                    <Form.Item 
+                                        name='tables' 
+                                        label='选择表'
+                                        rules={[{ required: true, message: '请至少选择一个表' }]}
+                                    >
+                                        <Select
+                                            mode='multiple'
+                                            placeholder='请先选择数据源'
+                                            disabled
+                                            showSearch
+                                            allowClear
+                                        />
+                                    </Form.Item>
+                                )
+                            }
+                            
+                            // 开发版本：使用接口获取的表信息
+                            if (isDevVersion()) {
+                                return (
+                                    <Form.Item 
+                                        name='tables' 
+                                        label='选择表'
+                                        rules={[{ required: true, message: '请至少选择一个表' }]}
+                                    >
+                                        <Select
+                                            mode='multiple'
+                                            placeholder={tableInfoLoading ? '正在加载表信息...' : '请选择表（可多选）'}
+                                            loading={tableInfoLoading}
+                                            showSearch
+                                            allowClear
+                                            filterOption={(input, option) => {
+                                                const label = String(option?.label ?? '')
+                                                return label.toLowerCase().includes(input.toLowerCase())
+                                            }}
+                                        >
+                                            {tableInfoList.map(table => (
+                                                <Option 
+                                                    key={table.tableName} 
+                                                    value={table.tableName} 
+                                                    label={table.tableName}
+                                                >
+                                                    {table.tableName} {table.tableComment ? `- ${table.tableComment}` : ''}
+                                                </Option>
+                                            ))}
+                                        </Select>
+                                    </Form.Item>
+                                )
+                            }
+                            
+                            // 演示版本：使用mock数据
+                            // 获取该数据源下的所有数据库，然后获取所有表
+                            const databases = getDatabasesByDataSource(dataSourceId)
+                            
+                            // 收集所有数据库下的表
+                            const allTables: string[] = []
+                            databases.forEach(db => {
+                                const tables = getTablesByDatabase(db)
+                                allTables.push(...tables)
+                            })
+                            
+                            // 去重
+                            const uniqueTables = Array.from(new Set(allTables))
+                            
+                            return (
+                                <Form.Item 
+                                    name='tables' 
+                                    label='选择表'
+                                    rules={[{ required: true, message: '请至少选择一个表' }]}
+                                >
+                                    <Select
+                                        mode='multiple'
+                                        placeholder='请选择表（可多选）'
+                                        showSearch
+                                        allowClear
+                                        filterOption={(input, option) => {
+                                            const label = String(option?.label ?? '')
+                                            return label.toLowerCase().includes(input.toLowerCase())
+                                        }}
+                                    >
+                                        {uniqueTables.map(tableName => {
+                                            const table = mockTables[tableName]
+                                            return (
+                                                <Option key={tableName} value={tableName} label={tableName}>
+                                                    {tableName} - {table?.comment || '-'}
+                                                </Option>
+                                            )
+                                        })}
+                                    </Select>
+                                </Form.Item>
+                            )
+                        }}
                     </Form.Item>
                     <Form.Item
                         name='description'

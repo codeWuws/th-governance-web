@@ -45,6 +45,6 @@
         "downlevelIteration": true,
         "target": "ES2020"
     },
-    "include": ["src", "vite.config.ts", "src/types/css-modules.d.ts"],
+    "include": ["src", "vite.config.ts", "src/types/css-modules.d.ts", "src/vite-env.d.ts"],
     "exclude": ["node_modules", "dist", "build"]
 }
