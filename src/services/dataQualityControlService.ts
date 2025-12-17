@@ -8,6 +8,15 @@ import type {
     QCTaskLogDetailResponse,
     QCTaskPageParams,
     QCTaskPageResponse,
+    TableInfoResponse,
+    ReliabilityQCRequest,
+    ReliabilityQCResponse,
+    CompletenessQCRatePageParams,
+    CompletenessQCRatePageResponse,
+    AccuracyQCPageParams,
+    AccuracyQCPageResponse,
+    ConsistencyQCRelationPageParams,
+    ConsistencyQCRelationPageResponse,
 } from '@/types'
 import { api } from '@/utils/request'
 import { logger } from '@/utils/logger'
@@ -97,7 +106,13 @@ export class DataQualityControlService {
                 requestBody.idOrName = params.idOrName
             }
             if (params.status !== undefined) {
-                requestBody.status = params.status
+                // 支持单个状态或状态数组
+                if (Array.isArray(params.status)) {
+                    // 如果后端支持数组，直接传递；否则可能需要特殊处理
+                    requestBody.status = params.status
+                } else {
+                    requestBody.status = params.status
+                }
             }
             if (params.taskTypes) {
                 // 确保 taskTypes 是数组格式
@@ -156,6 +171,128 @@ export class DataQualityControlService {
             throw error
         }
     }
+
+    /**
+     * 获取表信息列表
+     * @description 获取可靠性质控中可选择的数据表列表
+     * @returns Promise<TableInfoResponse>
+     */
+    static async getTableInfo(): Promise<TableInfoResponse> {
+        try {
+            logger.debug('发送获取表信息请求到: /data/qc/getTableInfo')
+            const response = await api.get<TableInfoResponse>('/data/qc/getTableInfo')
+            logger.debug('获取表信息API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取表信息API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            // 直接抛出原始错误，保留错误堆栈信息
+            throw error
+        }
+    }
+
+    /**
+     * 保存可靠性质控结果
+     * @description 提交可靠性质控的质控结果
+     * @param params 质控请求参数
+     * @returns Promise<ReliabilityQCResponse>
+     */
+    static async saveReliabilityQC(params: ReliabilityQCRequest): Promise<ReliabilityQCResponse> {
+        try {
+            logger.debug('发送保存可靠性质控结果请求到: /data/qc/reliabilityQc', params)
+            const response = await api.post<ReliabilityQCResponse>('/data/qc/reliabilityQc', params)
+            logger.debug('保存可靠性质控结果API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '保存可靠性质控结果API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            // 直接抛出原始错误，保留错误堆栈信息
+            throw error
+        }
+    }
+
+    /**
+     * 获取完整性质控结果分页列表
+     * @description 获取完整性质控的填充率结果数据
+     * @param params 分页查询参数
+     * @returns Promise<CompletenessQCRatePageResponse>
+     */
+    static async getCompletenessQCRatePage(
+        params: CompletenessQCRatePageParams
+    ): Promise<CompletenessQCRatePageResponse> {
+        try {
+            logger.debug('发送获取完整性质控结果请求到: /data/governance/task/logs/qc/rate/page', params)
+            const response = await api.post<CompletenessQCRatePageResponse>(
+                '/data/governance/task/logs/qc/rate/page',
+                params
+            )
+            logger.debug('获取完整性质控结果API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取完整性质控结果API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            // 直接抛出原始错误，保留错误堆栈信息
+            throw error
+        }
+    }
+
+    /**
+     * 获取准确性质控结果分页列表
+     * @description 获取准确性质控的结果数据
+     * @param params 分页查询参数
+     * @returns Promise<AccuracyQCPageResponse>
+     */
+    static async getAccuracyQCPage(params: AccuracyQCPageParams): Promise<AccuracyQCPageResponse> {
+        try {
+            logger.debug('发送获取准确性质控结果请求到: /data/governance/task/logs/qc/accuracy/page', params)
+            const response = await api.post<AccuracyQCPageResponse>(
+                '/data/governance/task/logs/qc/accuracy/page',
+                params
+            )
+            logger.debug('获取准确性质控结果API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取准确性质控结果API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            // 直接抛出原始错误，保留错误堆栈信息
+            throw error
+        }
+    }
+
+    /**
+     * 获取一致性质控结果分页列表
+     * @description 获取一致性质控的关联关系结果数据
+     * @param params 分页查询参数
+     * @returns Promise<ConsistencyQCRelationPageResponse>
+     */
+    static async getConsistencyQCRelationPage(
+        params: ConsistencyQCRelationPageParams
+    ): Promise<ConsistencyQCRelationPageResponse> {
+        try {
+            logger.debug('发送获取一致性质控结果请求到: /data/governance/task/logs/qc/relation/page', params)
+            const response = await api.post<ConsistencyQCRelationPageResponse>(
+                '/data/governance/task/logs/qc/relation/page',
+                params
+            )
+            logger.debug('获取一致性质控结果API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取一致性质控结果API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            // 直接抛出原始错误，保留错误堆栈信息
+            throw error
+        }
+    }
 }
 
 /**
@@ -166,6 +303,11 @@ export const dataQualityControlService = {
     getQCTaskConfigList: DataQualityControlService.getQCTaskConfigList,
     getQCTaskLogDetail: DataQualityControlService.getQCTaskLogDetail,
     getQCTaskPage: DataQualityControlService.getQCTaskPage,
+    getTableInfo: DataQualityControlService.getTableInfo,
+    saveReliabilityQC: DataQualityControlService.saveReliabilityQC,
+    getCompletenessQCRatePage: DataQualityControlService.getCompletenessQCRatePage,
+    getAccuracyQCPage: DataQualityControlService.getAccuracyQCPage,
+    getConsistencyQCRelationPage: DataQualityControlService.getConsistencyQCRelationPage,
 }
 
 export default dataQualityControlService

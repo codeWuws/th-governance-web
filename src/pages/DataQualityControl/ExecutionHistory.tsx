@@ -94,15 +94,15 @@ const ExecutionHistory: React.FC = () => {
             // 任务ID或名称（同时设置 idOrName 和 condition）
             if (values.idOrName) {
                 const idOrNameValue = values.idOrName.trim()
-                params.idOrName = idOrNameValue
-                // condition 用于关键字段模糊查询，与 idOrName 保持一致
-                params.condition = idOrNameValue
+                if (idOrNameValue) {
+                    params.idOrName = idOrNameValue
+                    // condition 用于关键字段模糊查询，与 idOrName 保持一致
+                    params.condition = idOrNameValue
+                }
             }
 
             // 状态筛选（将字符串状态转换为数字）
-            if (values.status && values.status.length > 0) {
-                // 如果后端支持多个状态，可以传数组；否则取第一个
-                const statusValue = values.status[0]
+            if (values.status && Array.isArray(values.status) && values.status.length > 0) {
                 const statusMap: Record<string, number> = {
                     starting: 0,
                     running: 1,
@@ -111,13 +111,20 @@ const ExecutionHistory: React.FC = () => {
                     skipped: 4,
                     error: 5,
                 }
-                if (statusMap[statusValue] !== undefined) {
-                    params.status = statusMap[statusValue]
+                // 支持多个状态筛选，转换为数字数组
+                const statusNumbers = values.status
+                    .map((s: string) => statusMap[s])
+                    .filter((num: number) => num !== undefined)
+                
+                if (statusNumbers.length > 0) {
+                    // 如果只有一个状态，传数字；如果有多个，传数组（根据后端接口支持情况）
+                    // 这里先尝试传数组，如果后端不支持，可以改为只传第一个
+                    params.status = statusNumbers.length === 1 ? statusNumbers[0] : statusNumbers
                 }
             }
 
             // 质控类型筛选
-            if (values.taskTypes && values.taskTypes.length > 0) {
+            if (values.taskTypes && Array.isArray(values.taskTypes) && values.taskTypes.length > 0) {
                 // 将前端类型值转换为后端类型值
                 const typeMap: Record<string, string> = {
                     text: 'ReliabilityQC',
@@ -126,20 +133,28 @@ const ExecutionHistory: React.FC = () => {
                     'basic-medical-logic': 'ConsistencyQC',
                     'core-data': 'AccuracyQC',
                 }
-                const backendTypes = values.taskTypes.map((t: string) => typeMap[t] || t)
-                params.taskTypes = backendTypes
+                const backendTypes = values.taskTypes
+                    .map((t: string) => typeMap[t] || t)
+                    .filter(Boolean)
+                
+                if (backendTypes.length > 0) {
+                    params.taskTypes = backendTypes
+                }
             }
 
             // 时间范围筛选
-            if (values.timeRange && values.timeRange.length === 2) {
+            if (values.timeRange && Array.isArray(values.timeRange) && values.timeRange.length === 2) {
                 const [start, end] = values.timeRange as [Dayjs, Dayjs]
-                if (start) {
+                if (start && start.isValid()) {
                     params.startTimeFrom = start.format('YYYY-MM-DD HH:mm:ss')
                 }
-                if (end) {
+                if (end && end.isValid()) {
                     params.startTimeTo = end.format('YYYY-MM-DD HH:mm:ss')
                 }
             }
+
+            // 打印查询参数，方便调试
+            console.log('=== 质控执行历史查询参数 ===', params)
 
             await fetchData(params)
         } catch (error) {
@@ -215,28 +230,77 @@ const ExecutionHistory: React.FC = () => {
                 width: 150,
                 render: (typeNames: string, record: QCTaskRecord) => {
                     // 解析任务类型（可能是逗号分隔的字符串）
-                    const types = record.taskTypes
-                        ? record.taskTypes.split(',').filter(Boolean)
-                        : []
+                    let types: string[] = []
+                    let typeNamesArray: string[] = []
                     
-                    if (types.length === 0 && typeNames) {
-                        // 如果没有 taskTypes，使用 typeNames
-                        return (
-                            <Tooltip title={QC_TYPE_DESC_MAP[record.nodeType] || typeNames}>
-                                <Tag color='blue'>{typeNames}</Tag>
-                            </Tooltip>
-                        )
+                    // 优先使用 taskTypes（通常是英文类型）
+                    if (record.taskTypes) {
+                        types = record.taskTypes.split(',').map(t => t.trim()).filter(Boolean)
+                    }
+                    
+                    // 解析 typeNames（可能是中文或英文）
+                    if (typeNames) {
+                        typeNamesArray = typeNames.split(',').map(t => t.trim()).filter(Boolean)
+                    }
+                    
+                    // 如果 taskTypes 为空，使用 typeNames
+                    if (types.length === 0 && typeNamesArray.length > 0) {
+                        types = typeNamesArray
+                    }
+                    
+                    // 如果还是没有，尝试使用 nodeType
+                    if (types.length === 0 && record.nodeType) {
+                        types = [record.nodeType.trim()]
+                    }
+                    
+                    // 如果仍然为空，显示默认值
+                    if (types.length === 0) {
+                        return <Tag color='default'>未知类型</Tag>
                     }
 
+                    // 映射所有类型，确保英文类型被转换为中文
                     return (
                         <>
                             {types.map((type, index) => {
-                                const typeName = QC_TYPE_MAP[type] || type
-                                const desc = QC_TYPE_DESC_MAP[type] || ''
+                                // 去除空格
+                                const trimmedType = type.trim()
+                                
+                                // 优先从映射表中获取中文名称（适用于英文类型）
+                                let displayName = QC_TYPE_MAP[trimmedType]
+                                
+                                // 如果映射表中没有，检查原始值是否是中文
+                                if (!displayName) {
+                                    // 检查是否是中文（包含中文字符）
+                                    const hasChinese = /[\u4e00-\u9fa5]/.test(trimmedType)
+                                    if (hasChinese) {
+                                        // 如果已经是中文，直接使用
+                                        displayName = trimmedType
+                                    } else {
+                                        // 如果是英文但映射表中没有，尝试从 typeNames 中获取对应的中文
+                                        // 如果 typeNames 数组长度与 types 相同，使用对应位置的值
+                                        if (typeNamesArray.length === types.length && typeNamesArray[index]) {
+                                            const nameValue = typeNamesArray[index]
+                                            // 检查是否是中文
+                                            if (/[\u4e00-\u9fa5]/.test(nameValue)) {
+                                                displayName = nameValue
+                                            } else {
+                                                // 如果 typeNames 中的值也是英文，尝试映射
+                                                displayName = QC_TYPE_MAP[nameValue] || nameValue
+                                            }
+                                        } else {
+                                            // 如果长度不匹配或没有 typeNames，显示原始值（英文）
+                                            displayName = trimmedType
+                                        }
+                                    }
+                                }
+                                
+                                // 获取描述（使用英文类型作为key）
+                                const desc = QC_TYPE_DESC_MAP[trimmedType] || ''
+                                
                                 return (
-                                    <Tooltip key={index} title={desc}>
+                                    <Tooltip key={index} title={desc || displayName}>
                                         <Tag color='blue' style={{ marginBottom: 4 }}>
-                                            {typeName}
+                                            {displayName}
                                         </Tag>
                                     </Tooltip>
                                 )

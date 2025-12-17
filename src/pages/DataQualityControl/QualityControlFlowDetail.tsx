@@ -11,11 +11,13 @@ import { Button, Card, Steps, Tag, Typography, Modal, Space, Spin, Progress } fr
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { dataQualityControlService } from '@/services/dataQualityControlService'
-import type { QCTaskLogDetailData } from '@/types'
+import type { QCTaskLogDetailData, CompletenessQCRateRecord, AccuracyQCRecord, ConsistencyQCRelationRecord } from '@/types'
 import uiMessage from '@/utils/uiMessage'
+import { logger } from '@/utils/logger'
 import { useAppSelector } from '@/store/hooks'
 import { selectQCMessages, selectQCExecutionByTaskId } from '@/store/slices/qcExecutionSlice'
 import type { QCExecutionMessage } from '@/store/slices/qcExecutionSlice'
+import JsonToTable from '@/components/JsonToTable'
 
 const { Title, Text } = Typography
 const { Step } = Steps
@@ -65,7 +67,37 @@ const QualityControlFlowDetail: React.FC = () => {
     const [selectedStepResult, setSelectedStepResult] = useState<{
         title: string
         resultSummary: string
+        nodeType?: string
+        logId?: number
+        batchId?: string
     } | null>(null)
+    
+    // 完整性质控结果数据
+    const [completenessResultData, setCompletenessResultData] = useState<CompletenessQCRateRecord[]>([])
+    const [completenessResultLoading, setCompletenessResultLoading] = useState(false)
+    const [completenessResultPagination, setCompletenessResultPagination] = useState({
+        current: 1,
+        pageSize: 10,
+        total: 0,
+    })
+    
+    // 准确性质控结果数据
+    const [accuracyResultData, setAccuracyResultData] = useState<AccuracyQCRecord[]>([])
+    const [accuracyResultLoading, setAccuracyResultLoading] = useState(false)
+    const [accuracyResultPagination, setAccuracyResultPagination] = useState({
+        current: 1,
+        pageSize: 10,
+        total: 0,
+    })
+    
+    // 一致性质控结果数据
+    const [consistencyResultData, setConsistencyResultData] = useState<ConsistencyQCRelationRecord[]>([])
+    const [consistencyResultLoading, setConsistencyResultLoading] = useState(false)
+    const [consistencyResultPagination, setConsistencyResultPagination] = useState({
+        current: 1,
+        pageSize: 10,
+        total: 0,
+    })
 
     // 用于跟踪是否已经在 SSE 结束时调用过 fetchLogDetail
     const hasFetchedOnEndRef = useRef<boolean>(false)
@@ -258,25 +290,207 @@ const QualityControlFlowDetail: React.FC = () => {
         uiMessage.success('刷新成功')
     }
 
+    // 加载完整性质控结果数据
+    const loadCompletenessResultData = async (batchId: string, pageNum: number = 1, pageSize: number = 10) => {
+        try {
+            setCompletenessResultLoading(true)
+            const response = await dataQualityControlService.getCompletenessQCRatePage({
+                pageNum,
+                pageSize,
+                batchId: batchId,
+            })
+            
+            if (response.code === 200 && response.data) {
+                setCompletenessResultData(response.data.records)
+                setCompletenessResultPagination({
+                    current: Number(response.data.current),
+                    pageSize: Number(response.data.size),
+                    total: Number(response.data.total),
+                })
+                logger.info('完整性质控结果加载成功:', response.data)
+            } else {
+                logger.warn('获取完整性质控结果失败:', response.msg)
+                uiMessage.warning(response.msg || '获取结果失败')
+            }
+        } catch (error) {
+            logger.error('加载完整性质控结果失败:', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('加载结果失败，请重试')
+        } finally {
+            setCompletenessResultLoading(false)
+        }
+    }
+
+    // 加载准确性质控结果数据
+    const loadAccuracyResultData = async (batchId: string, pageNum: number = 1, pageSize: number = 10) => {
+        try {
+            setAccuracyResultLoading(true)
+            const response = await dataQualityControlService.getAccuracyQCPage({
+                pageNum,
+                pageSize,
+                batchId: batchId,
+            })
+            
+            if (response.code === 200 && response.data) {
+                setAccuracyResultData(response.data.records)
+                setAccuracyResultPagination({
+                    current: Number(response.data.current),
+                    pageSize: Number(response.data.size),
+                    total: Number(response.data.total),
+                })
+                logger.info('准确性质控结果加载成功:', response.data)
+            } else {
+                logger.warn('获取准确性质控结果失败:', response.msg)
+                uiMessage.warning(response.msg || '获取结果失败')
+            }
+        } catch (error) {
+            logger.error('加载准确性质控结果失败:', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('加载结果失败，请重试')
+        } finally {
+            setAccuracyResultLoading(false)
+        }
+    }
+
+    // 加载一致性质控结果数据
+    const loadConsistencyResultData = async (batchId: string, pageNum: number = 1, pageSize: number = 10) => {
+        try {
+            setConsistencyResultLoading(true)
+            const response = await dataQualityControlService.getConsistencyQCRelationPage({
+                pageNum,
+                pageSize,
+                batchId: batchId,
+            })
+            
+            if (response.code === 200 && response.data) {
+                setConsistencyResultData(response.data.records)
+                setConsistencyResultPagination({
+                    current: Number(response.data.current),
+                    pageSize: Number(response.data.size),
+                    total: Number(response.data.total),
+                })
+                logger.info('一致性质控结果加载成功:', response.data)
+            } else {
+                logger.warn('获取一致性质控结果失败:', response.msg)
+                uiMessage.warning(response.msg || '获取结果失败')
+            }
+        } catch (error) {
+            logger.error('加载一致性质控结果失败:', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('加载结果失败，请重试')
+        } finally {
+            setConsistencyResultLoading(false)
+        }
+    }
+
     // 查看执行结果
-    const handleViewResult = (stepIndex: number) => {
+    const handleViewResult = async (stepIndex: number) => {
         if (!logDetailData?.logList) return
 
         const sortedLogList = [...logDetailData.logList].sort((a, b) => a.step_no - b.step_no)
         const step = sortedLogList[stepIndex]
         if (!step) return
 
-        setSelectedStepResult({
+        const stepResult = {
             title: step.step_name,
             resultSummary: '暂无执行结果',
-        })
+            nodeType: step.node_type,
+            logId: typeof step.log_id === 'number' ? step.log_id : Number(step.log_id),
+            batchId: logDetailData.logSummary?.batch_id ? String(logDetailData.logSummary.batch_id) : undefined,
+        }
+
+        setSelectedStepResult(stepResult)
         setResultModalVisible(true)
+
+        // 根据步骤类型加载结果数据
+        if (step.node_type === 'CompletenessQC' && stepResult.batchId) {
+            await loadCompletenessResultData(stepResult.batchId, 1, 10)
+            // 清空其他质控数据
+            setAccuracyResultData([])
+            setAccuracyResultPagination({
+                current: 1,
+                pageSize: 10,
+                total: 0,
+            })
+            setConsistencyResultData([])
+            setConsistencyResultPagination({
+                current: 1,
+                pageSize: 10,
+                total: 0,
+            })
+        } else if (step.node_type === 'AccuracyQC' && stepResult.batchId) {
+            await loadAccuracyResultData(stepResult.batchId, 1, 10)
+            // 清空其他质控数据
+            setCompletenessResultData([])
+            setCompletenessResultPagination({
+                current: 1,
+                pageSize: 10,
+                total: 0,
+            })
+            setConsistencyResultData([])
+            setConsistencyResultPagination({
+                current: 1,
+                pageSize: 10,
+                total: 0,
+            })
+        } else if (step.node_type === 'ConsistencyQC' && stepResult.batchId) {
+            await loadConsistencyResultData(stepResult.batchId, 1, 10)
+            // 清空其他质控数据
+            setCompletenessResultData([])
+            setCompletenessResultPagination({
+                current: 1,
+                pageSize: 10,
+                total: 0,
+            })
+            setAccuracyResultData([])
+            setAccuracyResultPagination({
+                current: 1,
+                pageSize: 10,
+                total: 0,
+            })
+        } else {
+            // 清空之前的数据
+            setCompletenessResultData([])
+            setCompletenessResultPagination({
+                current: 1,
+                pageSize: 10,
+                total: 0,
+            })
+            setAccuracyResultData([])
+            setAccuracyResultPagination({
+                current: 1,
+                pageSize: 10,
+                total: 0,
+            })
+            setConsistencyResultData([])
+            setConsistencyResultPagination({
+                current: 1,
+                pageSize: 10,
+                total: 0,
+            })
+        }
     }
 
     // 关闭结果弹窗
     const handleCloseResultModal = () => {
         setResultModalVisible(false)
         setSelectedStepResult(null)
+        // 清空结果数据
+        setCompletenessResultData([])
+        setCompletenessResultPagination({
+            current: 1,
+            pageSize: 10,
+            total: 0,
+        })
+        setAccuracyResultData([])
+        setAccuracyResultPagination({
+            current: 1,
+            pageSize: 10,
+            total: 0,
+        })
+        setConsistencyResultData([])
+        setConsistencyResultPagination({
+            current: 1,
+            pageSize: 10,
+            total: 0,
+        })
     }
 
     // 获取状态标签
@@ -610,7 +824,7 @@ const QualityControlFlowDetail: React.FC = () => {
                         关闭
                     </Button>,
                 ]}
-                width={700}
+                width={selectedStepResult?.nodeType === 'CompletenessQC' || selectedStepResult?.nodeType === 'AccuracyQC' || selectedStepResult?.nodeType === 'ConsistencyQC' ? 1200 : 700}
             >
                 {selectedStepResult && (
                     <div>
@@ -618,26 +832,189 @@ const QualityControlFlowDetail: React.FC = () => {
                             <Text strong>步骤名称：</Text>
                             <Text>{selectedStepResult.title}</Text>
                         </div>
-                        <div>
-                            <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                                执行结果：
-                            </Text>
-                            <div
-                                style={{
-                                    marginTop: 8,
-                                    padding: 16,
-                                    background: '#f5f5f5',
-                                    borderRadius: 4,
-                                    border: '1px solid #d9d9d9',
-                                    whiteSpace: 'pre-line',
-                                    fontFamily: 'monospace',
-                                    fontSize: 13,
-                                    lineHeight: 1.8,
-                                }}
-                            >
-                                <Text>{selectedStepResult.resultSummary || '暂无执行结果'}</Text>
+                        
+                        {/* 完整性质控结果展示 */}
+                        {selectedStepResult.nodeType === 'CompletenessQC' ? (
+                            <div>
+                                <Text strong style={{ display: 'block', marginBottom: 16 }}>
+                                    完整性质控结果：
+                                </Text>
+                                <Spin spinning={completenessResultLoading}>
+                                    {completenessResultData.length > 0 ? (
+                                        <JsonToTable
+                                            data={completenessResultData as unknown as Array<Record<string, unknown>>}
+                                            columnMapping={{
+                                                id: 'ID',
+                                                batchId: '批次ID',
+                                                tableName: '表名',
+                                                fieldName: '字段名',
+                                                tableComment: '表注释',
+                                                fieldComment: '字段注释',
+                                                tableTotalRecords: '表总记录数',
+                                                fieldFillRecords: '字段填充记录数',
+                                                fieldFillRate: '字段填充率',
+                                            }}
+                                            tableProps={{
+                                                pagination: {
+                                                    current: completenessResultPagination.current,
+                                                    pageSize: completenessResultPagination.pageSize,
+                                                    total: completenessResultPagination.total,
+                                                    showSizeChanger: true,
+                                                    showTotal: (total) => `共 ${total} 条`,
+                                                    onChange: (page, pageSize) => {
+                                                        if (selectedStepResult.batchId) {
+                                                            loadCompletenessResultData(selectedStepResult.batchId, page, pageSize)
+                                                        }
+                                                    },
+                                                    onShowSizeChange: (current, size) => {
+                                                        if (selectedStepResult.batchId) {
+                                                            loadCompletenessResultData(selectedStepResult.batchId, current, size)
+                                                        }
+                                                    },
+                                                },
+                                                scroll: { x: 'max-content' },
+                                            }}
+                                        />
+                                    ) : (
+                                        <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
+                                            {completenessResultLoading ? '加载中...' : '暂无执行结果'}
+                                        </div>
+                                    )}
+                                </Spin>
                             </div>
-                        </div>
+                        ) : selectedStepResult.nodeType === 'AccuracyQC' ? (
+                            <div>
+                                <Text strong style={{ display: 'block', marginBottom: 16 }}>
+                                    准确性质控结果：
+                                </Text>
+                                <Spin spinning={accuracyResultLoading}>
+                                    {accuracyResultData.length > 0 ? (
+                                        <JsonToTable
+                                            data={accuracyResultData as unknown as Array<Record<string, unknown>>}
+                                            columnMapping={{
+                                                id: 'ID',
+                                                ruleCode: '规则编码',
+                                                mainTable: '主表',
+                                                subTable: '次表',
+                                                mainTableName: '主表名称',
+                                                subTableName: '次表名称',
+                                                mainCount: '主表数量',
+                                                subCount: '次表数量',
+                                                issueDesc: '问题描述',
+                                                batchId: '批次ID',
+                                            }}
+                                            tableProps={{
+                                                pagination: {
+                                                    current: accuracyResultPagination.current,
+                                                    pageSize: accuracyResultPagination.pageSize,
+                                                    total: accuracyResultPagination.total,
+                                                    showSizeChanger: true,
+                                                    showTotal: (total) => `共 ${total} 条`,
+                                                    onChange: (page, pageSize) => {
+                                                        if (selectedStepResult.batchId) {
+                                                            loadAccuracyResultData(selectedStepResult.batchId, page, pageSize)
+                                                        }
+                                                    },
+                                                    onShowSizeChange: (current, size) => {
+                                                        if (selectedStepResult.batchId) {
+                                                            loadAccuracyResultData(selectedStepResult.batchId, current, size)
+                                                        }
+                                                    },
+                                                },
+                                                scroll: { x: 'max-content' },
+                                            }}
+                                        />
+                                    ) : (
+                                        <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
+                                            {accuracyResultLoading ? '加载中...' : '暂无执行结果'}
+                                        </div>
+                                    )}
+                                </Spin>
+                            </div>
+                        ) : selectedStepResult.nodeType === 'ConsistencyQC' ? (
+                            <div>
+                                <Text strong style={{ display: 'block', marginBottom: 16 }}>
+                                    一致性质控结果：
+                                </Text>
+                                <Spin spinning={consistencyResultLoading}>
+                                    {consistencyResultData.length > 0 ? (
+                                        <JsonToTable
+                                            data={consistencyResultData as unknown as Array<Record<string, unknown>>}
+                                            columnMapping={{
+                                                id: 'ID',
+                                                batchId: '批次ID',
+                                                mainTableName: '主表名称',
+                                                subTableName: '次表名称',
+                                                relationField: '关联字段',
+                                                mainCount: '主表数量',
+                                                subCount: '次表数量',
+                                                matchedCount: '匹配数量',
+                                                unmatchedCount: '未匹配数量',
+                                                matchRate: '匹配率',
+                                                status: '状态',
+                                                mainTableComment: '主表注释',
+                                                subTableComment: '次表注释',
+                                            }}
+                                            tableProps={{
+                                                pagination: {
+                                                    current: consistencyResultPagination.current,
+                                                    pageSize: consistencyResultPagination.pageSize,
+                                                    total: consistencyResultPagination.total,
+                                                    showSizeChanger: true,
+                                                    showTotal: (total) => `共 ${total} 条`,
+                                                    onChange: (page, pageSize) => {
+                                                        if (selectedStepResult.batchId) {
+                                                            loadConsistencyResultData(
+                                                                selectedStepResult.batchId,
+                                                                page,
+                                                                pageSize
+                                                            )
+                                                        }
+                                                    },
+                                                    onShowSizeChange: (current, size) => {
+                                                        if (selectedStepResult.batchId) {
+                                                            loadConsistencyResultData(
+                                                                selectedStepResult.batchId,
+                                                                current,
+                                                                size
+                                                            )
+                                                        }
+                                                    },
+                                                },
+                                                scroll: { x: 'max-content' },
+                                            }}
+                                        />
+                                    ) : (
+                                        <div
+                                            style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}
+                                        >
+                                            {consistencyResultLoading ? '加载中...' : '暂无执行结果'}
+                                        </div>
+                                    )}
+                                </Spin>
+                            </div>
+                        ) : (
+                            <div>
+                                <Text strong style={{ display: 'block', marginBottom: 8 }}>
+                                    执行结果：
+                                </Text>
+                                <div
+                                    style={{
+                                        marginTop: 8,
+                                        padding: 16,
+                                        background: '#f5f5f5',
+                                        borderRadius: 4,
+                                        border: '1px solid #d9d9d9',
+                                        whiteSpace: 'pre-line',
+                                        fontFamily: 'monospace',
+                                        fontSize: 13,
+                                        lineHeight: 1.8,
+                                    }}
+                                >
+                                    <Text>{selectedStepResult.resultSummary || '暂无执行结果'}</Text>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </Modal>

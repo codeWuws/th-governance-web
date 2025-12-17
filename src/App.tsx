@@ -1,10 +1,15 @@
 import { App as AntdApp, ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
+import dayjs from 'dayjs'
+import 'dayjs/locale/zh-cn'
 import React from 'react'
 import { RouterProvider } from 'react-router-dom'
 import './App.css'
 import { router } from './router'
 import GlobalMessageHost from '@/components/GlobalMessageHost'
+
+// 配置 dayjs 使用中文语言包
+dayjs.locale('zh-cn')
 
 /**
  * 应用程序根组件

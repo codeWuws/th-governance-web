@@ -1112,3 +1112,263 @@ export interface TableInfoResponse {
     /** 表信息列表 */
     data: TableInfoItem[]
 }
+
+/** 完整性质控结果记录 */
+export interface CompletenessQCRateRecord {
+    /** ID */
+    id: string
+    /** 批次ID */
+    batchId: string
+    /** 表名 */
+    tableName: string
+    /** 字段名 */
+    fieldName: string
+    /** 表注释 */
+    tableComment: string
+    /** 字段注释 */
+    fieldComment: string
+    /** 表总记录数 */
+    tableTotalRecords: string
+    /** 字段填充记录数 */
+    fieldFillRecords: string
+    /** 字段填充率 */
+    fieldFillRate: number
+}
+
+/** 完整性质控结果分页数据 */
+export interface CompletenessQCRatePageData {
+    /** 记录列表 */
+    records: CompletenessQCRateRecord[]
+    /** 总数 */
+    total: string
+    /** 每页大小 */
+    size: string
+    /** 当前页 */
+    current: string
+    /** 总页数 */
+    pages: string
+}
+
+/** 完整性质控结果分页响应 */
+export interface CompletenessQCRatePageResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 分页数据 */
+    data: CompletenessQCRatePageData
+}
+
+/** 完整性质控结果分页请求参数 */
+export interface CompletenessQCRatePageParams {
+    /** 页码 */
+    pageNum: number
+    /** 每页大小 */
+    pageSize: number
+    /** 批次ID（taskId） */
+    batchId: number | string
+}
+
+/** 准确性质控结果记录 */
+export interface AccuracyQCRecord {
+    /** ID */
+    id: string
+    /** 规则编码 */
+    ruleCode: string
+    /** 主表 */
+    mainTable: string
+    /** 次表 */
+    subTable: string
+    /** 主表名称 */
+    mainTableName: string
+    /** 次表名称 */
+    subTableName: string
+    /** 主表数量 */
+    mainCount: string
+    /** 次表数量 */
+    subCount: string
+    /** 问题描述 */
+    issueDesc: string
+    /** 批次ID */
+    batchId: string
+}
+
+/** 准确性质控结果分页数据 */
+export interface AccuracyQCPageData {
+    /** 记录列表 */
+    records: AccuracyQCRecord[]
+    /** 总数 */
+    total: string
+    /** 每页大小 */
+    size: string
+    /** 当前页 */
+    current: string
+    /** 总页数 */
+    pages: string
+}
+
+/** 准确性质控结果分页响应 */
+export interface AccuracyQCPageResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 分页数据 */
+    data: AccuracyQCPageData
+}
+
+/** 准确性质控结果分页请求参数 */
+export interface AccuracyQCPageParams {
+    /** 页码 */
+    pageNum: number
+    /** 每页大小 */
+    pageSize: number
+    /** 批次ID（taskId） */
+    batchId: number | string
+}
+
+/** 准确性质控结果记录 */
+export interface AccuracyQCRecord {
+    /** ID */
+    id: string
+    /** 规则编码 */
+    ruleCode: string
+    /** 主表 */
+    mainTable: string
+    /** 次表 */
+    subTable: string
+    /** 主表名 */
+    mainTableName: string
+    /** 次表名 */
+    subTableName: string
+    /** 主表数量 */
+    mainCount: string
+    /** 次表数量 */
+    subCount: string
+    /** 问题描述 */
+    issueDesc: string
+    /** 批次ID */
+    batchId: string
+}
+
+/** 准确性质控结果分页数据 */
+export interface AccuracyQCPageData {
+    /** 记录列表 */
+    records: AccuracyQCRecord[]
+    /** 总数 */
+    total: string
+    /** 每页大小 */
+    size: string
+    /** 当前页 */
+    current: string
+    /** 总页数 */
+    pages: string
+}
+
+/** 准确性质控结果分页响应 */
+export interface AccuracyQCPageResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 分页数据 */
+    data: AccuracyQCPageData
+}
+
+/** 准确性质控结果分页请求参数 */
+export interface AccuracyQCPageParams {
+    /** 页码 */
+    pageNum: number
+    /** 每页大小 */
+    pageSize: number
+    /** 批次ID（taskId） */
+    batchId: number | string
+}
+
+/** 一致性质控结果记录 */
+export interface ConsistencyQCRelationRecord {
+    /** ID */
+    id: string
+    /** 批次ID */
+    batchId: string
+    /** 主表名称 */
+    mainTableName: string
+    /** 次表名称 */
+    subTableName: string
+    /** 关联字段 */
+    relationField: string
+    /** 主表数量 */
+    mainCount: string
+    /** 次表数量 */
+    subCount: string
+    /** 匹配数量 */
+    matchedCount: string
+    /** 未匹配数量 */
+    unmatchedCount: string
+    /** 匹配率 */
+    matchRate: number
+    /** 状态 */
+    status: string
+    /** 主表注释 */
+    mainTableComment?: string
+    /** 次表注释 */
+    subTableComment?: string
+}
+
+/** 一致性质控结果分页数据 */
+export interface ConsistencyQCRelationPageData {
+    /** 记录列表 */
+    records: ConsistencyQCRelationRecord[]
+    /** 总数 */
+    total: string
+    /** 每页大小 */
+    size: string
+    /** 当前页 */
+    current: string
+    /** 总页数 */
+    pages: string
+}
+
+/** 一致性质控结果分页响应 */
+export interface ConsistencyQCRelationPageResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 分页数据 */
+    data: ConsistencyQCRelationPageData
+}
+
+/** 一致性质控结果分页请求参数 */
+export interface ConsistencyQCRelationPageParams {
+    /** 页码 */
+    pageNum: number
+    /** 每页大小 */
+    pageSize: number
+    /** 批次ID（taskId） */
+    batchId: number | string
+}
+
+/** 可靠性质控请求参数 */
+export interface ReliabilityQCRequest {
+    /** 表名 */
+    tableName: string
+    /** 质控备注 */
+    qcRemark: string
+    /** 质控结果 true-合格, false-不合格 */
+    qcResult: boolean
+    /** 文件ID */
+    fileId: string
+    /** 文件名 */
+    fileName: string
+}
+
+/** 可靠性质控响应 */
+export interface ReliabilityQCResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data?: unknown
+}

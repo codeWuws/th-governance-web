@@ -23,10 +23,18 @@ import {
     Upload,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import type { UploadProps } from 'antd/es/upload'
-import React, { useEffect, useState } from 'react'
+import type { UploadFile, UploadProps } from 'antd/es/upload'
+import React, { useEffect, useState, useRef } from 'react'
 import { logger } from '@/utils/logger'
 import uiMessage from '@/utils/uiMessage'
+import { dataQualityControlService } from '@/services/dataQualityControlService'
+import { dataManagementService } from '@/services/dataManagementService'
+import type { TableInfoItem, DatabaseOption } from '@/types'
+import { api, type SSEManager } from '@/utils/request'
+import { store } from '@/store'
+import { initializeQCExecution, addQCMessage } from '@/store/slices/qcExecutionSlice'
+import { useAppSelector } from '@/store/hooks'
+import { selectQCMessages } from '@/store/slices/qcExecutionSlice'
 
 const { Title } = Typography
 const { Dragger } = Upload
@@ -51,7 +59,9 @@ interface QualityReport {
 }
 
 interface ComprehensiveFormValues {
-    targetDatabase: string
+    dataBaseId: string
+    targetTable: string
+    uploadFile?: UploadFile<any>[]
 }
 
 type AutoProps = { autoStart?: boolean; onAutoDone?: () => void }
@@ -67,14 +77,123 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
         title: string
         content: string
     } | null>(null)
+    
+    // 新增状态
+    const [databaseOptions, setDatabaseOptions] = useState<Array<{ label: string; value: string }>>([])
+    const [databaseLoading, setDatabaseLoading] = useState(false)
+    const [tableOptions, setTableOptions] = useState<Array<{ label: string; value: string }>>([])
+    const [tableLoading, setTableLoading] = useState(false)
+    const [currentTaskId, setCurrentTaskId] = useState<string | null>(null)
+    const [progress, setProgress] = useState<number>(0)
+    const sseManagerRef = useRef<SSEManager | null>(null)
+    
+    // 从Redux获取SSE消息
+    const qcMessages = useAppSelector(
+        state => (currentTaskId ? selectQCMessages(currentTaskId)(state) : [])
+    )
+    
+    const normFile = (e: any) => {
+        if (Array.isArray(e)) return e
+        return e?.fileList || []
+    }
 
-    // 数据源选项
-    const dataSourceOptions = [
-        { label: '全部数据表', value: 'all_tables' },
-        { label: '事件流/实时', value: 'streaming' },
-        { label: '批处理/日更', value: 'batch_daily' },
-        { label: '批处理/周更', value: 'batch_weekly' },
-    ]
+    // 加载数据库选项
+    const loadDatabaseOptions = async () => {
+        try {
+            setDatabaseLoading(true)
+            const response = await dataManagementService.getDatabaseOptions()
+            if (response.code === 200 && response.data) {
+                const options = response.data.map((item: DatabaseOption) => ({
+                    label: `${item.dbName} (${item.dbType})`,
+                    value: item.id,
+                }))
+                setDatabaseOptions(options)
+                logger.info('数据库选项加载成功:', options)
+            } else {
+                logger.warn('获取数据库选项失败:', response.msg)
+                uiMessage.warning(response.msg || '获取数据库选项失败')
+            }
+        } catch (error) {
+            logger.error('加载数据库选项失败:', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('加载数据库选项失败，请重试')
+        } finally {
+            setDatabaseLoading(false)
+        }
+    }
+
+    // 加载表信息
+    const loadTableInfo = async () => {
+        try {
+            setTableLoading(true)
+            const response = await dataQualityControlService.getTableInfo()
+            if (response.code === 200 && response.data) {
+                const options = response.data.map((item: TableInfoItem) => ({
+                    label: item.tableComment 
+                        ? `${item.tableName} - ${item.tableComment}` 
+                        : item.tableName,
+                    value: item.tableName,
+                }))
+                setTableOptions(options)
+                logger.info('表信息加载成功:', options)
+            } else {
+                logger.warn('获取表信息失败:', response.msg)
+                uiMessage.warning(response.msg || '获取表信息失败')
+            }
+        } catch (error) {
+            logger.error('加载表信息失败:', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('加载表信息失败，请重试')
+        } finally {
+            setTableLoading(false)
+        }
+    }
+
+    // 组件挂载时加载数据
+    useEffect(() => {
+        loadDatabaseOptions()
+        loadTableInfo()
+    }, [])
+
+    // 监听SSE消息，更新进度
+    useEffect(() => {
+        if (qcMessages.length > 0) {
+            const lastMessage = qcMessages[qcMessages.length - 1]
+            // 更新进度
+            if (lastMessage.progress !== undefined && lastMessage.progress !== null) {
+                setProgress(Math.round(Number(lastMessage.progress)))
+            }
+            
+            // 检查是否完成
+            if (lastMessage.executionStatus === 'completed' || lastMessage.executionStatus === 'end') {
+                // 延迟一下再提示，确保最后的消息已处理
+                setTimeout(() => {
+                    uiMessage.success('及时性质控检查完成！')
+                    logger.info('及时性质控检查完成')
+                    // 断开SSE连接
+                    if (sseManagerRef.current) {
+                        sseManagerRef.current.disconnect()
+                        sseManagerRef.current = null
+                    }
+                    // 重置状态
+                    setLoading(false)
+                    setCurrentTaskId(null)
+                    setProgress(0)
+                    if (onAutoDone) {
+                        onAutoDone()
+                    }
+                }, 500)
+            }
+        }
+    }, [qcMessages, onAutoDone])
+
+    // 组件卸载时清理SSE连接
+    useEffect(() => {
+        return () => {
+            if (sseManagerRef.current) {
+                sseManagerRef.current.disconnect()
+                sseManagerRef.current = null
+            }
+        }
+    }, [])
 
     // 解析Excel结果
     const parseExcelResults = () => {
@@ -129,8 +248,8 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
         setOverallScore(avgScore)
     }
 
-    // Excel文件上传配置
-    const uploadProps: UploadProps = {
+    // Excel文件上传配置（用于结果上传）
+    const excelUploadProps: UploadProps = {
         name: 'file',
         multiple: false,
         accept: '.xlsx,.xls',
@@ -158,6 +277,28 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
             } else if (status === 'error') {
                 uiMessage.error(`${info.file.name} 文件上传失败`)
             }
+        },
+    }
+
+    // 质控文件上传配置（用于质控执行）
+    const qcFileUploadProps: UploadProps = {
+        name: 'file',
+        multiple: false,
+        accept: '.xlsx,.xls,.txt,.doc,.docx,.pdf',
+        beforeUpload: file => {
+            const isLt10M = file.size / 1024 / 1024 < 10
+            if (!isLt10M) {
+                uiMessage.error('文件大小不能超过 10MB！')
+                return false
+            }
+            return false // 阻止自动上传
+        },
+        onChange: info => {
+            const fileList = info.fileList || []
+            try {
+                form.setFieldsValue({ uploadFile: fileList })
+                form.validateFields(['uploadFile']).catch(() => {})
+            } catch {}
         },
     }
 
@@ -197,21 +338,7 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
         }
     }
 
-    useEffect(() => {
-        let cancelled = false
-        const run = async () => {
-            if (!autoStart || loading) return
-            try {
-                await handleComprehensiveCheck({ targetDatabase: '' } as unknown as ComprehensiveFormValues)
-            } finally {
-                if (!cancelled) onAutoDone && onAutoDone()
-            }
-        }
-        run()
-        return () => {
-            cancelled = true
-        }
-    }, [autoStart])
+    // 自动启动逻辑已移除，因为需要用户选择数据库、表和文件
 
     const handleExportMetrics = () => {
         const rows = qualityMetrics.map(m => ({
@@ -237,62 +364,143 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
     }
 
     // 执行综合质控
-    const handleComprehensiveCheck = async (_values: ComprehensiveFormValues) => {
-        setLoading(true)
+    const handleComprehensiveCheck = async (values: ComprehensiveFormValues) => {
         try {
-            // 模拟质控检查过程
-            await new Promise(resolve => setTimeout(resolve, 3000))
+            // 验证表单字段
+            if (!values.dataBaseId) {
+                uiMessage.warning('请选择数据库')
+                return
+            }
+            if (!values.targetTable) {
+                uiMessage.warning('请选择数据表')
+                return
+            }
 
-            // 模拟质控指标结果
-            const mockMetrics: QualityMetric[] = [
-                {
-                    key: '1',
-                    metric: '刷新延迟控制',
-                    score: 93,
-                    status: 'excellent',
-                    description: '绝大多数表延迟≤15分钟',
-                },
-                {
-                    key: '2',
-                    metric: '准点率（调度）',
-                    score: 88,
-                    status: 'good',
-                    description: '定时任务准点率≥88%，偶发延迟',
-                },
-                {
-                    key: '3',
-                    metric: '实时管道稳定性',
-                    score: 80,
-                    status: 'warning',
-                    description: '高峰吞吐下降，需优化缓冲与重试策略',
-                },
-                {
-                    key: '4',
-                    metric: '迟到记录占比',
-                    score: 86,
-                    status: 'good',
-                    description: '迟到记录占比≤14%，总体可控',
-                },
-                {
-                    key: '5',
-                    metric: '增量覆盖率',
-                    score: 82,
-                    status: 'warning',
-                    description: '部分批次增量缺失，需补偿同步',
-                },
-            ]
+            // 检查文件
+            const fileList = values.uploadFile as UploadFile<any>[] | undefined
+            if (!fileList || fileList.length === 0) {
+                uiMessage.warning('请上传文件')
+                return
+            }
 
-            setQualityMetrics(mockMetrics)
-            const avgScore = Math.round(
-                mockMetrics.reduce((sum, item) => sum + item.score, 0) / mockMetrics.length
-            )
-            setOverallScore(avgScore)
-            uiMessage.success('及时性质控检查完成！')
+            const file = fileList[0]
+            const originFile = file.originFileObj as File | undefined
+            if (!originFile) {
+                uiMessage.error('文件信息异常，请重新上传')
+                return
+            }
+
+            setLoading(true)
+            setProgress(0)
+
+            // 使用模拟的 fileId（待文件上传接口开发完成后替换）
+            const mockFileId = `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+            // 构建请求参数
+            const requestParams = {
+                dataBaseId: values.dataBaseId,
+                fileId: mockFileId,
+                fileName: originFile.name,
+            }
+
+            // 创建SSE连接
+            try {
+                const sseManager = api.createSSE({
+                    url: '/data/qc/timelinessQc',
+                    method: 'POST',
+                    data: requestParams,
+                    onOpen: (event) => {
+                        console.log('=== SSE连接已建立 ===', event)
+                        logger.info('及时性质控SSE连接已建立', requestParams)
+                    },
+                    onMessage: (event: MessageEvent) => {
+                        console.log('=== SSE消息 ===', {
+                            type: event.type,
+                            data: event.data,
+                            timestamp: new Date().toISOString(),
+                        })
+                        
+                        // 尝试解析JSON数据
+                        try {
+                            const messageData = JSON.parse(event.data) as Record<string, unknown>
+                            console.log('=== SSE消息内容（解析后）===', messageData)
+                            logger.info('及时性质控SSE消息', messageData)
+                            
+                            // 从消息中提取taskId
+                            let extractedTaskId: string | null = messageData.taskId as string | null
+                            
+                            // 如果没有taskId，尝试从其他字段获取
+                            if (!extractedTaskId && messageData.id) {
+                                extractedTaskId = String(messageData.id)
+                            }
+
+                            if (extractedTaskId) {
+                                console.log('=== 提取到taskId ===', extractedTaskId)
+                                
+                                // 设置当前taskId
+                                setCurrentTaskId(extractedTaskId)
+                                
+                                // 初始化质控流程执行（如果不存在）
+                                const state = store.getState()
+                                if (!state.qcExecution.executions[extractedTaskId]) {
+                                    store.dispatch(initializeQCExecution({ taskId: extractedTaskId }))
+                                    console.log('=== 初始化质控流程执行 ===', extractedTaskId)
+                                }
+                                
+                                // 添加消息到Redux
+                                store.dispatch(
+                                    addQCMessage({
+                                        taskId: extractedTaskId,
+                                        message: messageData,
+                                    })
+                                )
+                            } else {
+                                console.warn('=== 未找到taskId，消息未存储 ===', messageData)
+                            }
+                        } catch (parseError) {
+                            // 如果不是JSON格式，直接输出原始数据
+                            console.log('=== SSE消息内容（原始）===', event.data)
+                            logger.info('及时性质控SSE消息（原始）', event.data)
+                        }
+                    },
+                    onError: (event) => {
+                        console.error('=== SSE连接错误 ===', event)
+                        logger.error('及时性质控SSE连接错误', new Error(`SSE连接错误: ${event.type || 'unknown'}`))
+                        uiMessage.error('质控检查连接异常，请检查网络')
+                        setLoading(false)
+                        setCurrentTaskId(null)
+                        setProgress(0)
+                    },
+                    onClose: () => {
+                        console.log('=== SSE连接已关闭 ===')
+                        logger.info('及时性质控SSE连接已关闭')
+                    },
+                })
+
+                // 保存SSE连接引用
+                sseManagerRef.current = sseManager
+
+                // 建立连接
+                sseManager.connect()
+
+                // 等待一小段时间确保连接建立
+                await new Promise(resolve => setTimeout(resolve, 500))
+                
+            } catch (sseError) {
+                logger.error('启动SSE连接失败:', sseError instanceof Error ? sseError : new Error(String(sseError)))
+                console.error('=== 启动SSE连接失败 ===', sseError)
+                uiMessage.error('启动质控检查连接失败，请稍后重试')
+                setLoading(false)
+                setCurrentTaskId(null)
+                setProgress(0)
+                throw sseError
+            }
         } catch (error) {
             logger.error('质控检查失败:', error instanceof Error ? error : new Error(String(error)))
             uiMessage.error('质控检查失败，请重试')
-        } finally {
             setLoading(false)
+            setCurrentTaskId(null)
+            setProgress(0)
         }
     }
 
@@ -516,18 +724,65 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
                             form={form}
                             layout='vertical'
                             onFinish={handleComprehensiveCheck}
-                            initialValues={{ dataSource: 'all_tables' }}
                         >
                             <Form.Item
-                                label='选择数据源'
-                                name='dataSource'
-                                rules={[{ required: true, message: '请选择数据源' }]}
+                                label='选择数据库'
+                                name='dataBaseId'
+                                rules={[{ required: true, message: '请选择数据库' }]}
                             >
                                 <Select
-                                    placeholder='请选择要进行质控的数据源'
-                                    options={dataSourceOptions}
+                                    placeholder={databaseLoading ? '正在加载数据库...' : '请选择数据库'}
+                                    options={databaseOptions}
                                     size='large'
+                                    loading={databaseLoading}
+                                    showSearch
+                                    filterOption={(input, option) => {
+                                        const label = String(option?.label ?? '')
+                                        return label.toLowerCase().includes(input.toLowerCase())
+                                    }}
+                                    allowClear
                                 />
+                            </Form.Item>
+
+                            <Form.Item
+                                label='选择数据表'
+                                name='targetTable'
+                                rules={[{ required: true, message: '请选择数据表' }]}
+                            >
+                                <Select
+                                    placeholder={tableLoading ? '正在加载表信息...' : '请选择要进行质控的数据表'}
+                                    options={tableOptions}
+                                    size='large'
+                                    loading={tableLoading}
+                                    showSearch
+                                    filterOption={(input, option) => {
+                                        const label = String(option?.label ?? '')
+                                        return label.toLowerCase().includes(input.toLowerCase())
+                                    }}
+                                    allowClear
+                                />
+                            </Form.Item>
+
+                            <Form.Item
+                                label='上传文件'
+                                name='uploadFile'
+                                valuePropName='fileList'
+                                getValueFromEvent={normFile}
+                                rules={[
+                                    {
+                                        validator: async (_rule, value) => {
+                                            const hasFile = Array.isArray(value) && value.length > 0
+                                            if (!hasFile) {
+                                                return Promise.reject('请上传文件')
+                                            }
+                                            return Promise.resolve()
+                                        },
+                                    },
+                                ]}
+                            >
+                                <Upload {...qcFileUploadProps}>
+                                    <Button icon={<InboxOutlined />}>选择文件</Button>
+                                </Upload>
                             </Form.Item>
 
                             <Form.Item>
@@ -538,33 +793,41 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
                                     icon={<UploadOutlined />}
                                     size='large'
                                     block
+                                    disabled={loading}
                                 >
                                     开始及时质控
                                 </Button>
                             </Form.Item>
+                            
+                            {/* 进度条显示 */}
+                            {loading && (
+                                <Form.Item>
+                                    <div style={{ marginTop: 16 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                                            <Progress
+                                                percent={progress}
+                                                size='small'
+                                                status={progress === 100 ? 'success' : 'active'}
+                                                showInfo={false}
+                                                style={{ flex: 1 }}
+                                            />
+                                            <span style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap' }}>
+                                                {progress}%
+                                            </span>
+                                        </div>
+                                        {qcMessages.length > 0 && (
+                                            <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+                                                {qcMessages[qcMessages.length - 1]?.tableName && (
+                                                    <span>正在处理: {qcMessages[qcMessages.length - 1].tableName}</span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </Form.Item>
+                            )}
                         </Form>
                     </Card>
 
-                    {/* Excel结果上传 */}
-                    <Card
-                        title={
-                            <>
-                                <FileExcelOutlined style={{ marginRight: 8 }} />
-                                Excel结果上传
-                            </>
-                        }
-                        style={{ marginTop: 16 }}
-                    >
-                        <Dragger {...uploadProps}>
-                            <p className='ant-upload-drag-icon'>
-                                <InboxOutlined />
-                            </p>
-                            <p className='ant-upload-text'>上传Excel质控结果</p>
-                            <p className='ant-upload-hint'>
-                                支持 .xlsx、.xls 格式，文件大小不超过 5MB
-                            </p>
-                        </Dragger>
-                    </Card>
                 </Col>
 
                 {/* 右侧：质控结果 */}

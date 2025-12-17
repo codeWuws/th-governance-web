@@ -25,9 +25,19 @@ import {
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { logger } from '@/utils/logger'
 import uiMessage from '@/utils/uiMessage'
+import { api, type SSEManager } from '@/utils/request'
+import { store } from '@/store'
+import { initializeQCExecution, addQCMessage } from '@/store/slices/qcExecutionSlice'
+import { useAppSelector } from '@/store/hooks'
+import { selectQCMessages } from '@/store/slices/qcExecutionSlice'
+import { dataQualityControlService } from '@/services/dataQualityControlService'
+import type { AccuracyQCRecord } from '@/types'
+import JsonToTable from '@/components/JsonToTable'
+import { Spin } from 'antd'
+import { isDemoVersion } from '@/utils/versionControl'
 
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
@@ -56,7 +66,8 @@ interface ComparisonResult {
 }
 
 interface CoreDataFormValues {
-    targetDatabase: string
+    dataType: string
+    compareUnread: string
     dateRange: [dayjs.Dayjs, dayjs.Dayjs]
 }
 
@@ -79,6 +90,104 @@ const CoreDataQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) 
         title: string
         content: string
     } | null>(null)
+    
+    // 新增状态
+    const [currentTaskId, setCurrentTaskId] = useState<string | null>(null)
+    const [progress, setProgress] = useState<number>(0)
+    const sseManagerRef = useRef<SSEManager | null>(null)
+    
+    // 结果数据相关状态
+    const [resultData, setResultData] = useState<AccuracyQCRecord[]>([])
+    const [resultLoading, setResultLoading] = useState(false)
+    const [resultPagination, setResultPagination] = useState({
+        current: 1,
+        pageSize: 10,
+        total: 0,
+    })
+    
+    // 从Redux获取SSE消息
+    const qcMessages = useAppSelector(
+        state => (currentTaskId ? selectQCMessages(currentTaskId)(state) : [])
+    )
+
+    // 监听SSE消息，更新进度
+    useEffect(() => {
+        if (qcMessages.length > 0) {
+            const lastMessage = qcMessages[qcMessages.length - 1]
+            // 更新进度
+            if (lastMessage.progress !== undefined && lastMessage.progress !== null) {
+                setProgress(Math.round(Number(lastMessage.progress)))
+            }
+            
+            // 检查是否完成
+            if (lastMessage.executionStatus === 'completed' || lastMessage.executionStatus === 'end') {
+                // 延迟一下再提示，确保最后的消息已处理
+                setTimeout(async () => {
+                    uiMessage.success('准确性质控分析完成！')
+                    logger.info('准确性质控分析完成')
+                    
+                    // 获取taskId并加载结果数据
+                    const taskId = currentTaskId || (lastMessage.taskId ? String(lastMessage.taskId) : null)
+                    if (taskId) {
+                        await loadResultData(taskId, 1, 10)
+                    }
+                    
+                    // 断开SSE连接
+                    if (sseManagerRef.current) {
+                        sseManagerRef.current.disconnect()
+                        sseManagerRef.current = null
+                    }
+                    // 重置状态（保留taskId以便查看结果）
+                    setLoading(false)
+                    setProgress(0)
+                    if (onAutoDone) {
+                        onAutoDone()
+                    }
+                }, 500)
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [qcMessages, onAutoDone, currentTaskId])
+
+    // 加载结果数据
+    const loadResultData = async (taskId: string, pageNum: number = 1, pageSize: number = 10) => {
+        try {
+            setResultLoading(true)
+            const response = await dataQualityControlService.getAccuracyQCPage({
+                pageNum,
+                pageSize,
+                batchId: taskId,
+            })
+            
+            if (response.code === 200 && response.data) {
+                setResultData(response.data.records)
+                setResultPagination({
+                    current: Number(response.data.current),
+                    pageSize: Number(response.data.size),
+                    total: Number(response.data.total),
+                })
+                logger.info('准确性质控结果加载成功:', response.data)
+            } else {
+                logger.warn('获取准确性质控结果失败:', response.msg)
+                uiMessage.warning(response.msg || '获取结果失败')
+            }
+        } catch (error) {
+            logger.error('加载准确性质控结果失败:', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('加载结果失败，请重试')
+        } finally {
+            setResultLoading(false)
+        }
+    }
+
+    // 组件卸载时清理SSE连接
+    useEffect(() => {
+        return () => {
+            if (sseManagerRef.current) {
+                sseManagerRef.current.disconnect()
+                sseManagerRef.current = null
+            }
+        }
+    }, [])
 
     // 数据类型选项
     const dataTypeOptions = [
@@ -92,177 +201,147 @@ const CoreDataQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) 
         { label: '护理记录', value: 'nursing' },
     ]
 
-    // 对比维度选项
-    const comparisonOptions = [
-        { label: '时间对比', value: 'time_comparison' },
-        { label: '科室对比', value: 'department_comparison' },
-        { label: '医生对比', value: 'doctor_comparison' },
-        { label: '行业基准对比', value: 'benchmark_comparison' },
+    // 对比未读选项
+    const compareUnreadOptions = [
+        { label: '是', value: 'true' },
+        { label: '否', value: 'false' },
     ]
 
     // 执行核心数据质控
-    const handleCoreDataCheck = async (_values: CoreDataFormValues) => {
-        setLoading(true)
+    const handleCoreDataCheck = async (values: CoreDataFormValues) => {
         try {
-            // 模拟检查过程
-            await new Promise(resolve => setTimeout(resolve, 3500))
+            // 验证表单字段
+            if (!values.dataType) {
+                uiMessage.warning('请选择数据类型')
+                return
+            }
+            if (!values.compareUnread) {
+                uiMessage.warning('请选择是否对比未读数据')
+                return
+            }
+            if (!values.dateRange || values.dateRange.length !== 2) {
+                uiMessage.warning('请选择时间范围')
+                return
+            }
 
-            // 模拟核心数据质量指标
-            const mockMetrics: CoreDataMetric[] = [
-                {
-                    key: '1',
-                    dataType: '患者基础信息',
-                    description: '姓名、性别、年龄、身份证号等基础信息',
-                    totalRecords: 50000,
-                    qualifiedRecords: 48500,
-                    qualityScore: 97.0,
-                    issues: ['部分患者身份证号格式不正确', '少数患者年龄计算异常'],
-                    trend: 'up',
-                    status: 'excellent',
-                },
-                {
-                    key: '2',
-                    dataType: '诊断信息',
-                    description: 'ICD-10诊断编码、诊断名称、诊断类型',
-                    totalRecords: 120000,
-                    qualifiedRecords: 108000,
-                    qualityScore: 90.0,
-                    issues: ['部分诊断编码不规范', '主诊断标识缺失'],
-                    trend: 'stable',
-                    status: 'excellent',
-                },
-                {
-                    key: '3',
-                    dataType: '手术信息',
-                    description: 'ICD-9-CM-3手术编码、手术名称、手术日期',
-                    totalRecords: 15000,
-                    qualifiedRecords: 12750,
-                    qualityScore: 85.0,
-                    issues: ['手术编码与名称不匹配', '手术时间记录不完整'],
-                    trend: 'down',
-                    status: 'good',
-                },
-                {
-                    key: '4',
-                    dataType: '用药信息',
-                    description: '药品编码、用法用量、给药途径',
-                    totalRecords: 200000,
-                    qualifiedRecords: 150000,
-                    qualityScore: 75.0,
-                    issues: ['用法用量描述不规范', '药品编码缺失', '给药频次不明确'],
-                    trend: 'up',
-                    status: 'warning',
-                },
-                {
-                    key: '5',
-                    dataType: '检验检查',
-                    description: '检验项目、检查结果、参考值范围',
-                    totalRecords: 300000,
-                    qualifiedRecords: 270000,
-                    qualityScore: 90.0,
-                    issues: ['部分检验结果单位不统一', '参考值范围缺失'],
-                    trend: 'stable',
-                    status: 'excellent',
-                },
-                {
-                    key: '6',
-                    dataType: '生命体征',
-                    description: '体温、血压、心率、呼吸等生命体征',
-                    totalRecords: 80000,
-                    qualifiedRecords: 52000,
-                    qualityScore: 65.0,
-                    issues: ['数值超出正常范围', '测量时间不准确', '记录不完整'],
-                    trend: 'down',
-                    status: 'poor',
-                },
-            ]
+            setLoading(true)
+            setProgress(0)
 
-            // 模拟对比分析结果
-            const mockComparisons: ComparisonResult[] = [
-                {
-                    key: '1',
-                    metric: '患者信息完整率',
-                    currentPeriod: 97.0,
-                    previousPeriod: 95.5,
-                    changeRate: 1.5,
-                    changeType: 'increase',
-                    benchmark: 95.0,
-                    meetsBenchmark: true,
-                },
-                {
-                    key: '2',
-                    metric: '诊断编码准确率',
-                    currentPeriod: 90.0,
-                    previousPeriod: 92.0,
-                    changeRate: -2.0,
-                    changeType: 'decrease',
-                    benchmark: 90.0,
-                    meetsBenchmark: true,
-                },
-                {
-                    key: '3',
-                    metric: '手术记录完整率',
-                    currentPeriod: 85.0,
-                    previousPeriod: 87.0,
-                    changeRate: -2.0,
-                    changeType: 'decrease',
-                    benchmark: 88.0,
-                    meetsBenchmark: false,
-                },
-                {
-                    key: '4',
-                    metric: '用药信息规范率',
-                    currentPeriod: 75.0,
-                    previousPeriod: 72.0,
-                    changeRate: 3.0,
-                    changeType: 'increase',
-                    benchmark: 80.0,
-                    meetsBenchmark: false,
-                },
-                {
-                    key: '5',
-                    metric: '检验数据质量',
-                    currentPeriod: 90.0,
-                    previousPeriod: 89.5,
-                    changeRate: 0.5,
-                    changeType: 'stable',
-                    benchmark: 85.0,
-                    meetsBenchmark: true,
-                },
-            ]
+            // 将日期范围转换为字符串格式
+            // sd: 开始时间（start date）
+            // ed: 结束时间（end date）
+            const sd = values.dateRange[0].format('YYYY-MM-DD')
+            const ed = values.dateRange[1].format('YYYY-MM-DD')
 
-            setCoreMetrics(mockMetrics)
-            setComparisonResults(mockComparisons)
+            // 构建请求参数
+            const requestParams = {
+                dataType: values.dataType,
+                compareUnread: values.compareUnread,
+                sd: sd, // 开始时间
+                ed: ed, // 结束时间
+            }
 
-            // 计算整体统计
-            const totalDataTypes = mockMetrics.length
-            const avgQualityScore = Math.round(
-                mockMetrics.reduce((sum, m) => sum + m.qualityScore, 0) / totalDataTypes
-            )
-            const excellentCount = mockMetrics.filter(m => m.status === 'excellent').length
-            const poorCount = mockMetrics.filter(m => m.status === 'poor').length
-            const benchmarkMeetRate = Math.round(
-                (mockComparisons.filter(c => c.meetsBenchmark).length / mockComparisons.length) *
-                    100
-            )
+            // 创建SSE连接
+            try {
+                const sseManager = api.createSSE({
+                    url: '/data/qc/accuracyQc',
+                    method: 'POST',
+                    data: requestParams,
+                    onOpen: (event) => {
+                        console.log('=== SSE连接已建立 ===', event)
+                        logger.info('准确性质控SSE连接已建立', requestParams)
+                    },
+                    onMessage: (event: MessageEvent) => {
+                        console.log('=== SSE消息 ===', {
+                            type: event.type,
+                            data: event.data,
+                            timestamp: new Date().toISOString(),
+                        })
+                        
+                        // 尝试解析JSON数据
+                        try {
+                            const messageData = JSON.parse(event.data) as Record<string, unknown>
+                            console.log('=== SSE消息内容（解析后）===', messageData)
+                            logger.info('准确性质控SSE消息', messageData)
+                            
+                            // 从消息中提取taskId
+                            let extractedTaskId: string | null = messageData.taskId as string | null
+                            
+                            // 如果没有taskId，尝试从其他字段获取
+                            if (!extractedTaskId && messageData.id) {
+                                extractedTaskId = String(messageData.id)
+                            }
 
-            setOverallStats({
-                totalDataTypes,
-                avgQualityScore,
-                excellentCount,
-                poorCount,
-                benchmarkMeetRate,
-            })
+                            if (extractedTaskId) {
+                                console.log('=== 提取到taskId ===', extractedTaskId)
+                                
+                                // 设置当前taskId
+                                setCurrentTaskId(extractedTaskId)
+                                
+                                // 初始化质控流程执行（如果不存在）
+                                const state = store.getState()
+                                if (!state.qcExecution.executions[extractedTaskId]) {
+                                    store.dispatch(initializeQCExecution({ taskId: extractedTaskId }))
+                                    console.log('=== 初始化质控流程执行 ===', extractedTaskId)
+                                }
+                                
+                                // 添加消息到Redux
+                                store.dispatch(
+                                    addQCMessage({
+                                        taskId: extractedTaskId,
+                                        message: messageData,
+                                    })
+                                )
+                            } else {
+                                console.warn('=== 未找到taskId，消息未存储 ===', messageData)
+                            }
+                        } catch (parseError) {
+                            // 如果不是JSON格式，直接输出原始数据
+                            console.log('=== SSE消息内容（原始）===', event.data)
+                            logger.info('准确性质控SSE消息（原始）', event.data)
+                        }
+                    },
+                    onError: (event) => {
+                        console.error('=== SSE连接错误 ===', event)
+                        logger.error('准确性质控SSE连接错误', new Error(`SSE连接错误: ${event.type || 'unknown'}`))
+                        uiMessage.error('准确性质控分析连接异常，请检查网络')
+                        setLoading(false)
+                        setCurrentTaskId(null)
+                        setProgress(0)
+                    },
+                    onClose: () => {
+                        console.log('=== SSE连接已关闭 ===')
+                        logger.info('准确性质控SSE连接已关闭')
+                    },
+                })
 
-            uiMessage.success('核心数据质控分析完成！')
+                // 保存SSE连接引用
+                sseManagerRef.current = sseManager
+
+                // 建立连接
+                sseManager.connect()
+
+                // 等待一小段时间确保连接建立
+                await new Promise(resolve => setTimeout(resolve, 500))
+                
+            } catch (sseError) {
+                logger.error('启动SSE连接失败:', sseError instanceof Error ? sseError : new Error(String(sseError)))
+                console.error('=== 启动SSE连接失败 ===', sseError)
+                uiMessage.error('启动准确性质控分析连接失败，请稍后重试')
+                setLoading(false)
+                setCurrentTaskId(null)
+                setProgress(0)
+                throw sseError
+            }
         } catch (error) {
             logger.error(
-                '核心数据质控分析失败:',
+                '准确性质控分析失败:',
                 error instanceof Error ? error : new Error(String(error))
             )
-            uiMessage.error('核心数据质控分析失败，请重试')
-        } finally {
+            uiMessage.error('准确性质控分析失败，请重试')
             setLoading(false)
+            setCurrentTaskId(null)
+            setProgress(0)
         }
     }
 
@@ -328,24 +407,7 @@ const CoreDataQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) 
         exportCsv(rows, '核心数据质控_对比分析.csv')
     }
 
-    useEffect(() => {
-        let cancelled = false
-        const run = async () => {
-            if (!autoStart || loading) return
-            try {
-                await handleCoreDataCheck({
-                    targetDatabase: 'dw_db',
-                    dateRange: [dayjs().subtract(30, 'day'), dayjs()],
-                } as unknown as CoreDataFormValues)
-            } finally {
-                if (!cancelled) onAutoDone && onAutoDone()
-            }
-        }
-        run()
-        return () => {
-            cancelled = true
-        }
-    }, [autoStart])
+    // 自动启动逻辑已移除，因为需要用户选择数据类型、对比未读和时间范围
 
     // 核心数据指标表格列配置
     const metricsColumns: ColumnsType<CoreDataMetric> = [
@@ -542,8 +604,8 @@ const CoreDataQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) 
                 style={{ marginBottom: 24 }}
             />
 
-            {/* 整体统计 */}
-            {overallStats.totalDataTypes > 0 && (
+            {/* 整体统计 - 仅在demo模式下显示 */}
+            {isDemoVersion() && overallStats.totalDataTypes > 0 && (
                 <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                     <Col xs={24} sm={6}>
                         <Card>
@@ -620,7 +682,7 @@ const CoreDataQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) 
                             onFinish={handleCoreDataCheck}
                             initialValues={{
                                 dataType: 'all',
-                                comparison: 'time_comparison',
+                                compareUnread: 'false',
                                 dateRange: [dayjs().subtract(30, 'day'), dayjs()],
                             }}
                         >
@@ -637,13 +699,13 @@ const CoreDataQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) 
                             </Form.Item>
 
                             <Form.Item
-                                label='对比维度'
-                                name='comparison'
-                                rules={[{ required: true, message: '请选择对比维度' }]}
+                                label='对比未读数据'
+                                name='compareUnread'
+                                rules={[{ required: true, message: '请选择是否对比未读数据' }]}
                             >
                                 <Select
-                                    placeholder='请选择对比分析维度'
-                                    options={comparisonOptions}
+                                    placeholder='请选择是否对比未读数据'
+                                    options={compareUnreadOptions}
                                     size='large'
                                 />
                             </Form.Item>
@@ -664,54 +726,84 @@ const CoreDataQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) 
                                     icon={<SearchOutlined />}
                                     size='large'
                                     block
+                                    disabled={loading}
                                 >
                                     开始核心数据分析
                                 </Button>
                             </Form.Item>
+                            
+                            {/* 进度条显示 */}
+                            {loading && (
+                                <Form.Item>
+                                    <div style={{ marginTop: 16 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                                            <Progress
+                                                percent={progress}
+                                                size='small'
+                                                status={progress === 100 ? 'success' : 'active'}
+                                                showInfo={false}
+                                                style={{ flex: 1 }}
+                                            />
+                                            <span style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap' }}>
+                                                {progress}%
+                                            </span>
+                                        </div>
+                                        {qcMessages.length > 0 && (
+                                            <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+                                                {qcMessages[qcMessages.length - 1]?.tableName && (
+                                                    <span>正在处理: {qcMessages[qcMessages.length - 1].tableName}</span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </Form.Item>
+                            )}
                         </Form>
                     </Card>
                 </Col>
 
                 {/* 右侧：分析结果 */}
                 <Col xs={24} lg={16}>
-                    {/* 核心数据质量指标 */}
-                    <Card
-                        title={
-                            <>
-                                <AreaChartOutlined style={{ marginRight: 8 }} />
-                                核心数据质量指标
-                            </>
-                        }
-                        extra={
-                            coreMetrics.length > 0 ? (
-                                <Button type='link' onClick={handleExportMetrics}>
-                                    导出CSV
-                                </Button>
-                            ) : undefined
-                        }
-                        style={{ marginBottom: 16 }}
-                    >
-                        {coreMetrics.length > 0 ? (
-                            <Table
-                                columns={metricsColumns}
-                                dataSource={coreMetrics}
-                                pagination={false}
-                                size='middle'
-                                scroll={{ x: 1200 }}
-                            />
-                        ) : (
-                            <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
-                                <HeartOutlined style={{ fontSize: 48, marginBottom: 16 }} />
-                                <div>暂无分析结果</div>
-                                <div style={{ fontSize: 12, marginTop: 8 }}>
-                                    请先执行核心数据质控分析
+                    {/* 核心数据质量指标 - 仅在demo模式下显示 */}
+                    {isDemoVersion() && (
+                        <Card
+                            title={
+                                <>
+                                    <AreaChartOutlined style={{ marginRight: 8 }} />
+                                    核心数据质量指标
+                                </>
+                            }
+                            extra={
+                                coreMetrics.length > 0 ? (
+                                    <Button type='link' onClick={handleExportMetrics}>
+                                        导出CSV
+                                    </Button>
+                                ) : undefined
+                            }
+                            style={{ marginBottom: 16 }}
+                        >
+                            {coreMetrics.length > 0 ? (
+                                <Table
+                                    columns={metricsColumns}
+                                    dataSource={coreMetrics}
+                                    pagination={false}
+                                    size='middle'
+                                    scroll={{ x: 1200 }}
+                                />
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
+                                    <HeartOutlined style={{ fontSize: 48, marginBottom: 16 }} />
+                                    <div>暂无分析结果</div>
+                                    <div style={{ fontSize: 12, marginTop: 8 }}>
+                                        请先执行核心数据质控分析
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                    </Card>
+                            )}
+                        </Card>
+                    )}
 
-                    {/* 对比分析结果 */}
-                    {comparisonResults.length > 0 && (
+                    {/* 对比分析结果 - 仅在demo模式下显示 */}
+                    {isDemoVersion() && comparisonResults.length > 0 && (
                         <Card
                             title={
                                 <>
@@ -726,6 +818,7 @@ const CoreDataQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) 
                                     </Button>
                                 ) : undefined
                             }
+                            style={{ marginBottom: 16 }}
                         >
                             <Table
                                 columns={comparisonColumns}
@@ -734,6 +827,56 @@ const CoreDataQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) 
                                 size='middle'
                                 scroll={{ x: 800 }}
                             />
+                        </Card>
+                    )}
+
+                    {/* 准确性质控结果 */}
+                    {resultData.length > 0 && (
+                        <Card
+                            title={
+                                <>
+                                    <HeartOutlined style={{ marginRight: 8 }} />
+                                    准确性质控结果
+                                </>
+                            }
+                        >
+                            <Spin spinning={resultLoading}>
+                                <JsonToTable
+                                    data={resultData as unknown as Array<Record<string, unknown>>}
+                                    columnMapping={{
+                                        id: 'ID',
+                                        ruleCode: '规则编码',
+                                        mainTable: '主表',
+                                        subTable: '次表',
+                                        mainTableName: '主表名称',
+                                        subTableName: '次表名称',
+                                        mainCount: '主表数量',
+                                        subCount: '次表数量',
+                                        issueDesc: '问题描述',
+                                        batchId: '批次ID',
+                                    }}
+                                    tableProps={{
+                                        pagination: {
+                                            current: resultPagination.current,
+                                            pageSize: resultPagination.pageSize,
+                                            total: resultPagination.total,
+                                            showSizeChanger: true,
+                                            showTotal: (total) => `共 ${total} 条`,
+                                            onChange: (page, pageSize) => {
+                                                if (currentTaskId) {
+                                                    loadResultData(currentTaskId, page, pageSize)
+                                                }
+                                            },
+                                            onShowSizeChange: (current, size) => {
+                                                if (currentTaskId) {
+                                                    loadResultData(currentTaskId, current, size)
+                                                }
+                                            },
+                                        },
+                                        scroll: { x: 'max-content' },
+                                    }}
+                                />
+                            </Spin>
                         </Card>
                     )}
                 </Col>

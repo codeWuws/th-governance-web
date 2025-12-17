@@ -21,11 +21,22 @@ import {
     Statistic,
     Table,
     Typography,
+    Spin,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { logger } from '@/utils/logger'
 import uiMessage from '@/utils/uiMessage'
+import { dataQualityControlService } from '@/services/dataQualityControlService'
+import { dataManagementService } from '@/services/dataManagementService'
+import type { TableInfoItem, DatabaseOption, CompletenessQCRateRecord } from '@/types'
+import { api, type SSEManager } from '@/utils/request'
+import { store } from '@/store'
+import { initializeQCExecution, addQCMessage } from '@/store/slices/qcExecutionSlice'
+import { useAppSelector } from '@/store/hooks'
+import { selectQCMessages } from '@/store/slices/qcExecutionSlice'
+import JsonToTable from '@/components/JsonToTable'
+import { isDemoVersion } from '@/utils/versionControl'
 
 const { Title, Text } = Typography
 
@@ -52,9 +63,9 @@ interface FieldCompleteness {
 }
 
 interface CompletenessFormValues {
-    database: string
-    tableType: string
-    tableFilter?: string
+    dataBaseId: string
+    tableName: string[]
+    tableFilter?: string // 表单中是字符串，提交时转换为数组
 }
 
 type AutoProps = { autoStart?: boolean; onAutoDone?: () => void }
@@ -72,122 +83,294 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
         excellentTables: 0,
         poorTables: 0,
     })
+    
+    // 新增状态
+    const [databaseOptions, setDatabaseOptions] = useState<Array<{ label: string; value: string }>>([])
+    const [databaseLoading, setDatabaseLoading] = useState(false)
+    const [tableOptions, setTableOptions] = useState<Array<{ label: string; value: string }>>([])
+    const [tableLoading, setTableLoading] = useState(false)
+    const [currentTaskId, setCurrentTaskId] = useState<string | null>(null)
+    const [progress, setProgress] = useState<number>(0)
+    const sseManagerRef = useRef<SSEManager | null>(null)
+    
+    // 结果数据相关状态
+    const [resultData, setResultData] = useState<CompletenessQCRateRecord[]>([])
+    const [resultLoading, setResultLoading] = useState(false)
+    const [resultPagination, setResultPagination] = useState({
+        current: 1,
+        pageSize: 10,
+        total: 0,
+    })
+    
+    // 从Redux获取SSE消息
+    const qcMessages = useAppSelector(
+        state => (currentTaskId ? selectQCMessages(currentTaskId)(state) : [])
+    )
 
-    // 数据库选项
-    const databaseOptions = [
-        { label: 'HIS数据库', value: 'his_db' },
-        { label: 'EMR数据库', value: 'emr_db' },
-        { label: 'LIS数据库', value: 'lis_db' },
-        { label: 'PACS数据库', value: 'pacs_db' },
-        { label: '数据仓库', value: 'dw_db' },
-    ]
+    // 加载数据库选项
+    const loadDatabaseOptions = async () => {
+        try {
+            setDatabaseLoading(true)
+            const response = await dataManagementService.getDatabaseOptions()
+            if (response.code === 200 && response.data) {
+                const options = response.data.map((item: DatabaseOption) => ({
+                    label: `${item.dbName} (${item.dbType})`,
+                    value: item.id,
+                }))
+                setDatabaseOptions(options)
+                logger.info('数据库选项加载成功:', options)
+            } else {
+                logger.warn('获取数据库选项失败:', response.msg)
+                uiMessage.warning(response.msg || '获取数据库选项失败')
+            }
+        } catch (error) {
+            logger.error('加载数据库选项失败:', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('加载数据库选项失败，请重试')
+        } finally {
+            setDatabaseLoading(false)
+        }
+    }
 
-    // 表类型选项
-    const tableTypeOptions = [
-        { label: '全部表', value: 'all' },
-        { label: '患者信息表', value: 'patient' },
-        { label: '诊疗信息表', value: 'medical' },
-        { label: '检查检验表', value: 'examination' },
-        { label: '药品处方表', value: 'prescription' },
-        { label: '手术信息表', value: 'surgery' },
-    ]
+    // 加载表信息
+    const loadTableInfo = async () => {
+        try {
+            setTableLoading(true)
+            const response = await dataQualityControlService.getTableInfo()
+            if (response.code === 200 && response.data) {
+                const options = response.data.map((item: TableInfoItem) => ({
+                    label: item.tableComment 
+                        ? `${item.tableName} - ${item.tableComment}` 
+                        : item.tableName,
+                    value: item.tableName,
+                }))
+                setTableOptions(options)
+                logger.info('表信息加载成功:', options)
+            } else {
+                logger.warn('获取表信息失败:', response.msg)
+                uiMessage.warning(response.msg || '获取表信息失败')
+            }
+        } catch (error) {
+            logger.error('加载表信息失败:', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('加载表信息失败，请重试')
+        } finally {
+            setTableLoading(false)
+        }
+    }
+
+    // 组件挂载时加载数据
+    useEffect(() => {
+        loadDatabaseOptions()
+        loadTableInfo()
+    }, [])
+
+    // 加载结果数据
+    const loadResultData = async (taskId: string, pageNum: number = 1, pageSize: number = 10) => {
+        try {
+            setResultLoading(true)
+            const response = await dataQualityControlService.getCompletenessQCRatePage({
+                pageNum,
+                pageSize,
+                batchId: taskId,
+            })
+            
+            if (response.code === 200 && response.data) {
+                setResultData(response.data.records)
+                setResultPagination({
+                    current: Number(response.data.current),
+                    pageSize: Number(response.data.size),
+                    total: Number(response.data.total),
+                })
+                logger.info('完整性质控结果加载成功:', response.data)
+            } else {
+                logger.warn('获取完整性质控结果失败:', response.msg)
+                uiMessage.warning(response.msg || '获取结果失败')
+            }
+        } catch (error) {
+            logger.error('加载完整性质控结果失败:', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('加载结果失败，请重试')
+        } finally {
+            setResultLoading(false)
+        }
+    }
+
+    // 监听SSE消息，更新进度
+    useEffect(() => {
+        if (qcMessages.length > 0) {
+            const lastMessage = qcMessages[qcMessages.length - 1]
+            // 更新进度
+            if (lastMessage.progress !== undefined && lastMessage.progress !== null) {
+                setProgress(Math.round(Number(lastMessage.progress)))
+            }
+            
+            // 检查是否完成
+            if (lastMessage.executionStatus === 'completed' || lastMessage.executionStatus === 'end') {
+                // 延迟一下再提示，确保最后的消息已处理
+                setTimeout(async () => {
+                    uiMessage.success('完整性检查完成！')
+                    logger.info('完整性检查完成')
+                    
+                    // 获取taskId并加载结果数据
+                    const taskId = currentTaskId || (lastMessage.taskId ? String(lastMessage.taskId) : null)
+                    if (taskId) {
+                        await loadResultData(taskId, 1, 10)
+                    }
+                    
+                    // 断开SSE连接
+                    if (sseManagerRef.current) {
+                        sseManagerRef.current.disconnect()
+                        sseManagerRef.current = null
+                    }
+                    // 重置状态（保留taskId以便查看结果）
+                    setLoading(false)
+                    setProgress(0)
+                    if (onAutoDone) {
+                        onAutoDone()
+                    }
+                }, 500)
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [qcMessages, onAutoDone, currentTaskId])
+
+    // 组件卸载时清理SSE连接
+    useEffect(() => {
+        return () => {
+            if (sseManagerRef.current) {
+                sseManagerRef.current.disconnect()
+                sseManagerRef.current = null
+            }
+        }
+    }, [])
 
     // 执行完整性检查
-    const handleCompletenessCheck = async (_values: CompletenessFormValues) => {
-        setLoading(true)
+    const handleCompletenessCheck = async (values: CompletenessFormValues) => {
         try {
-            // 模拟完整性检查过程
-            await new Promise(resolve => setTimeout(resolve, 2500))
-
-            // 模拟表级完整性结果
-            const mockTableData: TableCompleteness[] = [
-                {
-                    key: '1',
-                    tableName: 'patient_info',
-                    tableComment: '患者基本信息表',
-                    totalRecords: 50000,
-                    completenessRate: 95.2,
-                    incompleteRecords: 2400,
-                    status: 'excellent',
-                },
-                {
-                    key: '2',
-                    tableName: 'medical_record',
-                    tableComment: '病历记录表',
-                    totalRecords: 120000,
-                    completenessRate: 87.5,
-                    incompleteRecords: 15000,
-                    status: 'good',
-                },
-                {
-                    key: '3',
-                    tableName: 'examination_result',
-                    tableComment: '检查结果表',
-                    totalRecords: 80000,
-                    completenessRate: 72.3,
-                    incompleteRecords: 22160,
-                    status: 'warning',
-                },
-                {
-                    key: '4',
-                    tableName: 'prescription_detail',
-                    tableComment: '处方明细表',
-                    totalRecords: 200000,
-                    completenessRate: 91.8,
-                    incompleteRecords: 16400,
-                    status: 'excellent',
-                },
-                {
-                    key: '5',
-                    tableName: 'surgery_record',
-                    tableComment: '手术信息表',
-                    totalRecords: 15000,
-                    completenessRate: 65.4,
-                    incompleteRecords: 5190,
-                    status: 'poor',
-                },
-            ]
-
-            let filtered = mockTableData
-            if (_values.tableFilter) {
-                const q = _values.tableFilter.toLowerCase()
-                filtered = filtered.filter(
-                    item =>
-                        item.tableName.toLowerCase().includes(q) ||
-                        item.tableComment.toLowerCase().includes(q)
-                )
+            // 验证表单字段
+            if (!values.dataBaseId) {
+                uiMessage.warning('请选择数据库')
+                return
             }
-            if (_values.tableType && _values.tableType !== 'all') {
-                const t = _values.tableType
-                filtered = filtered.filter(item => item.tableName.includes(t))
+            if (!values.tableName || values.tableName.length === 0) {
+                uiMessage.warning('请至少选择一个数据表')
+                return
             }
 
-            setTableCompleteness(filtered)
+            setLoading(true)
+            setProgress(0)
 
-            // 计算整体统计
-            const totalTables = mockTableData.length
-            const avgCompleteness = Math.round(
-                mockTableData.reduce((sum, item) => sum + item.completenessRate, 0) / totalTables
-            )
-            const excellentTables = mockTableData.filter(item => item.status === 'excellent').length
-            const poorTables = mockTableData.filter(item => item.status === 'poor').length
+            // 处理tableFilter：将逗号分隔的字符串转换为数组
+            const tableFilterArray = values.tableFilter
+                ? values.tableFilter.split(',').map(item => item.trim()).filter(item => item.length > 0)
+                : []
 
-            setOverallStats({
-                totalTables,
-                avgCompleteness,
-                excellentTables,
-                poorTables,
-            })
+            // 构建请求参数
+            const requestParams = {
+                dataBaseId: values.dataBaseId,
+                tableName: values.tableName, // 表名数组
+                tableFilter: tableFilterArray, // 表过滤条件数组
+            }
 
-            uiMessage.success('完整性检查完成！')
+            // 创建SSE连接
+            try {
+                const sseManager = api.createSSE({
+                    url: '/data/qc/completenessQc',
+                    method: 'POST',
+                    data: requestParams,
+                    onOpen: (event) => {
+                        console.log('=== SSE连接已建立 ===', event)
+                        logger.info('完整性质控SSE连接已建立', requestParams)
+                    },
+                    onMessage: (event: MessageEvent) => {
+                        console.log('=== SSE消息 ===', {
+                            type: event.type,
+                            data: event.data,
+                            timestamp: new Date().toISOString(),
+                        })
+                        
+                        // 尝试解析JSON数据
+                        try {
+                            const messageData = JSON.parse(event.data) as Record<string, unknown>
+                            console.log('=== SSE消息内容（解析后）===', messageData)
+                            logger.info('完整性质控SSE消息', messageData)
+                            
+                            // 从消息中提取taskId
+                            let extractedTaskId: string | null = messageData.taskId as string | null
+                            
+                            // 如果没有taskId，尝试从其他字段获取
+                            if (!extractedTaskId && messageData.id) {
+                                extractedTaskId = String(messageData.id)
+                            }
+
+                            if (extractedTaskId) {
+                                console.log('=== 提取到taskId ===', extractedTaskId)
+                                
+                                // 设置当前taskId
+                                setCurrentTaskId(extractedTaskId)
+                                
+                                // 初始化质控流程执行（如果不存在）
+                                const state = store.getState()
+                                if (!state.qcExecution.executions[extractedTaskId]) {
+                                    store.dispatch(initializeQCExecution({ taskId: extractedTaskId }))
+                                    console.log('=== 初始化质控流程执行 ===', extractedTaskId)
+                                }
+                                
+                                // 添加消息到Redux
+                                store.dispatch(
+                                    addQCMessage({
+                                        taskId: extractedTaskId,
+                                        message: messageData,
+                                    })
+                                )
+                            } else {
+                                console.warn('=== 未找到taskId，消息未存储 ===', messageData)
+                            }
+                        } catch (parseError) {
+                            // 如果不是JSON格式，直接输出原始数据
+                            console.log('=== SSE消息内容（原始）===', event.data)
+                            logger.info('完整性质控SSE消息（原始）', event.data)
+                        }
+                    },
+                    onError: (event) => {
+                        console.error('=== SSE连接错误 ===', event)
+                        logger.error('完整性质控SSE连接错误', new Error(`SSE连接错误: ${event.type || 'unknown'}`))
+                        uiMessage.error('完整性检查连接异常，请检查网络')
+                        setLoading(false)
+                        setCurrentTaskId(null)
+                        setProgress(0)
+                    },
+                    onClose: () => {
+                        console.log('=== SSE连接已关闭 ===')
+                        logger.info('完整性质控SSE连接已关闭')
+                    },
+                })
+
+                // 保存SSE连接引用
+                sseManagerRef.current = sseManager
+
+                // 建立连接
+                sseManager.connect()
+
+                // 等待一小段时间确保连接建立
+                await new Promise(resolve => setTimeout(resolve, 500))
+                
+            } catch (sseError) {
+                logger.error('启动SSE连接失败:', sseError instanceof Error ? sseError : new Error(String(sseError)))
+                console.error('=== 启动SSE连接失败 ===', sseError)
+                uiMessage.error('启动完整性检查连接失败，请稍后重试')
+                setLoading(false)
+                setCurrentTaskId(null)
+                setProgress(0)
+                throw sseError
+            }
         } catch (error) {
             logger.error(
                 '完整性检查失败:',
                 error instanceof Error ? error : new Error(String(error))
             )
             uiMessage.error('完整性检查失败，请重试')
-        } finally {
             setLoading(false)
+            setCurrentTaskId(null)
+            setProgress(0)
         }
     }
 
@@ -318,21 +501,7 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
         exportCsv(rows, `完整性质控_字段_${selectedTable || '未选择'}.csv`)
     }
 
-    useEffect(() => {
-        let cancelled = false
-        const run = async () => {
-            if (!autoStart || loading) return
-            try {
-                await handleCompletenessCheck({ database: 'dw_db', tableType: 'all' })
-            } finally {
-                if (!cancelled) onAutoDone && onAutoDone()
-            }
-        }
-        run()
-        return () => {
-            cancelled = true
-        }
-    }, [autoStart])
+    // 自动启动逻辑已移除，因为需要用户选择数据库和表
 
     // 表级完整性表格列配置
     const tableColumns: ColumnsType<TableCompleteness> = [
@@ -517,8 +686,8 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
                 style={{ marginBottom: 24 }}
             />
 
-            {/* 整体统计 */}
-            {overallStats.totalTables > 0 && (
+            {/* 整体统计 - 仅在demo模式下显示 */}
+            {isDemoVersion() && overallStats.totalTables > 0 && (
                 <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                     <Col xs={24} sm={6}>
                         <Card>
@@ -588,34 +757,55 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
                             form={form}
                             layout='vertical'
                             onFinish={handleCompletenessCheck}
-                            initialValues={{ database: 'dw_db', tableType: 'all', tableFilter: '' }}
                         >
                             <Form.Item
                                 label='选择数据库'
-                                name='database'
+                                name='dataBaseId'
                                 rules={[{ required: true, message: '请选择数据库' }]}
                             >
                                 <Select
-                                    placeholder='请选择要检查的数据库'
+                                    placeholder={databaseLoading ? '正在加载数据库...' : '请选择要检查的数据库'}
                                     options={databaseOptions}
                                     size='large'
+                                    loading={databaseLoading}
+                                    showSearch
+                                    filterOption={(input, option) => {
+                                        const label = String(option?.label ?? '')
+                                        return label.toLowerCase().includes(input.toLowerCase())
+                                    }}
+                                    allowClear
                                 />
                             </Form.Item>
 
                             <Form.Item
-                                label='表类型'
-                                name='tableType'
-                                rules={[{ required: true, message: '请选择表类型' }]}
+                                label='选择数据表'
+                                name='tableName'
+                                rules={[{ required: true, message: '请至少选择一个数据表' }]}
                             >
                                 <Select
-                                    placeholder='请选择表类型'
-                                    options={tableTypeOptions}
+                                    mode='multiple'
+                                    placeholder={tableLoading ? '正在加载表信息...' : '请选择要进行质控的数据表（可多选）'}
+                                    options={tableOptions}
                                     size='large'
+                                    loading={tableLoading}
+                                    showSearch
+                                    filterOption={(input, option) => {
+                                        const label = String(option?.label ?? '')
+                                        return label.toLowerCase().includes(input.toLowerCase())
+                                    }}
+                                    allowClear
                                 />
                             </Form.Item>
 
-                            <Form.Item label='表名过滤' name='tableFilter'>
-                                <Input placeholder='输入表名关键字（可选）' size='large' />
+                            <Form.Item 
+                                label='表名过滤' 
+                                name='tableFilter'
+                                tooltip='输入表名关键字进行过滤，多个关键字用逗号分隔'
+                            >
+                                <Input 
+                                    placeholder='输入表名关键字，多个用逗号分隔（可选）' 
+                                    size='large' 
+                                />
                             </Form.Item>
 
                             <Form.Item>
@@ -626,49 +816,79 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
                                     icon={<SearchOutlined />}
                                     size='large'
                                     block
+                                    disabled={loading}
                                 >
                                     开始完整性检查
                                 </Button>
                             </Form.Item>
+                            
+                            {/* 进度条显示 */}
+                            {loading && (
+                                <Form.Item>
+                                    <div style={{ marginTop: 16 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                                            <Progress
+                                                percent={progress}
+                                                size='small'
+                                                status={progress === 100 ? 'success' : 'active'}
+                                                showInfo={false}
+                                                style={{ flex: 1 }}
+                                            />
+                                            <span style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap' }}>
+                                                {progress}%
+                                            </span>
+                                        </div>
+                                        {qcMessages.length > 0 && (
+                                            <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+                                                {qcMessages[qcMessages.length - 1]?.tableName && (
+                                                    <span>正在处理: {qcMessages[qcMessages.length - 1].tableName}</span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </Form.Item>
+                            )}
                         </Form>
                     </Card>
                 </Col>
 
                 {/* 右侧：检查结果 */}
                 <Col xs={24} lg={16}>
-                    {/* 表级完整性结果 */}
-                    <Card
-                        title={
-                            <>
-                                <TableOutlined style={{ marginRight: 8 }} />
-                                表级完整性
-                            </>
-                        }
-                        extra={
-                            tableCompleteness.length > 0 ? (
-                                <Button type='link' onClick={handleExportTables}>
-                                    导出CSV
-                                </Button>
-                            ) : undefined
-                        }
-                        style={{ marginBottom: 16 }}
-                    >
-                        {tableCompleteness.length > 0 ? (
-                            <Table
-                                columns={tableColumns}
-                                dataSource={tableCompleteness}
-                                pagination={{ pageSize: 10 }}
-                                size='middle'
-                                scroll={{ x: 800 }}
-                            />
-                        ) : (
-                            <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
-                                <PieChartOutlined style={{ fontSize: 48, marginBottom: 16 }} />
-                                <div>暂无检查结果</div>
-                                <div style={{ fontSize: 12, marginTop: 8 }}>请先执行完整性检查</div>
-                            </div>
-                        )}
-                    </Card>
+                    {/* 表级完整性结果 - 仅在demo模式下显示 */}
+                    {isDemoVersion() && (
+                        <Card
+                            title={
+                                <>
+                                    <TableOutlined style={{ marginRight: 8 }} />
+                                    表级完整性
+                                </>
+                            }
+                            extra={
+                                tableCompleteness.length > 0 ? (
+                                    <Button type='link' onClick={handleExportTables}>
+                                        导出CSV
+                                    </Button>
+                                ) : undefined
+                            }
+                            style={{ marginBottom: 16 }}
+                        >
+                            {tableCompleteness.length > 0 ? (
+                                <Table
+                                    columns={tableColumns}
+                                    dataSource={tableCompleteness}
+                                    pagination={{ pageSize: 10 }}
+                                    size='middle'
+                                    scroll={{ x: 800 }}
+                                />
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
+                                    <PieChartOutlined style={{ fontSize: 48, marginBottom: 16 }} />
+                                    <div>暂无检查结果</div>
+                                    <div style={{ fontSize: 12, marginTop: 8 }}>请先执行完整性检查</div>
+                                </div>
+                            )}
+                        </Card>
+                    )}
 
                     {/* 字段级完整性结果 */}
                     {fieldCompleteness.length > 0 && (
@@ -694,6 +914,7 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
                                     </Space>
                                 ) : undefined
                             }
+                            style={{ marginBottom: 16 }}
                         >
                             <Table
                                 columns={fieldColumns}
@@ -706,6 +927,55 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
                                 size='middle'
                                 scroll={{ x: 800 }}
                             />
+                        </Card>
+                    )}
+
+                    {/* 完整性质控结果 */}
+                    {resultData.length > 0 && (
+                        <Card
+                            title={
+                                <>
+                                    <TableOutlined style={{ marginRight: 8 }} />
+                                    完整性质控结果
+                                </>
+                            }
+                        >
+                            <Spin spinning={resultLoading}>
+                                <JsonToTable
+                                    data={resultData}
+                                    columnMapping={{
+                                        id: 'ID',
+                                        batchId: '批次ID',
+                                        tableName: '表名',
+                                        fieldName: '字段名',
+                                        tableComment: '表注释',
+                                        fieldComment: '字段注释',
+                                        tableTotalRecords: '表总记录数',
+                                        fieldFillRecords: '字段填充记录数',
+                                        fieldFillRate: '字段填充率',
+                                    }}
+                                    tableProps={{
+                                        pagination: {
+                                            current: resultPagination.current,
+                                            pageSize: resultPagination.pageSize,
+                                            total: resultPagination.total,
+                                            showSizeChanger: true,
+                                            showTotal: (total) => `共 ${total} 条`,
+                                            onChange: (page, pageSize) => {
+                                                if (currentTaskId) {
+                                                    loadResultData(currentTaskId, page, pageSize)
+                                                }
+                                            },
+                                            onShowSizeChange: (current, size) => {
+                                                if (currentTaskId) {
+                                                    loadResultData(currentTaskId, current, size)
+                                                }
+                                            },
+                                        },
+                                        scroll: { x: 'max-content' },
+                                    }}
+                                />
+                            </Spin>
                         </Card>
                     )}
                 </Col>

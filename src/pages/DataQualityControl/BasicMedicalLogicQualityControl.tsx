@@ -20,11 +20,21 @@ import {
     Statistic,
     Table,
     Typography,
+    Spin,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import uiMessage from '@/utils/uiMessage'
 import { logger } from '@/utils/logger'
+import { api, type SSEManager } from '@/utils/request'
+import { store } from '@/store'
+import { initializeQCExecution, addQCMessage } from '@/store/slices/qcExecutionSlice'
+import { useAppSelector } from '@/store/hooks'
+import { selectQCMessages } from '@/store/slices/qcExecutionSlice'
+import { dataQualityControlService } from '@/services/dataQualityControlService'
+import type { ConsistencyQCRelationRecord } from '@/types'
+import JsonToTable from '@/components/JsonToTable'
+import { isDemoVersion } from '@/utils/versionControl'
 
 const { Title, Text } = Typography
 
@@ -55,7 +65,7 @@ interface LogicCheckResult {
 }
 
 interface LogicFormValues {
-    module: string
+    businessModule: string
     checkType: string
 }
 
@@ -78,6 +88,111 @@ const BasicMedicalLogicQualityControl: React.FC<AutoProps> = ({ autoStart, onAut
         title: string
         content: string
     } | null>(null)
+    
+    // 新增状态
+    const [currentTaskId, setCurrentTaskId] = useState<string | null>(null)
+    const [progress, setProgress] = useState<number>(0)
+    const sseManagerRef = useRef<SSEManager | null>(null)
+    
+    // 结果数据相关状态
+    const [resultData, setResultData] = useState<ConsistencyQCRelationRecord[]>([])
+    const [resultLoading, setResultLoading] = useState(false)
+    const [resultPagination, setResultPagination] = useState({
+        current: 1,
+        pageSize: 10,
+        total: 0,
+    })
+    
+    // 从Redux获取SSE消息
+    const qcMessages = useAppSelector(
+        state => (currentTaskId ? selectQCMessages(currentTaskId)(state) : [])
+    )
+
+    // 监听SSE消息，更新进度
+    useEffect(() => {
+        if (qcMessages.length > 0) {
+            const lastMessage = qcMessages[qcMessages.length - 1]
+            // 更新进度
+            if (lastMessage.progress !== undefined && lastMessage.progress !== null) {
+                setProgress(Math.round(Number(lastMessage.progress)))
+            }
+            
+            // 检查是否完成
+            if (lastMessage.executionStatus === 'completed' || lastMessage.executionStatus === 'end') {
+                // 立即更新进度为100%并停止loading，避免进度条继续转动
+                setProgress(100)
+                setLoading(false)
+                
+                // 延迟一下再提示，确保最后的消息已处理
+                setTimeout(async () => {
+                    uiMessage.success('一致性质控检查完成！')
+                    logger.info('一致性质控检查完成')
+                    
+                    // 获取taskId并加载结果数据
+                    const taskId = currentTaskId || (lastMessage.taskId ? String(lastMessage.taskId) : null)
+                    if (taskId) {
+                        await loadResultData(taskId, 1, 10)
+                    }
+                    
+                    // 断开SSE连接
+                    if (sseManagerRef.current) {
+                        sseManagerRef.current.disconnect()
+                        sseManagerRef.current = null
+                    }
+                    
+                    // 延迟一下再重置进度，让用户看到100%完成状态
+                    setTimeout(() => {
+                        setProgress(0)
+                    }, 1000)
+                    
+                    if (onAutoDone) {
+                        onAutoDone()
+                    }
+                }, 500)
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [qcMessages, onAutoDone, currentTaskId])
+
+    // 加载一致性质控结果数据
+    const loadResultData = async (taskId: string, pageNum: number = 1, pageSize: number = 10) => {
+        try {
+            setResultLoading(true)
+            const response = await dataQualityControlService.getConsistencyQCRelationPage({
+                pageNum,
+                pageSize,
+                batchId: taskId,
+            })
+            
+            if (response.code === 200 && response.data) {
+                setResultData(response.data.records)
+                setResultPagination({
+                    current: Number(response.data.current),
+                    pageSize: Number(response.data.size),
+                    total: Number(response.data.total),
+                })
+                logger.info('一致性质控结果加载成功:', response.data)
+            } else {
+                logger.warn('获取一致性质控结果失败:', response.msg)
+                uiMessage.warning(response.msg || '获取结果失败')
+            }
+        } catch (error) {
+            logger.error('加载一致性质控结果失败:', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('加载结果失败，请重试')
+        } finally {
+            setResultLoading(false)
+        }
+    }
+
+    // 组件卸载时清理SSE连接
+    useEffect(() => {
+        return () => {
+            if (sseManagerRef.current) {
+                sseManagerRef.current.disconnect()
+                sseManagerRef.current = null
+            }
+        }
+    }, [])
 
     // 业务模块选项
     const moduleOptions = [
@@ -99,168 +214,128 @@ const BasicMedicalLogicQualityControl: React.FC<AutoProps> = ({ autoStart, onAut
     ]
 
     // 执行医疗逻辑检查
-    const handleLogicCheck = async (_values: LogicFormValues) => {
-        setLoading(true)
+    const handleLogicCheck = async (values: LogicFormValues) => {
         try {
-            // 模拟检查过程
-            await new Promise(resolve => setTimeout(resolve, 3000))
+            // 验证表单字段
+            if (!values.businessModule) {
+                uiMessage.warning('请选择业务模块')
+                return
+            }
+            if (!values.checkType) {
+                uiMessage.warning('请选择检查类型')
+                return
+            }
 
-            // 模拟主附表关联检查结果
-            const mockRelations: TableRelation[] = [
-                {
-                    key: '1',
-                    mainTable: 'patient_visit',
-                    mainTableComment: '患者就诊记录',
-                    subTable: 'diagnosis_record',
-                    subTableComment: '诊断记录',
-                    relationField: 'visit_id',
-                    mainCount: 50000,
-                    subCount: 48500,
-                    matchedCount: 48500,
-                    unmatchedCount: 0,
-                    matchRate: 100,
-                    status: 'normal',
-                },
-                {
-                    key: '2',
-                    mainTable: 'patient_visit',
-                    mainTableComment: '患者就诊记录',
-                    subTable: 'prescription_master',
-                    subTableComment: '处方主表',
-                    relationField: 'visit_id',
-                    mainCount: 50000,
-                    subCount: 35000,
-                    matchedCount: 34800,
-                    unmatchedCount: 200,
-                    matchRate: 99.4,
-                    status: 'normal',
-                },
-                {
-                    key: '3',
-                    mainTable: 'prescription_master',
-                    mainTableComment: '处方主表',
-                    subTable: 'prescription_detail',
-                    subTableComment: '处方明细',
-                    relationField: 'prescription_id',
-                    mainCount: 35000,
-                    subCount: 120000,
-                    matchedCount: 118500,
-                    unmatchedCount: 1500,
-                    matchRate: 98.8,
-                    status: 'warning',
-                },
-                {
-                    key: '4',
-                    mainTable: 'examination_apply',
-                    mainTableComment: '检查申请',
-                    subTable: 'examination_result',
-                    subTableComment: '检查结果',
-                    relationField: 'apply_id',
-                    mainCount: 25000,
-                    subCount: 22000,
-                    matchedCount: 21500,
-                    unmatchedCount: 500,
-                    matchRate: 97.7,
-                    status: 'warning',
-                },
-                {
-                    key: '5',
-                    mainTable: 'surgery_apply',
-                    mainTableComment: '手术申请',
-                    subTable: 'surgery_record',
-                    subTableComment: '手术记录',
-                    relationField: 'apply_id',
-                    mainCount: 8000,
-                    subCount: 7200,
-                    matchedCount: 6800,
-                    unmatchedCount: 400,
-                    matchRate: 94.4,
-                    status: 'error',
-                },
-            ]
+            setLoading(true)
+            setProgress(0)
 
-            // 模拟逻辑检查结果
-            const mockLogicResults: LogicCheckResult[] = [
-                {
-                    key: '1',
-                    checkType: '时间逻辑检查',
-                    description: '入院时间应早于出院时间',
-                    totalChecked: 15000,
-                    passedCount: 14850,
-                    failedCount: 150,
-                    passRate: 99.0,
-                    errorDetails: [
-                        '患者ID: P001234 - 入院时间晚于出院时间',
-                        '患者ID: P005678 - 入院时间晚于出院时间',
-                    ],
-                },
-                {
-                    key: '2',
-                    checkType: '年龄逻辑检查',
-                    description: '患者年龄应在合理范围内(0-150岁)',
-                    totalChecked: 50000,
-                    passedCount: 49800,
-                    failedCount: 200,
-                    passRate: 99.6,
-                    errorDetails: ['患者ID: P002345 - 年龄为-5岁', '患者ID: P006789 - 年龄为200岁'],
-                },
-                {
-                    key: '3',
-                    checkType: '药品剂量检查',
-                    description: '药品单次剂量应在安全范围内',
-                    totalChecked: 120000,
-                    passedCount: 115000,
-                    failedCount: 5000,
-                    passRate: 95.8,
-                    errorDetails: [
-                        '处方ID: R003456 - 阿司匹林剂量过大',
-                        '处方ID: R007890 - 胰岛素剂量异常',
-                    ],
-                },
-                {
-                    key: '4',
-                    checkType: '性别逻辑检查',
-                    description: '妇科疾病诊断应匹配女性患者',
-                    totalChecked: 8000,
-                    passedCount: 7920,
-                    failedCount: 80,
-                    passRate: 99.0,
-                    errorDetails: [
-                        '诊断ID: D004567 - 男性患者诊断妇科疾病',
-                        '诊断ID: D008901 - 男性患者诊断妇科疾病',
-                    ],
-                },
-            ]
+            // 构建请求参数
+            const requestParams = {
+                businessModule: values.businessModule,
+                checkType: values.checkType,
+            }
 
-            setTableRelations(mockRelations)
-            setLogicResults(mockLogicResults)
+            // 创建SSE连接
+            try {
+                const sseManager = api.createSSE({
+                    url: '/data/qc/consistencyQc',
+                    method: 'POST',
+                    data: requestParams,
+                    onOpen: (event) => {
+                        console.log('=== SSE连接已建立 ===', event)
+                        logger.info('一致性质控SSE连接已建立', requestParams)
+                    },
+                    onMessage: (event: MessageEvent) => {
+                        console.log('=== SSE消息 ===', {
+                            type: event.type,
+                            data: event.data,
+                            timestamp: new Date().toISOString(),
+                        })
+                        
+                        // 尝试解析JSON数据
+                        try {
+                            const messageData = JSON.parse(event.data) as Record<string, unknown>
+                            console.log('=== SSE消息内容（解析后）===', messageData)
+                            logger.info('一致性质控SSE消息', messageData)
+                            
+                            // 从消息中提取taskId
+                            let extractedTaskId: string | null = messageData.taskId as string | null
+                            
+                            // 如果没有taskId，尝试从其他字段获取
+                            if (!extractedTaskId && messageData.id) {
+                                extractedTaskId = String(messageData.id)
+                            }
 
-            // 计算整体统计
-            const totalRelations = mockRelations.length
-            const normalRelations = mockRelations.filter(r => r.status === 'normal').length
-            const warningRelations = mockRelations.filter(r => r.status === 'warning').length
-            const errorRelations = mockRelations.filter(r => r.status === 'error').length
-            const avgMatchRate = Math.round(
-                mockRelations.reduce((sum, r) => sum + r.matchRate, 0) / totalRelations
-            )
+                            if (extractedTaskId) {
+                                console.log('=== 提取到taskId ===', extractedTaskId)
+                                
+                                // 设置当前taskId
+                                setCurrentTaskId(extractedTaskId)
+                                
+                                // 初始化质控流程执行（如果不存在）
+                                const state = store.getState()
+                                if (!state.qcExecution.executions[extractedTaskId]) {
+                                    store.dispatch(initializeQCExecution({ taskId: extractedTaskId }))
+                                    console.log('=== 初始化质控流程执行 ===', extractedTaskId)
+                                }
+                                
+                                // 添加消息到Redux
+                                store.dispatch(
+                                    addQCMessage({
+                                        taskId: extractedTaskId,
+                                        message: messageData,
+                                    })
+                                )
+                            } else {
+                                console.warn('=== 未找到taskId，消息未存储 ===', messageData)
+                            }
+                        } catch (parseError) {
+                            // 如果不是JSON格式，直接输出原始数据
+                            console.log('=== SSE消息内容（原始）===', event.data)
+                            logger.info('一致性质控SSE消息（原始）', event.data)
+                        }
+                    },
+                    onError: (event) => {
+                        console.error('=== SSE连接错误 ===', event)
+                        logger.error('一致性质控SSE连接错误', new Error(`SSE连接错误: ${event.type || 'unknown'}`))
+                        uiMessage.error('一致性质控检查连接异常，请检查网络')
+                        setLoading(false)
+                        setCurrentTaskId(null)
+                        setProgress(0)
+                    },
+                    onClose: () => {
+                        console.log('=== SSE连接已关闭 ===')
+                        logger.info('一致性质控SSE连接已关闭')
+                    },
+                })
 
-            setOverallStats({
-                totalRelations,
-                normalRelations,
-                warningRelations,
-                errorRelations,
-                avgMatchRate,
-            })
+                // 保存SSE连接引用
+                sseManagerRef.current = sseManager
 
-            uiMessage.success('医疗逻辑检查完成！')
+                // 建立连接
+                sseManager.connect()
+
+                // 等待一小段时间确保连接建立
+                await new Promise(resolve => setTimeout(resolve, 500))
+                
+            } catch (sseError) {
+                logger.error('启动SSE连接失败:', sseError instanceof Error ? sseError : new Error(String(sseError)))
+                console.error('=== 启动SSE连接失败 ===', sseError)
+                uiMessage.error('启动一致性质控检查连接失败，请稍后重试')
+                setLoading(false)
+                setCurrentTaskId(null)
+                setProgress(0)
+                throw sseError
+            }
         } catch (error) {
             logger.error(
-                '医疗逻辑检查失败:',
+                '一致性质控检查失败:',
                 error instanceof Error ? error : new Error(String(error))
             )
-            uiMessage.error('医疗逻辑检查失败，请重试')
-        } finally {
+            uiMessage.error('一致性质控检查失败，请重试')
             setLoading(false)
+            setCurrentTaskId(null)
+            setProgress(0)
         }
     }
 
@@ -328,21 +403,7 @@ const BasicMedicalLogicQualityControl: React.FC<AutoProps> = ({ autoStart, onAut
         exportCsv(rows, '医疗逻辑质控_业务逻辑.csv')
     }
 
-    useEffect(() => {
-        let cancelled = false
-        const run = async () => {
-            if (!autoStart || loading) return
-            try {
-                await handleLogicCheck({ module: 'all', checkType: 'relation_check' })
-            } finally {
-                if (!cancelled) onAutoDone && onAutoDone()
-            }
-        }
-        run()
-        return () => {
-            cancelled = true
-        }
-    }, [autoStart])
+    // 自动启动逻辑已移除，因为需要用户选择业务模块和检查类型
 
     // 主附表关联表格列配置
     const relationColumns: ColumnsType<TableRelation> = [
@@ -564,8 +625,8 @@ const BasicMedicalLogicQualityControl: React.FC<AutoProps> = ({ autoStart, onAut
                 style={{ marginBottom: 24 }}
             />
 
-            {/* 整体统计 */}
-            {overallStats.totalRelations > 0 && (
+            {/* 整体统计 - 仅在demo模式下显示 */}
+            {isDemoVersion() && overallStats.totalRelations > 0 && (
                 <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                     <Col xs={24} sm={6}>
                         <Card>
@@ -635,11 +696,11 @@ const BasicMedicalLogicQualityControl: React.FC<AutoProps> = ({ autoStart, onAut
                             form={form}
                             layout='vertical'
                             onFinish={handleLogicCheck}
-                            initialValues={{ module: 'all', checkType: 'relation_check' }}
+                            initialValues={{ businessModule: 'all', checkType: 'relation_check' }}
                         >
                             <Form.Item
                                 label='业务模块'
-                                name='module'
+                                name='businessModule'
                                 rules={[{ required: true, message: '请选择业务模块' }]}
                             >
                                 <Select
@@ -669,54 +730,84 @@ const BasicMedicalLogicQualityControl: React.FC<AutoProps> = ({ autoStart, onAut
                                     icon={<SearchOutlined />}
                                     size='large'
                                     block
+                                    disabled={loading}
                                 >
                                     开始逻辑检查
                                 </Button>
                             </Form.Item>
+                            
+                            {/* 进度条显示 */}
+                            {loading && (
+                                <Form.Item>
+                                    <div style={{ marginTop: 16 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                                            <Progress
+                                                percent={progress}
+                                                size='small'
+                                                status={progress === 100 ? 'success' : 'active'}
+                                                showInfo={false}
+                                                style={{ flex: 1 }}
+                                            />
+                                            <span style={{ fontSize: 12, color: '#666', whiteSpace: 'nowrap' }}>
+                                                {progress}%
+                                            </span>
+                                        </div>
+                                        {qcMessages.length > 0 && (
+                                            <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+                                                {qcMessages[qcMessages.length - 1]?.tableName && (
+                                                    <span>正在处理: {qcMessages[qcMessages.length - 1].tableName}</span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </Form.Item>
+                            )}
                         </Form>
                     </Card>
                 </Col>
 
                 {/* 右侧：检查结果 */}
                 <Col xs={24} lg={16}>
-                    {/* 主附表关联检查 */}
-                    <Card
-                        title={
-                            <>
-                                <TableOutlined style={{ marginRight: 8 }} />
-                                主附表关联检查
-                            </>
-                        }
-                        extra={
-                            tableRelations.length > 0 ? (
-                                <Button type='link' onClick={handleExportRelations}>
-                                    导出CSV
-                                </Button>
-                            ) : undefined
-                        }
-                        style={{ marginBottom: 16 }}
-                    >
-                        {tableRelations.length > 0 ? (
-                            <Table
-                                columns={relationColumns}
-                                dataSource={tableRelations}
-                                pagination={false}
-                                size='middle'
-                                scroll={{ x: 1000 }}
-                            />
-                        ) : (
-                            <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
-                                <LinkOutlined style={{ fontSize: 48, marginBottom: 16 }} />
-                                <div>暂无检查结果</div>
-                                <div style={{ fontSize: 12, marginTop: 8 }}>
-                                    请先执行医疗逻辑检查
+                    {/* 主附表关联检查 - 仅在demo模式下显示 */}
+                    {isDemoVersion() && (
+                        <Card
+                            title={
+                                <>
+                                    <TableOutlined style={{ marginRight: 8 }} />
+                                    主附表关联检查
+                                </>
+                            }
+                            extra={
+                                tableRelations.length > 0 ? (
+                                    <Button type='link' onClick={handleExportRelations}>
+                                        导出CSV
+                                    </Button>
+                                ) : undefined
+                            }
+                            style={{ marginBottom: 16 }}
+                        >
+                            {tableRelations.length > 0 ? (
+                                <Table
+                                    columns={relationColumns}
+                                    dataSource={tableRelations}
+                                    pagination={false}
+                                    size='middle'
+                                    scroll={{ x: 1000 }}
+                                />
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
+                                    <LinkOutlined style={{ fontSize: 48, marginBottom: 16 }} />
+                                    <div>暂无检查结果</div>
+                                    <div style={{ fontSize: 12, marginTop: 8 }}>
+                                        请先执行医疗逻辑检查
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                    </Card>
+                            )}
+                        </Card>
+                    )}
 
-                    {/* 业务逻辑检查结果 */}
-                    {logicResults.length > 0 && (
+                    {/* 业务逻辑检查结果 - 仅在demo模式下显示 */}
+                    {isDemoVersion() && logicResults.length > 0 && (
                         <Card
                             title={
                                 <>
@@ -731,6 +822,7 @@ const BasicMedicalLogicQualityControl: React.FC<AutoProps> = ({ autoStart, onAut
                                     </Button>
                                 ) : undefined
                             }
+                            style={{ marginBottom: 16 }}
                         >
                             <Table
                                 columns={logicColumns}
@@ -739,6 +831,59 @@ const BasicMedicalLogicQualityControl: React.FC<AutoProps> = ({ autoStart, onAut
                                 size='middle'
                                 scroll={{ x: 1000 }}
                             />
+                        </Card>
+                    )}
+
+                    {/* 一致性质控结果 */}
+                    {resultData.length > 0 && (
+                        <Card
+                            title={
+                                <>
+                                    <LinkOutlined style={{ marginRight: 8 }} />
+                                    一致性质控结果
+                                </>
+                            }
+                        >
+                            <Spin spinning={resultLoading}>
+                                <JsonToTable
+                                    data={resultData as unknown as Array<Record<string, unknown>>}
+                                    columnMapping={{
+                                        id: 'ID',
+                                        batchId: '批次ID',
+                                        mainTableName: '主表名称',
+                                        subTableName: '次表名称',
+                                        relationField: '关联字段',
+                                        mainCount: '主表数量',
+                                        subCount: '次表数量',
+                                        matchedCount: '匹配数量',
+                                        unmatchedCount: '未匹配数量',
+                                        matchRate: '匹配率',
+                                        status: '状态',
+                                        mainTableComment: '主表注释',
+                                        subTableComment: '次表注释',
+                                    }}
+                                    tableProps={{
+                                        pagination: {
+                                            current: resultPagination.current,
+                                            pageSize: resultPagination.pageSize,
+                                            total: resultPagination.total,
+                                            showSizeChanger: true,
+                                            showTotal: (total) => `共 ${total} 条`,
+                                            onChange: (page, pageSize) => {
+                                                if (currentTaskId) {
+                                                    loadResultData(currentTaskId, page, pageSize)
+                                                }
+                                            },
+                                            onShowSizeChange: (current, size) => {
+                                                if (currentTaskId) {
+                                                    loadResultData(currentTaskId, current, size)
+                                                }
+                                            },
+                                        },
+                                        scroll: { x: 'max-content' },
+                                    }}
+                                />
+                            </Spin>
                         </Card>
                     )}
                 </Col>
