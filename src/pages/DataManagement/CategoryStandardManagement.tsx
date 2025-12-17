@@ -23,9 +23,12 @@ import {
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import {
-    CategoryStandard,
-    getCategoryStandards,
-    updateCategoryStandards,
+    type CategoryStandard,
+    CategoryStandardService,
+    mapCategoryStandardRecordToModel,
+    type CategoryStandardPageParams,
+    type AddCategoryStandardRequest,
+    type UpdateCategoryStandardRequest,
 } from '@/services/categoryStandardService'
 
 const { Search } = Input
@@ -39,34 +42,81 @@ const CategoryStandardManagement: React.FC = () => {
     const [editingRecord, setEditingRecord] = useState<CategoryStandard | null>(null)
     const [form] = Form.useForm()
     const [searchText, setSearchText] = useState('')
-    const [statusFilter, setStatusFilter] = useState<string>('')
+    const [statusFilter, setStatusFilter] = useState<number | undefined>(undefined)
+    const [pagination, setPagination] = useState<{ current: number; pageSize: number; total: number }>({
+        current: 1,
+        pageSize: 10,
+        total: 0,
+    })
 
     useEffect(() => {
-        fetchData()
+        fetchData({ pageNum: 1, pageSize: pagination.pageSize })
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
-    const fetchData = async () => {
+    /**
+     * 从后端分页接口获取类别标准数据
+     * @param options 重载查询参数（页码、页大小、搜索条件、状态）
+     */
+    const fetchData = async (options?: {
+        pageNum?: number
+        pageSize?: number
+        condition?: string
+        status?: number | undefined
+    }) => {
+        const pageNum = options?.pageNum ?? pagination.current
+        const pageSize = options?.pageSize ?? pagination.pageSize
+        const condition = options?.condition ?? searchText
+        const status = options?.status ?? statusFilter
+
         setLoading(true)
         try {
-            const result = await getCategoryStandards()
-            setData(result)
+            const params: CategoryStandardPageParams = {
+                pageNum,
+                pageSize,
+                condition: condition ? condition.trim() : undefined,
+                sortField: 'create_time',
+                sortOrder: 'desc',
+                categoryStatus: typeof status === 'number' ? status : undefined,
+            }
+
+            const response = await CategoryStandardService.getCategoryStandardPage(params)
+            const { records, total, size, current } = response.data
+            setData(records.map(mapCategoryStandardRecordToModel))
+            setPagination({
+                current: Number(current) || pageNum,
+                pageSize: Number(size) || pageSize,
+                total: Number(total) || 0,
+            })
         } catch (error) {
-            message.error('获取数据失败')
+            // 统一错误提示，优先展示后端/服务封装的错误信息
+            const errMsg = error instanceof Error ? error.message : '获取类别标准列表失败'
+            message.error(errMsg)
         } finally {
             setLoading(false)
         }
     }
 
-    // 过滤数据
-    const filteredData = data.filter(item => {
-        const matchesSearch =
-            !searchText ||
-            item.name.toLowerCase().includes(searchText.toLowerCase()) ||
-            item.code.toLowerCase().includes(searchText.toLowerCase()) ||
-            item.description?.toLowerCase().includes(searchText.toLowerCase())
-        const matchesStatus = !statusFilter || item.status === statusFilter
-        return matchesSearch && matchesStatus
-    })
+    /**
+     * 处理搜索（关键字段模糊查询 -> condition）
+     */
+    const handleSearch = (value: string) => {
+        const keyword = value.trim()
+        setSearchText(keyword)
+        const nextPageSize = pagination.pageSize
+        setPagination(prev => ({ ...prev, current: 1 }))
+        void fetchData({ pageNum: 1, pageSize: nextPageSize, condition: keyword })
+    }
+
+    /**
+     * 处理状态筛选（转换为后端 categoryStatus 0/1）
+     */
+    const handleStatusChange = (value: number | undefined) => {
+        setStatusFilter(value)
+        const nextPageSize = pagination.pageSize
+        setPagination(prev => ({ ...prev, current: 1 }))
+        void fetchData({ pageNum: 1, pageSize: nextPageSize, status: value })
+    }
 
     const handleAdd = () => {
         setEditingRecord(null)
@@ -88,58 +138,71 @@ const CategoryStandardManagement: React.FC = () => {
 
     const handleDelete = async (id: string) => {
         try {
-            // 模拟API调用
-            await new Promise(resolve => setTimeout(resolve, 300))
-            const updatedData = data.filter(item => item.id !== id)
-            setData(updatedData)
-            // 更新共享数据
-            updateCategoryStandards(updatedData)
+            await CategoryStandardService.deleteCategoryStandard(id)
             message.success('删除成功')
+            // 刷新列表（如果当前页没有数据了，回到上一页）
+            const currentPageDataCount = data.length
+            const nextPageNum =
+                currentPageDataCount === 1 && pagination.current > 1
+                    ? pagination.current - 1
+                    : pagination.current
+            setPagination(prev => ({ ...prev, current: nextPageNum }))
+            void fetchData({
+                pageNum: nextPageNum,
+                pageSize: pagination.pageSize,
+            })
         } catch (error) {
-            message.error('删除失败')
+            // 错误信息已在服务层处理，这里只做兜底提示
+            const errMsg = error instanceof Error ? error.message : '删除失败'
+            message.error(errMsg)
         }
     }
 
     const handleModalOk = async () => {
         try {
             const values = await form.validateFields()
-            // 将 Switch 的 boolean 值转换为 'active'/'inactive'
-            const formData = {
-                ...values,
-                status: values.status ? 'active' : 'inactive',
-            }
+            const { name, code, description, status } = values
 
-            let updatedData: CategoryStandard[]
             if (editingRecord) {
-                // 编辑
-                updatedData = data.map(item =>
-                    item.id === editingRecord.id
-                        ? { ...item, ...formData, updateTime: new Date().toLocaleString() }
-                        : item
-                )
-                message.success('更新成功')
-            } else {
-                // 新增
-                const newRecord: CategoryStandard = {
-                    ...formData,
-                    id: Date.now().toString(),
-                    createTime: new Date().toLocaleString(),
-                    updateTime: new Date().toLocaleString(),
-                    creator: '当前用户',
+                // 编辑：调用修改接口
+                const updateParams: UpdateCategoryStandardRequest = {
+                    id: editingRecord.id,
+                    categoryName: name,
+                    categoryCode: code,
+                    categoryStatus: status ? 1 : 0,
+                    remark: description || undefined,
                 }
-                updatedData = [...data, newRecord]
-                message.success('创建成功')
+
+                await CategoryStandardService.updateCategoryStandard(updateParams)
+                message.success('修改成功')
+            } else {
+                // 新增：调用新增接口
+                const addParams: AddCategoryStandardRequest = {
+                    categoryName: name,
+                    categoryCode: code,
+                    categoryStatus: status ? 1 : 0,
+                    remark: description || undefined,
+                }
+
+                await CategoryStandardService.addCategoryStandard(addParams)
+                message.success('新增成功')
             }
 
-            // 更新共享数据
-            setData(updatedData)
-            updateCategoryStandards(updatedData)
-
+            // 关闭弹窗并重置表单
             setModalVisible(false)
             form.resetFields()
             setEditingRecord(null)
+
+            // 刷新列表（回到第一页，显示最新数据）
+            setPagination(prev => ({ ...prev, current: 1 }))
+            void fetchData({
+                pageNum: 1,
+                pageSize: pagination.pageSize,
+            })
         } catch (error) {
-            console.error('表单验证失败:', error)
+            // 错误信息已在服务层处理，这里只做兜底提示
+            const errMsg = error instanceof Error ? error.message : '操作失败'
+            message.error(errMsg)
         }
     }
 
@@ -247,7 +310,16 @@ const CategoryStandardManagement: React.FC = () => {
                     类别标准管理
                 </Title>
                 <Space>
-                    <Button icon={<ReloadOutlined />} onClick={fetchData} loading={loading}>
+                    <Button
+                        icon={<ReloadOutlined />}
+                        onClick={() =>
+                            fetchData({
+                                pageNum: 1,
+                                pageSize: pagination.pageSize,
+                            })
+                        }
+                        loading={loading}
+                    >
                         刷新
                     </Button>
                     <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
@@ -260,9 +332,10 @@ const CategoryStandardManagement: React.FC = () => {
                 <div style={{ marginBottom: 16 }}>
                     <Space wrap>
                         <Search
-                            placeholder='搜索类别名称、编号或描述'
+                            placeholder='搜索类别名称、编码或备注（关键字段模糊查询）'
                             allowClear
-                            onSearch={setSearchText}
+                            value={searchText}
+                            onSearch={handleSearch}
                             onChange={e => setSearchText(e.target.value)}
                             style={{ width: 300 }}
                             prefix={<SearchOutlined />}
@@ -271,26 +344,36 @@ const CategoryStandardManagement: React.FC = () => {
                             placeholder='状态筛选'
                             style={{ width: 120 }}
                             allowClear
-                            value={statusFilter || undefined}
-                            onChange={setStatusFilter}
+                            value={statusFilter}
+                            onChange={handleStatusChange}
                         >
-                            <Option value='active'>启用</Option>
-                            <Option value='inactive'>停用</Option>
+                            <Option value={1}>启用</Option>
+                            <Option value={0}>停用</Option>
                         </Select>
                     </Space>
                 </div>
                 <Table
                     columns={columns}
-                    dataSource={filteredData}
+                    dataSource={data}
                     loading={loading}
                     rowKey={record => record.id}
                     scroll={{ x: 1200 }}
                     pagination={{
+                        current: pagination.current,
+                        pageSize: pagination.pageSize,
+                        total: pagination.total,
                         showSizeChanger: true,
                         showQuickJumper: true,
                         showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
                         pageSizeOptions: ['10', '20', '50', '100'],
-                        defaultPageSize: 20,
+                        onChange: (page, pageSize) => {
+                            setPagination(prev => ({
+                                ...prev,
+                                current: page,
+                                pageSize,
+                            }))
+                            void fetchData({ pageNum: page, pageSize })
+                        },
                     }}
                 />
             </Card>
