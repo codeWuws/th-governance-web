@@ -41,8 +41,11 @@ const CategoryStandardManagement: React.FC = () => {
     const [modalVisible, setModalVisible] = useState(false)
     const [editingRecord, setEditingRecord] = useState<CategoryStandard | null>(null)
     const [form] = Form.useForm()
-    const [searchText, setSearchText] = useState('')
-    const [statusFilter, setStatusFilter] = useState<number | undefined>(undefined)
+    // 筛选条件
+    const [condition, setCondition] = useState('') // 关键字段模糊查询
+    const [categoryName, setCategoryName] = useState('') // 类别名称
+    const [categoryCode, setCategoryCode] = useState('') // 类别编码
+    const [categoryStatus, setCategoryStatus] = useState<number | undefined>(undefined) // 类别状态
     const [pagination, setPagination] = useState<{ current: number; pageSize: number; total: number }>({
         current: 1,
         pageSize: 10,
@@ -56,28 +59,48 @@ const CategoryStandardManagement: React.FC = () => {
 
     /**
      * 从后端分页接口获取类别标准数据
-     * @param options 重载查询参数（页码、页大小、搜索条件、状态）
+     * @param options 重载查询参数（页码、页大小、各种筛选条件）
      */
     const fetchData = async (options?: {
         pageNum?: number
         pageSize?: number
-        condition?: string
-        status?: number | undefined
+        condition?: string | null
+        categoryName?: string | null
+        categoryCode?: string | null
+        categoryStatus?: number | null
     }) => {
         const pageNum = options?.pageNum ?? pagination.current
         const pageSize = options?.pageSize ?? pagination.pageSize
-        const condition = options?.condition ?? searchText
-        const status = options?.status ?? statusFilter
+        
+        // 如果 options 中明确传入了值（包括 null），使用传入的值；否则使用状态变量
+        // null 表示明确清空，应该使用 undefined
+        const searchCondition = options?.condition !== undefined 
+            ? (options.condition === null ? undefined : (options.condition.trim() || undefined))
+            : (condition ? condition.trim() : undefined)
+        
+        const searchCategoryName = options?.categoryName !== undefined 
+            ? (options.categoryName === null ? undefined : (options.categoryName.trim() || undefined))
+            : (categoryName ? categoryName.trim() : undefined)
+        
+        const searchCategoryCode = options?.categoryCode !== undefined 
+            ? (options.categoryCode === null ? undefined : (options.categoryCode.trim() || undefined))
+            : (categoryCode ? categoryCode.trim() : undefined)
+        
+        const searchStatus = options?.categoryStatus !== undefined 
+            ? (options.categoryStatus === null ? undefined : options.categoryStatus)
+            : categoryStatus
 
         setLoading(true)
         try {
             const params: CategoryStandardPageParams = {
                 pageNum,
                 pageSize,
-                condition: condition ? condition.trim() : undefined,
                 sortField: 'create_time',
                 sortOrder: 'desc',
-                categoryStatus: typeof status === 'number' ? status : undefined,
+                condition: searchCondition,
+                categoryName: searchCategoryName,
+                categoryCode: searchCategoryCode,
+                categoryStatus: typeof searchStatus === 'number' ? searchStatus : undefined,
             }
 
             const response = await CategoryStandardService.getCategoryStandardPage(params)
@@ -98,24 +121,80 @@ const CategoryStandardManagement: React.FC = () => {
     }
 
     /**
-     * 处理搜索（关键字段模糊查询 -> condition）
+     * 处理关键字段模糊查询
      */
-    const handleSearch = (value: string) => {
+    const handleConditionSearch = (value: string) => {
         const keyword = value.trim()
-        setSearchText(keyword)
-        const nextPageSize = pagination.pageSize
+        setCondition(keyword)
         setPagination(prev => ({ ...prev, current: 1 }))
-        void fetchData({ pageNum: 1, pageSize: nextPageSize, condition: keyword })
+        // 如果 keyword 为空，明确传入 null 表示清空；否则传入实际值
+        const conditionValue = keyword ? keyword : null
+        void fetchData({
+            pageNum: 1,
+            pageSize: pagination.pageSize,
+            condition: conditionValue,
+        })
     }
 
     /**
-     * 处理状态筛选（转换为后端 categoryStatus 0/1）
+     * 处理类别名称筛选
+     */
+    const handleCategoryNameChange = (value: string) => {
+        const keyword = value.trim()
+        setCategoryName(keyword)
+        setPagination(prev => ({ ...prev, current: 1 }))
+        void fetchData({
+            pageNum: 1,
+            pageSize: pagination.pageSize,
+            categoryName: keyword || null, // 空字符串时传入 null
+        })
+    }
+
+    /**
+     * 处理类别编码筛选
+     */
+    const handleCategoryCodeChange = (value: string) => {
+        const keyword = value.trim()
+        setCategoryCode(keyword)
+        setPagination(prev => ({ ...prev, current: 1 }))
+        void fetchData({
+            pageNum: 1,
+            pageSize: pagination.pageSize,
+            categoryCode: keyword || null, // 空字符串时传入 null
+        })
+    }
+
+    /**
+     * 处理状态筛选
      */
     const handleStatusChange = (value: number | undefined) => {
-        setStatusFilter(value)
-        const nextPageSize = pagination.pageSize
+        setCategoryStatus(value)
         setPagination(prev => ({ ...prev, current: 1 }))
-        void fetchData({ pageNum: 1, pageSize: nextPageSize, status: value })
+        void fetchData({
+            pageNum: 1,
+            pageSize: pagination.pageSize,
+            categoryStatus: value ?? null, // undefined 时传入 null
+        })
+    }
+
+    /**
+     * 重置所有筛选条件
+     */
+    const handleResetFilters = () => {
+        setCondition('')
+        setCategoryName('')
+        setCategoryCode('')
+        setCategoryStatus(undefined)
+        setPagination(prev => ({ ...prev, current: 1 }))
+        // 明确传入 null 表示清空所有筛选条件
+        void fetchData({
+            pageNum: 1,
+            pageSize: pagination.pageSize,
+            condition: null,
+            categoryName: null,
+            categoryCode: null,
+            categoryStatus: null,
+        })
     }
 
     const handleAdd = () => {
@@ -330,26 +409,59 @@ const CategoryStandardManagement: React.FC = () => {
 
             <Card>
                 <div style={{ marginBottom: 16 }}>
-                    <Space wrap>
-                        <Search
-                            placeholder='搜索类别名称、编码或备注（关键字段模糊查询）'
+                    <Space wrap size='middle'>
+                        
+                        <Input
+                            placeholder='类别名称'
                             allowClear
-                            value={searchText}
-                            onSearch={handleSearch}
-                            onChange={e => setSearchText(e.target.value)}
-                            style={{ width: 300 }}
-                            prefix={<SearchOutlined />}
+                            value={categoryName}
+                            onChange={e => handleCategoryNameChange(e.target.value)}
+                            onClear={() => {
+                                setCategoryName('')
+                                setPagination(prev => ({ ...prev, current: 1 }))
+                                void fetchData({
+                                    pageNum: 1,
+                                    pageSize: pagination.pageSize,
+                                    categoryName: null,
+                                })
+                            }}
+                            style={{ width: 200 }}
+                            onPressEnter={e => {
+                                const target = e.target as HTMLInputElement
+                                handleCategoryNameChange(target.value)
+                            }}
+                        />
+                        <Input
+                            placeholder='类别编码'
+                            allowClear
+                            value={categoryCode}
+                            onChange={e => handleCategoryCodeChange(e.target.value)}
+                            onClear={() => {
+                                setCategoryCode('')
+                                setPagination(prev => ({ ...prev, current: 1 }))
+                                void fetchData({
+                                    pageNum: 1,
+                                    pageSize: pagination.pageSize,
+                                    categoryCode: null,
+                                })
+                            }}
+                            style={{ width: 200 }}
+                            onPressEnter={e => {
+                                const target = e.target as HTMLInputElement
+                                handleCategoryCodeChange(target.value)
+                            }}
                         />
                         <Select
                             placeholder='状态筛选'
                             style={{ width: 120 }}
                             allowClear
-                            value={statusFilter}
+                            value={categoryStatus}
                             onChange={handleStatusChange}
                         >
                             <Option value={1}>启用</Option>
                             <Option value={0}>停用</Option>
                         </Select>
+                        <Button onClick={handleResetFilters}>重置</Button>
                     </Space>
                 </div>
                 <Table

@@ -220,23 +220,44 @@ const categoryStandardMockProvider = {
                     pageNum?: number
                     pageSize?: number
                     condition?: string
+                    categoryName?: string
+                    categoryCode?: string
                     categoryStatus?: number
                 }) || {}
             const pageNum = data.pageNum || 1
             const pageSize = data.pageSize || 10
             const condition = (data.condition || '').toString().trim().toLowerCase()
+            const categoryName = (data.categoryName || '').toString().trim().toLowerCase()
+            const categoryCode = (data.categoryCode || '').toString().trim().toLowerCase()
             const status = data.categoryStatus
 
-            // 按关键字与状态筛选
+            // 按多个条件筛选
             const filtered = mockCategoryStandardRecords.filter(item => {
+                // 关键字段模糊查询（condition）
                 const matchCondition =
                     !condition ||
                     item.categoryName.toLowerCase().includes(condition) ||
                     item.categoryCode.toLowerCase().includes(condition) ||
                     (item.remark || '').toLowerCase().includes(condition)
+
+                // 类别名称筛选
+                const matchCategoryName =
+                    !categoryName || item.categoryName.toLowerCase().includes(categoryName)
+
+                // 类别编码筛选
+                const matchCategoryCode =
+                    !categoryCode || item.categoryCode.toLowerCase().includes(categoryCode)
+
+                // 状态筛选
                 const matchStatus =
                     typeof status !== 'number' ? true : item.categoryStatus === status
-                return matchCondition && matchStatus
+
+                return (
+                    matchCondition &&
+                    matchCategoryName &&
+                    matchCategoryCode &&
+                    matchStatus
+                )
             })
 
             const start = (pageNum - 1) * pageSize

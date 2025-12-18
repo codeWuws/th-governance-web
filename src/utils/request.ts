@@ -168,6 +168,18 @@ request.interceptors.response.use(
             ((config as InternalAxiosRequestConfig & { metadata?: { startTime: number } }).metadata
                 ?.startTime || 0)
 
+        // 如果是blob响应，直接返回，不进行JSON解析
+        if (config.responseType === 'blob' || data instanceof Blob) {
+            logger.debug('API Response (Blob):', {
+                method: config.method?.toUpperCase(),
+                url: config.url,
+                status: response.status,
+                duration: `${duration}ms`,
+                type: 'blob',
+            })
+            return response
+        }
+
         // 记录响应日志
         logger.debug('API Response:', {
             method: config.method?.toUpperCase(),

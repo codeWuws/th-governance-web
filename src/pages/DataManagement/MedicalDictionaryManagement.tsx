@@ -22,6 +22,8 @@ import {
     SearchOutlined,
     SyncOutlined,
 } from '@ant-design/icons'
+import { dataManagementService } from '@/services/dataManagementService'
+import type { CategoryItem, MedicalDictPageParams, MedicalDictRecord } from '@/types'
 
 const { Option } = Select
 
@@ -46,6 +48,15 @@ const MedicalDictionaryManagement: React.FC = () => {
     const [modalVisible, setModalVisible] = useState(false)
     const [editingRecord, setEditingRecord] = useState<MedicalDictionary | null>(null)
     const [form] = Form.useForm()
+    const [categoryList, setCategoryList] = useState<CategoryItem[]>([])
+    const [categoryListLoading, setCategoryListLoading] = useState(false)
+    
+    // 分页状态
+    const [pagination, setPagination] = useState<{ current: number; pageSize: number; total: number }>({
+        current: 1,
+        pageSize: 10,
+        total: 0,
+    })
 
     // 模拟数据
     const mockData: MedicalDictionary[] = [
@@ -122,46 +133,145 @@ const MedicalDictionaryManagement: React.FC = () => {
     ]
 
     useEffect(() => {
-        fetchData()
+        fetchCategoryList()
+        fetchData({ pageNum: 1, pageSize: pagination.pageSize })
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
-    const fetchData = async () => {
+    /**
+     * 将后端返回的记录转换为前端使用的模型
+     */
+    const mapMedicalDictRecordToModel = (record: MedicalDictRecord): MedicalDictionary => {
+        return {
+            id: record.id,
+            name: record.dictName,
+            code: record.dictCode,
+            category: record.categoryName || '',
+            version: record.version || '',
+            source: record.source || '',
+            description: record.remark || '',
+            itemCount: 0, // 后端可能没有这个字段，使用默认值
+            status: record.status === 1 ? 'active' : 'inactive',
+            createTime: record.createTime,
+            updateTime: record.updateTime || '',
+            creator: record.creator || '',
+        }
+    }
+
+    /**
+     * 从后端分页接口获取医疗字典数据
+     */
+    const fetchData = async (options?: {
+        pageNum?: number
+        pageSize?: number
+        condition?: string
+        dictName?: string
+        dictCode?: string
+        categoryId?: number
+        version?: string
+        source?: string
+        status?: number
+    }) => {
+        const pageNum = options?.pageNum ?? pagination.current
+        const pageSize = options?.pageSize ?? pagination.pageSize
+
         setLoading(true)
         try {
-            // 模拟API调用
-            await new Promise(resolve => setTimeout(resolve, 500))
-            setData(mockData)
+            const params: MedicalDictPageParams = {
+                pageNum,
+                pageSize,
+                condition: options?.condition ? options.condition.trim() : undefined,
+                sortField: 'create_time',
+                sortOrder: 'desc',
+                dictName: options?.dictName ? options.dictName.trim() : undefined,
+                dictCode: options?.dictCode ? options.dictCode.trim() : undefined,
+                categoryId: options?.categoryId,
+                version: options?.version ? options.version.trim() : undefined,
+                source: options?.source ? options.source.trim() : undefined,
+                status: typeof options?.status === 'number' ? options.status : undefined,
+            }
+
+            const response = await dataManagementService.getMedicalDictPage(params)
+            const { records, total, size, current } = response.data
+            setData(records.map(mapMedicalDictRecordToModel))
+            setPagination({
+                current: Number(current) || pageNum,
+                pageSize: Number(size) || pageSize,
+                total: Number(total) || 0,
+            })
         } catch (error) {
-            message.error('获取数据失败')
+            const errMsg = error instanceof Error ? error.message : '获取医疗字典列表失败'
+            message.error(errMsg)
         } finally {
             setLoading(false)
         }
     }
 
-    const handleAdd = () => {
+    // 获取分类列表数据
+    const fetchCategoryList = async () => {
+        setCategoryListLoading(true)
+        try {
+            const response = await dataManagementService.getCategoryList()
+            setCategoryList(response.data || [])
+        } catch (error) {
+            console.error('获取分类列表失败:', error)
+            message.error('获取分类列表失败')
+        } finally {
+            setCategoryListLoading(false)
+        }
+    }
+
+    const handleAdd = async () => {
         setEditingRecord(null)
         form.resetFields()
+        // 确保分类列表数据已加载
+        if (categoryList.length === 0) {
+            await fetchCategoryList()
+        }
         setModalVisible(true)
     }
 
-    const handleEdit = (record: MedicalDictionary) => {
+    const handleEdit = async (record: MedicalDictionary) => {
         setEditingRecord(record)
         form.setFieldsValue({
             ...record,
             status: record.status === 'active', // 将 'active'/'inactive' 转换为 boolean
         })
+        // 确保分类列表数据已加载
+        if (categoryList.length === 0) {
+            await fetchCategoryList()
+        }
         setModalVisible(true)
     }
 
     const handleDelete = async (id: string) => {
         try {
-            // 模拟API调用
-            await new Promise(resolve => setTimeout(resolve, 300))
-            setData(data.filter(item => item.id !== id))
+            await dataManagementService.deleteMedicalDict(id)
             message.success('删除成功')
+            // 刷新列表（如果当前页没有数据了，回到上一页）
+            const currentPageDataCount = data.length
+            const nextPageNum =
+                currentPageDataCount === 1 && pagination.current > 1
+                    ? pagination.current - 1
+                    : pagination.current
+            setPagination(prev => ({ ...prev, current: nextPageNum }))
+            void fetchData({
+                pageNum: nextPageNum,
+                pageSize: pagination.pageSize,
+            })
         } catch (error) {
-            message.error('删除失败')
+            // 错误信息已在服务层处理，这里只做兜底提示
+            const errMsg = error instanceof Error ? error.message : '删除失败'
+            message.error(errMsg)
         }
+    }
+
+    /**
+     * 处理分页变化
+     */
+    const handleTableChange = (page: number, pageSize: number) => {
+        setPagination(prev => ({ ...prev, current: page, pageSize }))
+        void fetchData({ pageNum: page, pageSize })
     }
 
     const handleAutoMapping = () => {
@@ -174,40 +284,59 @@ const MedicalDictionaryManagement: React.FC = () => {
     const handleModalOk = async () => {
         try {
             const values = await form.validateFields()
-            // 将 Switch 的 boolean 值转换为 'active'/'inactive'
-            const formData = {
-                ...values,
-                status: values.status ? 'active' : 'inactive',
+
+            // 根据分类名称查找分类ID
+            const categoryName = values.category
+            const categoryItem = categoryList.find(item => item.categoryName === categoryName)
+            if (!categoryItem) {
+                message.error('请选择有效的分类')
+                return
+            }
+            const categoryId = Number(categoryItem.id)
+
+            // 将表单数据转换为接口需要的格式
+            const requestData = {
+                dictName: values.name,
+                dictCode: values.code,
+                categoryId,
+                version: values.version,
+                source: values.source,
+                status: values.status ? 1 : 0, // boolean 转换为 0/1
+                remark: values.description || '', // description 映射到 remark
             }
 
             if (editingRecord) {
-                // 编辑
-                setData(
-                    data.map(item =>
-                        item.id === editingRecord.id
-                            ? { ...item, ...formData, updateTime: new Date().toLocaleString() }
-                            : item
-                    )
-                )
+                // 编辑：需要包含 id
+                await dataManagementService.updateMedicalDict({
+                    id: editingRecord.id,
+                    ...requestData,
+                })
                 message.success('更新成功')
             } else {
                 // 新增
-                const newRecord: MedicalDictionary = {
-                    ...formData,
-                    id: Date.now().toString(),
-                    createTime: new Date().toLocaleString(),
-                    updateTime: new Date().toLocaleString(),
-                    creator: '当前用户',
-                    itemCount: 0,
-                }
-                setData([...data, newRecord])
+                await dataManagementService.addMedicalDict(requestData)
                 message.success('创建成功')
             }
 
             setModalVisible(false)
             form.resetFields()
+            setEditingRecord(null)
+
+            // 刷新列表（回到第一页，显示最新数据）
+            setPagination(prev => ({ ...prev, current: 1 }))
+            void fetchData({
+                pageNum: 1,
+                pageSize: pagination.pageSize,
+            })
         } catch (error) {
-            console.error('表单验证失败:', error)
+            // 错误信息已在服务层处理，这里只做兜底提示
+            if (error && typeof error === 'object' && 'errorFields' in error) {
+                // 表单验证错误，不需要额外提示
+                console.error('表单验证失败:', error)
+            } else {
+                const errMsg = error instanceof Error ? error.message : '操作失败'
+                message.error(errMsg)
+            }
         }
     }
 
@@ -338,11 +467,14 @@ const MedicalDictionaryManagement: React.FC = () => {
                     loading={loading}
                     scroll={{ x: 1200 }}
                     pagination={{
-                        total: data.length,
-                        pageSize: 10,
+                        current: pagination.current,
+                        pageSize: pagination.pageSize,
+                        total: pagination.total,
                         showSizeChanger: true,
                         showQuickJumper: true,
                         showTotal: total => `共 ${total} 条记录`,
+                        onChange: handleTableChange,
+                        onShowSizeChange: handleTableChange,
                     }}
                 />
             </Card>
@@ -380,12 +512,17 @@ const MedicalDictionaryManagement: React.FC = () => {
                         name='category'
                         rules={[{ required: true, message: '请选择分类' }]}
                     >
-                        <Select placeholder='请选择分类'>
-                            <Option value='疾病分类'>疾病分类</Option>
-                            <Option value='检验代码'>检验代码</Option>
-                            <Option value='药品代码'>药品代码</Option>
-                            <Option value='手术代码'>手术代码</Option>
-                            <Option value='症状代码'>症状代码</Option>
+                        <Select
+                            placeholder='请选择分类'
+                            showSearch
+                            optionFilterProp='children'
+                            loading={categoryListLoading}
+                        >
+                            {categoryList.map(category => (
+                                <Option key={category.id} value={category.categoryName}>
+                                    {category.categoryName}
+                                </Option>
+                            ))}
                         </Select>
                     </Form.Item>
 

@@ -1372,3 +1372,466 @@ export interface ReliabilityQCResponse {
     /** 响应数据 */
     data?: unknown
 }
+
+// ==================== 业务数据集相关类型定义 ====================
+
+/** 业务数据集分页查询参数 */
+export interface BusinessDatasetPageParams {
+    /** 关键字段模糊查询 */
+    condition?: string
+    /** 页码，从1开始 */
+    pageNum: number
+    /** 每页大小 */
+    pageSize: number
+    /** 排序字段 */
+    sortField?: string
+    /** 排序顺序：asc | desc */
+    sortOrder?: 'asc' | 'desc'
+    /** 数据集名称 */
+    dataSetName?: string
+    /** 数据集编码 */
+    dataSetCode?: string
+    /** 分类ID */
+    categoryId?: number
+    /** 数据源 */
+    dataSource?: string
+    /** 状态：0-禁用，1-启用 */
+    status?: number
+}
+
+/** 业务数据集记录 */
+export interface BusinessDatasetRecord {
+    /** 主键ID */
+    id: string
+    /** 数据集名称 */
+    dataSetName: string
+    /** 数据集编码 */
+    dataSetCode: string
+    /** 分类ID */
+    categoryId: number
+    /** 分类名称 */
+    categoryName?: string
+    /** 描述 */
+    description?: string
+    /** 疾病类型 */
+    diseaseType?: string
+    /** 数据源 */
+    dataSource?: string
+    /** 字段数量 */
+    fieldCount?: number
+    /** 状态：0-禁用，1-启用 */
+    status: number
+    /** 创建时间 */
+    createTime: string
+    /** 更新时间 */
+    updateTime?: string
+    /** 创建人 */
+    creator?: string
+    /** 版本 */
+    version?: string
+}
+
+/** 业务数据集分页数据 */
+export interface BusinessDatasetPageData {
+    /** 记录列表 */
+    records: BusinessDatasetRecord[]
+    /** 总数 */
+    total: string
+    /** 每页大小 */
+    size: string
+    /** 当前页 */
+    current: string
+    /** 总页数 */
+    pages: string
+}
+
+/** 业务数据集分页响应 */
+export interface BusinessDatasetPageResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 分页数据 */
+    data: BusinessDatasetPageData
+}
+
+/** 数据源选项 */
+export interface DataSourceOption {
+    /** 数据源值 */
+    value: string
+    /** 数据源标签 */
+    label: string
+    /** 排序 */
+    sort: number
+}
+
+/** 数据源选项列表响应 */
+export interface DataSourceOptionsResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 数据源选项列表 */
+    data: DataSourceOption[]
+}
+
+/** 业务数据集删除响应 */
+export interface BusinessDatasetDeleteResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data?: null
+}
+
+/** 新增业务数据集请求参数 */
+export interface AddBusinessDatasetRequest {
+    /** 数据集名称 */
+    dataSetName: string
+    /** 数据集编码 */
+    dataSetCode: string
+    /** 分类ID */
+    categoryId: number
+    /** 数据源（多个用逗号分隔） */
+    dataSource: string
+    /** 状态：0-禁用，1-启用 */
+    status: number
+    /** 备注/描述 */
+    remark: string
+}
+
+/** 编辑业务数据集请求参数 */
+export interface UpdateBusinessDatasetRequest {
+    /** 主键ID */
+    id: string
+    /** 数据集名称 */
+    dataSetName: string
+    /** 数据集编码 */
+    dataSetCode: string
+    /** 分类ID */
+    categoryId: number
+    /** 数据源（多个用逗号分隔） */
+    dataSource: string
+    /** 状态：0-禁用，1-启用 */
+    status: number
+    /** 备注/描述 */
+    remark: string
+}
+
+/** 业务数据集新增/编辑响应 */
+export interface BusinessDatasetSaveResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data?: unknown
+}
+
+/** 自动映射请求参数 */
+export interface AutomaticMappingRequest {
+    /** 业务数据集ID（可选，如果不传则对所有数据集进行映射） */
+    id?: string
+}
+
+/** 自动映射响应 */
+export interface AutomaticMappingResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data?: {
+        /** 映射成功的数量 */
+        successCount?: number
+        /** 映射失败的数量 */
+        failCount?: number
+        /** 详细信息 */
+        details?: string[]
+    }
+}
+
+/** 分类项 */
+export interface CategoryItem {
+    /** 分类ID */
+    id: string
+    /** 分类名称 */
+    categoryName: string
+    /** 分类编码 */
+    categoryCode: string
+}
+
+/** 分类列表响应 */
+export interface CategoryListResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 分类列表 */
+    data: CategoryItem[]
+}
+
+/** 新增医疗字典请求参数 */
+export interface AddMedicalDictRequest {
+    /** 字典名称 */
+    dictName: string
+    /** 字典编码 */
+    dictCode: string
+    /** 分类ID */
+    categoryId: number
+    /** 版本 */
+    version: string
+    /** 来源 */
+    source: string
+    /** 状态：0-禁用，1-启用 */
+    status: number
+    /** 备注/描述 */
+    remark: string
+}
+
+/** 编辑医疗字典请求参数 */
+export interface UpdateMedicalDictRequest {
+    /** 主键ID */
+    id: string
+    /** 字典名称 */
+    dictName: string
+    /** 字典编码 */
+    dictCode: string
+    /** 分类ID */
+    categoryId: number
+    /** 版本 */
+    version: string
+    /** 来源 */
+    source: string
+    /** 状态：0-禁用，1-启用 */
+    status: number
+    /** 备注/描述 */
+    remark: string
+}
+
+/** 医疗字典新增/编辑响应 */
+export interface MedicalDictSaveResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data?: unknown
+}
+
+/** 医疗字典删除响应 */
+export interface MedicalDictDeleteResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data?: null
+}
+
+/** 医疗字典分页查询参数 */
+export interface MedicalDictPageParams {
+    /** 关键字段模糊查询 */
+    condition?: string
+    /** 页码，从1开始 */
+    pageNum: number
+    /** 每页大小 */
+    pageSize: number
+    /** 排序字段 */
+    sortField?: string
+    /** 排序顺序：asc | desc */
+    sortOrder?: 'asc' | 'desc'
+    /** 字典名称 */
+    dictName?: string
+    /** 字典编码 */
+    dictCode?: string
+    /** 分类ID */
+    categoryId?: number
+    /** 版本 */
+    version?: string
+    /** 来源 */
+    source?: string
+    /** 状态：0-禁用，1-启用 */
+    status?: number
+}
+
+/** 医疗字典记录 */
+export interface MedicalDictRecord {
+    /** 主键ID */
+    id: string
+    /** 字典名称 */
+    dictName: string
+    /** 字典编码 */
+    dictCode: string
+    /** 分类ID */
+    categoryId: number
+    /** 分类名称 */
+    categoryName?: string
+    /** 版本 */
+    version?: string
+    /** 来源 */
+    source?: string
+    /** 状态：0-禁用，1-启用 */
+    status: number
+    /** 备注/描述 */
+    remark?: string
+    /** 创建时间 */
+    createTime: string
+    /** 更新时间 */
+    updateTime?: string
+    /** 创建人 */
+    creator?: string
+}
+
+/** 医疗字典分页数据 */
+export interface MedicalDictPageData {
+    /** 记录列表 */
+    records: MedicalDictRecord[]
+    /** 总数 */
+    total: string
+    /** 每页大小 */
+    size: string
+    /** 当前页 */
+    current: string
+    /** 总页数 */
+    pages: string
+}
+
+/** 医疗字典分页响应 */
+export interface MedicalDictPageResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 分页数据 */
+    data: MedicalDictPageData
+}
+
+/** 状态字典分页查询参数 */
+export interface StatusDictPageParams {
+    /** 关键字段模糊查询 */
+    condition?: string
+    /** 页码，从1开始 */
+    pageNum: number
+    /** 每页大小 */
+    pageSize: number
+    /** 排序字段 */
+    sortField?: string
+    /** 排序顺序：asc | desc */
+    sortOrder?: 'asc' | 'desc'
+    /** 关键字 */
+    keyword?: string
+    /** 分类ID */
+    categoryId?: number
+    /** 状态：0-禁用，1-启用 */
+    status?: number
+}
+
+/** 状态字典记录 */
+export interface StatusDictRecord {
+    /** 主键ID */
+    id: string
+    /** 字典名称 */
+    dictName: string
+    /** 字典编码 */
+    dictCode: string
+    /** 分类ID */
+    categoryId: string
+    /** 分类名称 */
+    categoryName?: string
+    /** 状态：0-禁用，1-启用 */
+    status: number
+    /** 版本 */
+    version?: string
+    /** 创建人 */
+    createBy?: string
+    /** 创建时间 */
+    createTime: string
+    /** 更新人 */
+    updateBy?: string
+    /** 更新时间 */
+    updateTime?: string
+    /** 备注/描述 */
+    remark?: string
+    /** 删除标志 */
+    delFlag?: number
+}
+
+/** 状态字典分页数据 */
+export interface StatusDictPageData {
+    /** 记录列表 */
+    records: StatusDictRecord[]
+    /** 总数 */
+    total: string
+    /** 每页大小 */
+    size: string
+    /** 当前页 */
+    current: string
+    /** 总页数 */
+    pages: string
+}
+
+/** 状态字典分页响应 */
+export interface StatusDictPageResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 分页数据 */
+    data: StatusDictPageData
+}
+
+/** 新增状态字典请求参数 */
+export interface AddStatusDictRequest {
+    /** 字典名称 */
+    dictName: string
+    /** 字典编码 */
+    dictCode: string
+    /** 分类ID */
+    categoryId: number
+    /** 状态：0-禁用，1-启用 */
+    status: number
+    /** 版本 */
+    version?: string
+    /** 备注/描述 */
+    remark?: string
+}
+
+/** 编辑状态字典请求参数 */
+export interface UpdateStatusDictRequest {
+    /** 主键ID */
+    id: string
+    /** 字典名称 */
+    dictName: string
+    /** 字典编码 */
+    dictCode: string
+    /** 分类ID */
+    categoryId: number
+    /** 状态：0-禁用，1-启用 */
+    status: number
+    /** 版本 */
+    version?: string
+    /** 备注/描述 */
+    remark?: string
+}
+
+/** 状态字典新增/编辑响应 */
+export interface StatusDictSaveResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data?: unknown
+}
+
+/** 状态字典删除响应 */
+export interface StatusDictDeleteResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data?: null
+}

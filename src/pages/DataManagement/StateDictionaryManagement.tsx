@@ -13,6 +13,7 @@ import {
     Switch,
     Alert,
     Typography,
+    Popconfirm,
 } from 'antd'
 import {
     PlusOutlined,
@@ -29,6 +30,8 @@ import moment from 'moment'
 import { exportToExcel, importFromExcel, downloadExcelTemplate } from '../../utils/excel'
 import type { UploadProps } from 'antd'
 import { Upload } from 'antd'
+import { dataManagementService } from '@/services/dataManagementService'
+import type { CategoryItem, StatusDictPageParams, StatusDictRecord } from '@/types'
 
 const { Search } = Input
 const { Option } = Select
@@ -39,6 +42,7 @@ interface StateDictionary {
     code: string // 状态编码
     category: string // 分类
     description: string // 描述
+    version?: string // 版本
     status: 'active' | 'inactive' // 启用状态
     createTime: string
     updateTime: string
@@ -54,6 +58,15 @@ const StateDictionaryManagement: React.FC = () => {
     const [searchText, setSearchText] = useState('')
     const [categoryFilter, setCategoryFilter] = useState('')
     const [statusFilter, setStatusFilter] = useState('')
+    const [categoryList, setCategoryList] = useState<CategoryItem[]>([])
+    const [categoryListLoading, setCategoryListLoading] = useState(false)
+    
+    // 分页状态
+    const [pagination, setPagination] = useState<{ current: number; pageSize: number; total: number }>({
+        current: 1,
+        pageSize: 10,
+        total: 0,
+    })
 
     // 模拟数据 - 每个状态一条记录
     const mockData: StateDictionary[] = [
@@ -148,86 +161,248 @@ const StateDictionaryManagement: React.FC = () => {
     ]
 
     useEffect(() => {
-        loadData()
+        fetchCategoryList()
+        fetchData({ pageNum: 1, pageSize: pagination.pageSize })
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
-    const loadData = () => {
+    /**
+     * 将后端返回的记录转换为前端使用的模型
+     */
+    const mapStatusDictRecordToModel = (record: StatusDictRecord): StateDictionary => {
+        return {
+            id: record.id,
+            name: record.dictName,
+            code: record.dictCode,
+            category: record.categoryName || '',
+            description: record.remark || '',
+            version: record.version || '',
+            status: record.status === 1 ? 'active' : 'inactive',
+            createTime: record.createTime,
+            updateTime: record.updateTime || record.createTime,
+            creator: record.createBy || '',
+        }
+    }
+
+    /**
+     * 从后端分页接口获取状态字典数据
+     */
+    const fetchData = async (options?: {
+        pageNum?: number
+        pageSize?: number
+        condition?: string
+        keyword?: string | null
+        categoryId?: number | null
+        status?: number | null
+    }) => {
+        const pageNum = options?.pageNum ?? pagination.current
+        const pageSize = options?.pageSize ?? pagination.pageSize
+
         setLoading(true)
-        setTimeout(() => {
-            setData(mockData)
+        try {
+            // 如果 options 中明确传入了值（包括 null），使用传入的值；否则使用状态变量
+            let keywordValue: string | undefined
+            if (options?.keyword !== undefined) {
+                // 如果传入的是 null，表示清空，使用 undefined
+                // 如果传入的是字符串，使用该字符串
+                keywordValue = options.keyword === null ? undefined : (options.keyword.trim() || undefined)
+            } else {
+                // 如果没有传入，使用状态变量
+                keywordValue = searchText ? searchText.trim() : undefined
+            }
+
+            let categoryIdValue: number | undefined
+            if (options?.categoryId !== undefined) {
+                // 如果传入的是 null，表示清空，使用 undefined
+                categoryIdValue = options.categoryId === null ? undefined : options.categoryId
+            } else {
+                // 如果没有传入，使用状态变量
+                const categoryItem = categoryFilter
+                    ? categoryList.find(item => item.categoryName === categoryFilter)
+                    : null
+                categoryIdValue = categoryItem ? Number(categoryItem.id) : undefined
+            }
+
+            let statusValue: number | undefined
+            if (options?.status !== undefined) {
+                // 如果传入的是 null，表示清空，使用 undefined
+                statusValue = options.status === null ? undefined : options.status
+            } else {
+                // 如果没有传入，使用状态变量
+                statusValue = statusFilter === 'active' ? 1 : statusFilter === 'inactive' ? 0 : undefined
+            }
+
+            const params: StatusDictPageParams = {
+                pageNum,
+                pageSize,
+                condition: options?.condition ? options.condition.trim() : undefined, // 保留 condition 用于关键字段模糊查询
+                sortField: 'create_time',
+                sortOrder: 'desc',
+                keyword: keywordValue, // keyword 字段
+                categoryId: categoryIdValue,
+                status: statusValue,
+            }
+
+            const response = await dataManagementService.getStatusDictPage(params)
+            const { records, total, size, current } = response.data
+            setData(records.map(mapStatusDictRecordToModel))
+            setPagination({
+                current: Number(current) || pageNum,
+                pageSize: Number(size) || pageSize,
+                total: Number(total) || 0,
+            })
+        } catch (error) {
+            const errMsg = error instanceof Error ? error.message : '获取状态字典列表失败'
+            message.error(errMsg)
+        } finally {
             setLoading(false)
-        }, 500)
+        }
+    }
+
+    // 获取分类列表数据
+    const fetchCategoryList = async () => {
+        setCategoryListLoading(true)
+        try {
+            const response = await dataManagementService.getCategoryList()
+            setCategoryList(response.data || [])
+        } catch (error) {
+            console.error('获取分类列表失败:', error)
+            message.error('获取分类列表失败')
+        } finally {
+            setCategoryListLoading(false)
+        }
     }
 
     const handleSearch = () => {
-        let filteredData = mockData
-
-        if (searchText) {
-            filteredData = filteredData.filter(
-                item =>
-                    item.name.toLowerCase().includes(searchText.toLowerCase()) ||
-                    item.code.toLowerCase().includes(searchText.toLowerCase()) ||
-                    item.description.toLowerCase().includes(searchText.toLowerCase())
-            )
-        }
-
-        if (categoryFilter) {
-            filteredData = filteredData.filter(item => item.category === categoryFilter)
-        }
-
-        if (statusFilter) {
-            filteredData = filteredData.filter(item => item.status === statusFilter)
-        }
-
-        setData(filteredData)
+        // 重置到第一页并重新查询
+        setPagination(prev => ({ ...prev, current: 1 }))
+        // 如果 searchText 为空，明确传入 null 表示清空；否则传入实际值
+        const keywordValue = searchText && searchText.trim() ? searchText.trim() : null
+        void fetchData({
+            pageNum: 1,
+            pageSize: pagination.pageSize,
+            keyword: keywordValue,
+        })
     }
 
-    const handleAdd = () => {
+    /**
+     * 处理筛选条件变化
+     */
+    const handleFilterChange = () => {
+        setPagination(prev => ({ ...prev, current: 1 }))
+        void fetchData({
+            pageNum: 1,
+            pageSize: pagination.pageSize,
+            keyword: searchText || null, // 空字符串时传入 null
+            categoryId: categoryFilter ? (categoryList.find(item => item.categoryName === categoryFilter)?.id ? Number(categoryList.find(item => item.categoryName === categoryFilter)!.id) : null) : null,
+            status: statusFilter === 'active' ? 1 : statusFilter === 'inactive' ? 0 : null,
+        })
+    }
+
+    /**
+     * 处理分页变化
+     */
+    const handleTableChange = (page: number, pageSize: number) => {
+        setPagination(prev => ({ ...prev, current: page, pageSize }))
+        void fetchData({ pageNum: page, pageSize })
+    }
+
+    const handleAdd = async () => {
         setEditingRecord(null)
         form.resetFields()
+        // 确保分类列表数据已加载
+        if (categoryList.length === 0) {
+            await fetchCategoryList()
+        }
         setModalVisible(true)
     }
 
-    const handleEdit = (record: StateDictionary) => {
+    const handleEdit = async (record: StateDictionary) => {
         setEditingRecord(record)
         form.setFieldsValue({
             ...record,
             status: record.status === 'active', // 将 'active'/'inactive' 转换为 boolean
         })
+        // 确保分类列表数据已加载
+        if (categoryList.length === 0) {
+            await fetchCategoryList()
+        }
         setModalVisible(true)
     }
 
-    const handleDelete = (record: StateDictionary) => {
-        Modal.confirm({
-            title: '确认删除',
-            content: `确定要删除状态"${record.name}"吗？`,
-            onOk: () => {
-                message.success('删除成功')
-                loadData()
-            },
-        })
+    const handleDelete = async (id: string) => {
+        try {
+            await dataManagementService.deleteStatusDict(id)
+            message.success('删除成功')
+            // 刷新列表（如果当前页没有数据了，回到上一页）
+            const currentPageDataCount = data.length
+            const nextPageNum =
+                currentPageDataCount === 1 && pagination.current > 1
+                    ? pagination.current - 1
+                    : pagination.current
+            setPagination(prev => ({ ...prev, current: nextPageNum }))
+            void fetchData({
+                pageNum: nextPageNum,
+                pageSize: pagination.pageSize,
+            })
+        } catch (error) {
+            // 错误信息已在服务层处理，这里只做兜底提示
+            const errMsg = error instanceof Error ? error.message : '删除失败'
+            message.error(errMsg)
+        }
     }
 
     const handleModalOk = async () => {
         try {
             const values = await form.validateFields()
-            // 将 Switch 的 boolean 值转换为 'active'/'inactive'
-            const formData = {
-                ...values,
-                status: values.status ? 'active' : 'inactive',
-                updateTime: moment().format('YYYY-MM-DD HH:mm:ss'),
+
+            // 根据分类名称查找分类ID
+            const categoryName = values.category
+            const categoryItem = categoryList.find(item => item.categoryName === categoryName)
+            if (!categoryItem) {
+                message.error('请选择有效的分类')
+                return
+            }
+            const categoryId = Number(categoryItem.id)
+
+            // 将表单数据转换为接口需要的格式
+            const requestData = {
+                dictName: values.name,
+                dictCode: values.code,
+                categoryId,
+                status: values.status ? 1 : 0, // boolean 转换为 0/1
+                version: values.version || '', // version 字段，可选
+                remark: values.description || '', // description 映射到 remark
             }
 
             if (editingRecord) {
-                message.success('修改成功')
+                // 编辑：需要包含 id
+                await dataManagementService.updateStatusDict({
+                    id: editingRecord.id,
+                    ...requestData,
+                })
+                message.success('更新成功')
             } else {
-                message.success('新增成功')
+                // 新增
+                await dataManagementService.addStatusDict(requestData)
+                message.success('创建成功')
             }
 
             setModalVisible(false)
-            loadData()
+            form.resetFields()
+            setEditingRecord(null)
+
+            // 刷新列表（回到第一页，显示最新数据）
+            setPagination(prev => ({ ...prev, current: 1 }))
+            void fetchData({
+                pageNum: 1,
+                pageSize: pagination.pageSize,
+            })
         } catch (error) {
-            console.error('表单验证失败:', error)
+            // 错误信息已在服务层处理，这里只做兜底提示
+            if (error instanceof Error && !error.message.includes('失败')) {
+                console.error('表单验证失败:', error)
+            }
         }
     }
 
@@ -237,27 +412,36 @@ const StateDictionaryManagement: React.FC = () => {
     }
 
     // Excel导出功能
-    const handleExport = () => {
+    const handleExport = async () => {
         try {
-            const exportColumns = [
-                { title: '状态名称', dataIndex: 'name', key: 'name' },
-                { title: '状态编码', dataIndex: 'code', key: 'code' },
-                { title: '分类', dataIndex: 'category', key: 'category' },
-                { title: '描述', dataIndex: 'description', key: 'description' },
-                { title: '状态', dataIndex: 'status', key: 'status' },
-                { title: '创建人', dataIndex: 'creator', key: 'creator' },
-                { title: '创建时间', dataIndex: 'createTime', key: 'createTime' },
-                { title: '更新时间', dataIndex: 'updateTime', key: 'updateTime' },
-            ]
+            // 构建导出参数，使用当前的查询条件
+            let keywordValue: string | undefined
+            keywordValue = searchText ? searchText.trim() : undefined
 
-            // 准备导出数据，转换状态
-            const exportData = data.map(item => ({
-                ...item,
-                status: item.status === 'active' ? '启用' : '禁用',
-            }))
+            let categoryIdValue: number | undefined
+            const categoryItem = categoryFilter
+                ? categoryList.find(item => item.categoryName === categoryFilter)
+                : null
+            categoryIdValue = categoryItem ? Number(categoryItem.id) : undefined
 
-            exportToExcel(exportData, exportColumns, '状态字典管理')
+            let statusValue: number | undefined
+            statusValue = statusFilter === 'active' ? 1 : statusFilter === 'inactive' ? 0 : undefined
+
+            const exportParams: StatusDictPageParams = {
+                pageNum: 1,
+                pageSize: 10000, // 导出时使用较大的pageSize以获取所有数据
+                sortField: 'create_time',
+                sortOrder: 'desc',
+                keyword: keywordValue,
+                categoryId: categoryIdValue,
+                status: statusValue,
+            }
+
+            await dataManagementService.exportStatusDict(exportParams)
+            message.success('导出成功')
         } catch (error) {
+            const errMsg = error instanceof Error ? error.message : '导出失败'
+            message.error(errMsg)
             console.error('导出失败:', error)
         }
     }
@@ -462,15 +646,16 @@ const StateDictionaryManagement: React.FC = () => {
                     >
                         编辑
                     </Button>
-                    <Button
-                        type='link'
-                        danger
-                        size='small'
-                        icon={<DeleteOutlined />}
-                        onClick={() => handleDelete(record)}
+                    <Popconfirm
+                        title='确定要删除这个状态字典吗？'
+                        onConfirm={() => handleDelete(record.id)}
+                        okText='确定'
+                        cancelText='取消'
                     >
-                        删除
-                    </Button>
+                        <Button type='link' size='small' danger icon={<DeleteOutlined />}>
+                            删除
+                        </Button>
+                    </Popconfirm>
                 </Space>
             ),
         },
@@ -493,12 +678,12 @@ const StateDictionaryManagement: React.FC = () => {
                     <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
                         新增状态
                     </Button>
-                    <Upload {...uploadProps}>
+                    {/* <Upload {...uploadProps}>
                         <Button icon={<ImportOutlined />}>导入</Button>
                     </Upload>
                     <Button icon={<DownloadOutlined />} onClick={handleDownloadTemplate}>
                         下载模板
-                    </Button>
+                    </Button> */}
                     <Button icon={<ExportOutlined />} onClick={handleExport}>
                         导出
                     </Button>
@@ -523,24 +708,60 @@ const StateDictionaryManagement: React.FC = () => {
                             value={searchText}
                             onChange={e => setSearchText(e.target.value)}
                             onSearch={handleSearch}
+                            onClear={() => {
+                                setSearchText('')
+                                // 清空搜索框时，立即重新查询
+                                setPagination(prev => ({ ...prev, current: 1 }))
+                                void fetchData({
+                                    pageNum: 1,
+                                    pageSize: pagination.pageSize,
+                                    keyword: null,
+                                })
+                            }}
                         />
                         <Select
                             placeholder='选择分类'
                             style={{ width: 150 }}
                             value={categoryFilter}
-                            onChange={setCategoryFilter}
+                            onChange={(value) => {
+                                setCategoryFilter(value || '')
+                                // 当清空时，value 为 undefined，需要明确传入 null
+                                setPagination(prev => ({ ...prev, current: 1 }))
+                                void fetchData({
+                                    pageNum: 1,
+                                    pageSize: pagination.pageSize,
+                                    keyword: searchText || null,
+                                    categoryId: value ? (categoryList.find(item => item.categoryName === value)?.id ? Number(categoryList.find(item => item.categoryName === value)!.id) : null) : null,
+                                    status: statusFilter === 'active' ? 1 : statusFilter === 'inactive' ? 0 : null,
+                                })
+                            }}
                             allowClear
+                            showSearch
+                            optionFilterProp='children'
+                            loading={categoryListLoading}
                         >
-                            <Option value='患者管理'>患者管理</Option>
-                            <Option value='数据质量'>数据质量</Option>
-                            <Option value='工作流'>工作流</Option>
-                            <Option value='系统管理'>系统管理</Option>
+                            {categoryList.map(category => (
+                                <Option key={category.id} value={category.categoryName}>
+                                    {category.categoryName}
+                                </Option>
+                            ))}
                         </Select>
                         <Select
                             placeholder='选择状态'
                             style={{ width: 150 }}
                             value={statusFilter}
-                            onChange={setStatusFilter}
+                            onChange={(value) => {
+                                setStatusFilter(value || '')
+                                // 当清空时，value 为 undefined，需要明确传入 null
+                                setPagination(prev => ({ ...prev, current: 1 }))
+                                void fetchData({
+                                    pageNum: 1,
+                                    pageSize: pagination.pageSize,
+                                    keyword: searchText || null,
+                                    categoryId: categoryFilter ? (categoryList.find(item => item.categoryName === categoryFilter)?.id ? Number(categoryList.find(item => item.categoryName === categoryFilter)!.id) : null) : null,
+                                    status: value === 'active' ? 1 : value === 'inactive' ? 0 : null,
+                                })
+                            }}
                             allowClear
                         >
                             <Option value='active'>启用</Option>
@@ -558,9 +779,14 @@ const StateDictionaryManagement: React.FC = () => {
                     rowKey='id'
                     loading={loading}
                     pagination={{
+                        current: pagination.current,
+                        pageSize: pagination.pageSize,
+                        total: pagination.total,
                         showSizeChanger: true,
                         showQuickJumper: true,
                         showTotal: total => `共 ${total} 条记录`,
+                        onChange: handleTableChange,
+                        onShowSizeChange: handleTableChange,
                     }}
                 />
             </Card>
@@ -594,11 +820,17 @@ const StateDictionaryManagement: React.FC = () => {
                         label='分类'
                         rules={[{ required: true, message: '请选择分类' }]}
                     >
-                        <Select placeholder='请选择分类'>
-                            <Option value='患者管理'>患者管理</Option>
-                            <Option value='数据质量'>数据质量</Option>
-                            <Option value='工作流'>工作流</Option>
-                            <Option value='系统管理'>系统管理</Option>
+                        <Select
+                            placeholder='请选择分类'
+                            showSearch
+                            optionFilterProp='children'
+                            loading={categoryListLoading}
+                        >
+                            {categoryList.map(category => (
+                                <Option key={category.id} value={category.categoryName}>
+                                    {category.categoryName}
+                                </Option>
+                            ))}
                         </Select>
                     </Form.Item>
 
@@ -608,6 +840,13 @@ const StateDictionaryManagement: React.FC = () => {
                         rules={[{ required: true, message: '请输入描述' }]}
                     >
                         <Input.TextArea rows={3} placeholder='请输入描述' />
+                    </Form.Item>
+
+                    <Form.Item
+                        name='version'
+                        label='版本'
+                    >
+                        <Input placeholder='请输入版本号（可选）' />
                     </Form.Item>
 
                     <Form.Item
