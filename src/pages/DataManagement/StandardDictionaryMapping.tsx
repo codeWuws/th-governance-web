@@ -32,6 +32,20 @@ import type { ColumnsType } from 'antd/es/table'
 import { exportToExcel, importFromExcel, downloadExcelTemplate } from '../../utils/excel'
 import type { UploadProps } from 'antd'
 import { Upload } from 'antd'
+import { dataManagementService } from '@/services/dataManagementService'
+import type { 
+    StandardDictPageParams, 
+    StandardDictRecord, 
+    OriginSourceOption, 
+    TargetSourceOption,
+    OriginTableOption,
+    TargetTableOption,
+    OriginFieldOption,
+    TargetFieldOption,
+    BusinessDatasetRecord,
+    MedicalDictRecord,
+    StatusDictRecord
+} from '@/types'
 
 const { Search } = Input
 const { Option } = Select
@@ -55,313 +69,367 @@ interface StandardDictionaryMapping {
     creator: string
 }
 
+/**
+ * 将后端返回的记录转换为前端使用的模型
+ */
+const mapStandardDictRecordToModel = (record: StandardDictRecord): StandardDictionaryMapping => {
+    return {
+        id: record.id,
+        standardName: record.standardName,
+        standardDatasetName: record.standardDataSetName,
+        standardDatasetContent: record.standardDataSetContent,
+        originalDataSource: record.originSourceName || '',
+        originalTableName: record.originTable,
+        originalDataField: record.originField,
+        originalDataset: record.originDataSet,
+        targetDataSource: record.targetSource,
+        targetTableName: record.targetTable,
+        targetField: record.targetField,
+        status: record.status === 1 ? 'active' : 'inactive',
+        createTime: record.createTime,
+        updateTime: record.createTime, // 后端没有返回updateTime，使用createTime
+        creator: record.createBy || '',
+    }
+}
+
 const StandardDictionaryMapping: React.FC = () => {
     const [loading, setLoading] = useState(false)
     const [data, setData] = useState<StandardDictionaryMapping[]>([])
-    const [filteredData, setFilteredData] = useState<StandardDictionaryMapping[]>([])
     const [modalVisible, setModalVisible] = useState(false)
     const [detailModalVisible, setDetailModalVisible] = useState(false)
     const [editingRecord, setEditingRecord] = useState<StandardDictionaryMapping | null>(null)
     const [viewingRecord, setViewingRecord] = useState<StandardDictionaryMapping | null>(null)
     const [form] = Form.useForm()
     const [searchText, setSearchText] = useState('')
-    const [statusFilter, setStatusFilter] = useState<string>('')
-    const [dataSourceFilter, setDataSourceFilter] = useState<string>('')
-    const [standardNameFilter, setStandardNameFilter] = useState<string>('')
+    const [statusFilter, setStatusFilter] = useState<number | undefined>(undefined)
+    const [originSourceFilter, setOriginSourceFilter] = useState<number | undefined>(undefined)
+    
+    // 分页状态
+    const [pagination, setPagination] = useState<{ current: number; pageSize: number; total: number }>({
+        current: 1,
+        pageSize: 10,
+        total: 0,
+    })
 
-    // 模拟数据
-    const mockData: StandardDictionaryMapping[] = [
-        {
-            id: '1',
-            standardName: '患者基本信息',
-            standardDatasetName: '性别',
-            standardDatasetContent: '男',
-            originalDataSource: 'HIS系统',
-            originalTableName: 'PAT_BASE_INFO',
-            originalDataField: 'GENDER_CODE',
-            originalDataset: '1',
-            targetDataSource: '标准数据集',
-            targetTableName: 'std_patient_basic_info',
-            targetField: 'gender_code',
-            status: 'active',
-            createTime: '2024-01-15 10:00:00',
-            updateTime: '2024-01-20 14:30:00',
-            creator: '数据管理员',
-        },
-        {
-            id: '2',
-            standardName: '患者基本信息',
-            standardDatasetName: '性别',
-            standardDatasetContent: '女',
-            originalDataSource: 'HIS系统',
-            originalTableName: 'PAT_BASE_INFO',
-            originalDataField: 'GENDER_CODE',
-            originalDataset: '2',
-            targetDataSource: '标准数据集',
-            targetTableName: 'std_patient_basic_info',
-            targetField: 'gender_code',
-            status: 'active',
-            createTime: '2024-01-15 10:05:00',
-            updateTime: '2024-01-20 14:30:00',
-            creator: '数据管理员',
-        },
-        {
-            id: '3',
-            standardName: '患者基本信息',
-            standardDatasetName: '性别',
-            standardDatasetContent: '未知',
-            originalDataSource: 'HIS系统',
-            originalTableName: 'PAT_BASE_INFO',
-            originalDataField: 'GENDER_CODE',
-            originalDataset: '0',
-            targetDataSource: '标准数据集',
-            targetTableName: 'std_patient_basic_info',
-            targetField: 'gender_code',
-            status: 'active',
-            createTime: '2024-01-15 10:10:00',
-            updateTime: '2024-01-20 14:30:00',
-            creator: '数据管理员',
-        },
-        {
-            id: '4',
-            standardName: '疾病诊断',
-            standardDatasetName: 'ICD-10编码',
-            standardDatasetContent: 'I10',
-            originalDataSource: 'EMR系统',
-            originalTableName: 'DIAGNOSIS_RECORD',
-            originalDataField: 'DISEASE_CODE',
-            originalDataset: 'I10.000',
-            targetDataSource: '标准数据集',
-            targetTableName: 'std_diagnosis_info',
-            targetField: 'icd10_code',
-            status: 'active',
-            createTime: '2024-01-16 09:20:00',
-            updateTime: '2024-01-22 16:45:00',
-            creator: '临床数据管理员',
-        },
-        {
-            id: '5',
-            standardName: '疾病诊断',
-            standardDatasetName: 'ICD-10编码',
-            standardDatasetContent: 'E11.9',
-            originalDataSource: 'EMR系统',
-            originalTableName: 'DIAGNOSIS_RECORD',
-            originalDataField: 'DISEASE_CODE',
-            originalDataset: 'E11.900',
-            targetDataSource: '标准数据集',
-            targetTableName: 'std_diagnosis_info',
-            targetField: 'icd10_code',
-            status: 'active',
-            createTime: '2024-01-16 09:25:00',
-            updateTime: '2024-01-22 16:45:00',
-            creator: '临床数据管理员',
-        },
-        {
-            id: '6',
-            standardName: '检验项目',
-            standardDatasetName: 'LOINC编码',
-            standardDatasetContent: '718-7',
-            originalDataSource: 'LIS系统',
-            originalTableName: 'LAB_TEST_ITEM',
-            originalDataField: 'TEST_CODE',
-            originalDataset: 'HGB',
-            targetDataSource: '标准数据集',
-            targetTableName: 'std_lab_test_info',
-            targetField: 'loinc_code',
-            status: 'active',
-            createTime: '2024-01-17 11:15:00',
-            updateTime: '2024-01-23 10:30:00',
-            creator: '检验数据管理员',
-        },
-        {
-            id: '7',
-            standardName: '检验项目',
-            standardDatasetName: 'LOINC编码',
-            standardDatasetContent: '789-8',
-            originalDataSource: 'LIS系统',
-            originalTableName: 'LAB_TEST_ITEM',
-            originalDataField: 'TEST_CODE',
-            originalDataset: 'WBC',
-            targetDataSource: '标准数据集',
-            targetTableName: 'std_lab_test_info',
-            targetField: 'loinc_code',
-            status: 'active',
-            createTime: '2024-01-17 11:20:00',
-            updateTime: '2024-01-23 10:30:00',
-            creator: '检验数据管理员',
-        },
-        {
-            id: '8',
-            standardName: '民族',
-            standardDatasetName: '民族编码',
-            standardDatasetContent: '01',
-            originalDataSource: 'HIS系统',
-            originalTableName: 'PAT_BASE_INFO',
-            originalDataField: 'NATION_CODE',
-            originalDataset: 'HAN',
-            targetDataSource: '标准数据集',
-            targetTableName: 'std_patient_basic_info',
-            targetField: 'ethnicity_code',
-            status: 'active',
-            createTime: '2024-01-18 14:00:00',
-            updateTime: '2024-01-24 09:15:00',
-            creator: '数据管理员',
-        },
-        {
-            id: '9',
-            standardName: '民族',
-            standardDatasetName: '民族编码',
-            standardDatasetContent: '02',
-            originalDataSource: 'HIS系统',
-            originalTableName: 'PAT_BASE_INFO',
-            originalDataField: 'NATION_CODE',
-            originalDataset: 'ZHUANG',
-            targetDataSource: '标准数据集',
-            targetTableName: 'std_patient_basic_info',
-            targetField: 'ethnicity_code',
-            status: 'active',
-            createTime: '2024-01-18 14:05:00',
-            updateTime: '2024-01-24 09:15:00',
-            creator: '数据管理员',
-        },
-        {
-            id: '10',
-            standardName: '手术操作',
-            standardDatasetName: 'ICD-9-CM-3编码',
-            standardDatasetContent: '38.95',
-            originalDataSource: 'EMR系统',
-            originalTableName: 'OPERATION_RECORD',
-            originalDataField: 'OP_CODE',
-            originalDataset: 'OP001',
-            targetDataSource: '标准数据集',
-            targetTableName: 'std_operation_info',
-            targetField: 'icd9cm3_code',
-            status: 'active',
-            createTime: '2024-01-19 10:30:00',
-            updateTime: '2024-01-25 11:20:00',
-            creator: '手术数据管理员',
-        },
-        {
-            id: '11',
-            standardName: '药品信息',
-            standardDatasetName: 'ATC编码',
-            standardDatasetContent: 'C09AA02',
-            originalDataSource: 'HIS系统',
-            originalTableName: 'DRUG_INFO',
-            originalDataField: 'DRUG_CODE',
-            originalDataset: 'D001234',
-            targetDataSource: '标准数据集',
-            targetTableName: 'std_drug_info',
-            targetField: 'atc_code',
-            status: 'active',
-            createTime: '2024-01-20 08:45:00',
-            updateTime: '2024-01-26 14:10:00',
-            creator: '药品数据管理员',
-        },
-        {
-            id: '12',
-            standardName: '科室信息',
-            standardDatasetName: '科室编码',
-            standardDatasetContent: '01.01',
-            originalDataSource: 'HIS系统',
-            originalTableName: 'DEPT_INFO',
-            originalDataField: 'DEPT_CODE',
-            originalDataset: 'NEIKE',
-            targetDataSource: '标准数据集',
-            targetTableName: 'std_department_info',
-            targetField: 'dept_code',
-            status: 'active',
-            createTime: '2024-01-21 13:20:00',
-            updateTime: '2024-01-27 15:30:00',
-            creator: '系统管理员',
-        },
-    ]
+    // 原始数据源选项和目标源选项
+    const [originSourceOptions, setOriginSourceOptions] = useState<OriginSourceOption[]>([])
+    const [targetSourceOptions, setTargetSourceOptions] = useState<TargetSourceOption[]>([])
+    const [originTableOptions, setOriginTableOptions] = useState<OriginTableOption[]>([])
+    const [targetTableOptions, setTargetTableOptions] = useState<TargetTableOption[]>([])
+    const [originFieldOptions, setOriginFieldOptions] = useState<OriginFieldOption[]>([])
+    const [targetFieldOptions, setTargetFieldOptions] = useState<TargetFieldOption[]>([])
+    const [optionsLoading, setOptionsLoading] = useState(false)
+
+    // 原始数据集相关状态
+    const [datasetType, setDatasetType] = useState<'business' | 'medical' | 'status' | ''>('')
+    const [datasetOptions, setDatasetOptions] = useState<Array<{
+        value: string
+        label: string
+        name: string
+        code: string
+        type: string
+    }>>([])
+    const [datasetLoading, setDatasetLoading] = useState(false)
+    const [datasetPagination, setDatasetPagination] = useState<{ current: number; pageSize: number; total: number; hasMore: boolean }>({
+        current: 1,
+        pageSize: 20,
+        total: 0,
+        hasMore: true,
+    })
 
     useEffect(() => {
-        fetchData()
+        fetchData({ pageNum: 1, pageSize: pagination.pageSize })
+        fetchOptions()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
-    useEffect(() => {
-        filterData()
-    }, [searchText, statusFilter, dataSourceFilter, standardNameFilter, data])
+    /**
+     * 根据数据集类型获取数据集选项（支持分页）
+     */
+    const fetchDatasetOptions = async (type: 'business' | 'medical' | 'status', pageNum: number = 1) => {
+        if (!type) return
 
-    const fetchData = async () => {
+        setDatasetLoading(true)
+        try {
+            let response
+            const pageSize = datasetPagination.pageSize
+
+            if (type === 'business') {
+                // 业务数据集
+                response = await dataManagementService.getBusinessDatasetPage({
+                    pageNum,
+                    pageSize,
+                    sortField: 'create_time',
+                    sortOrder: 'desc',
+                })
+                const records = (response.data.records || []) as BusinessDatasetRecord[]
+                const newOptions = records.map(record => ({
+                    value: record.dataSetCode || record.id,
+                    label: `${record.dataSetName}（${record.dataSetCode}）- ${record.dataSource || '业务数据集'}`,
+                    name: record.dataSetName,
+                    code: record.dataSetCode,
+                    type: record.dataSource || '业务数据集',
+                }))
+                setDatasetOptions(prev => pageNum === 1 ? newOptions : [...prev, ...newOptions])
+                setDatasetPagination({
+                    current: Number(response.data.current) || pageNum,
+                    pageSize: Number(response.data.size) || pageSize,
+                    total: Number(response.data.total) || 0,
+                    hasMore: Number(response.data.current) < Number(response.data.pages),
+                })
+            } else if (type === 'medical') {
+                // 医疗字典
+                response = await dataManagementService.getMedicalDictPage({
+                    pageNum,
+                    pageSize,
+                    sortField: 'create_time',
+                    sortOrder: 'desc',
+                })
+                const records = (response.data.records || []) as MedicalDictRecord[]
+                const newOptions = records.map(record => ({
+                    value: record.dictCode || record.id,
+                    label: `${record.dictName}（${record.dictCode}）- ${record.source || '医疗字典'}`,
+                    name: record.dictName,
+                    code: record.dictCode,
+                    type: record.source || '医疗字典',
+                }))
+                setDatasetOptions(prev => pageNum === 1 ? newOptions : [...prev, ...newOptions])
+                setDatasetPagination({
+                    current: Number(response.data.current) || pageNum,
+                    pageSize: Number(response.data.size) || pageSize,
+                    total: Number(response.data.total) || 0,
+                    hasMore: Number(response.data.current) < Number(response.data.pages),
+                })
+            } else if (type === 'status') {
+                // 状态字典
+                response = await dataManagementService.getStatusDictPage({
+                    pageNum,
+                    pageSize,
+                    sortField: 'create_time',
+                    sortOrder: 'desc',
+                })
+                const records = (response.data.records || []) as StatusDictRecord[]
+                const newOptions = records.map(record => ({
+                    value: record.dictCode || record.id,
+                    label: `${record.dictName}（${record.dictCode}）- 状态字典`,
+                    name: record.dictName,
+                    code: record.dictCode,
+                    type: '状态字典',
+                }))
+                setDatasetOptions(prev => pageNum === 1 ? newOptions : [...prev, ...newOptions])
+                setDatasetPagination({
+                    current: Number(response.data.current) || pageNum,
+                    pageSize: Number(response.data.size) || pageSize,
+                    total: Number(response.data.total) || 0,
+                    hasMore: Number(response.data.current) < Number(response.data.pages),
+                })
+            }
+        } catch (error) {
+            console.error('获取数据集选项失败:', error)
+            message.error('获取数据集选项失败')
+        } finally {
+            setDatasetLoading(false)
+        }
+    }
+
+    /**
+     * 获取原始数据源选项、目标源选项、原始表选项、目标表选项、原始字段选项和目标字段选项
+     */
+    const fetchOptions = async () => {
+        setOptionsLoading(true)
+        try {
+            const [
+                originSourceResponse, 
+                targetSourceResponse, 
+                originTableResponse, 
+                targetTableResponse,
+                originFieldResponse,
+                targetFieldResponse
+            ] = await Promise.all([
+                dataManagementService.getOriginSourceOptions(),
+                dataManagementService.getTargetSourceOptions(),
+                dataManagementService.getOriginTableOptions(),
+                dataManagementService.getTargetTableOptions(),
+                dataManagementService.getOriginFieldOptions(),
+                dataManagementService.getTargetFieldOptions(),
+            ])
+            // 按sort字段排序
+            const sortedOriginSourceOptions = (originSourceResponse.data || []).sort((a, b) => (a.sort || 0) - (b.sort || 0))
+            const sortedTargetSourceOptions = (targetSourceResponse.data || []).sort((a, b) => (a.sort || 0) - (b.sort || 0))
+            const sortedOriginTableOptions = (originTableResponse.data || []).sort((a, b) => (a.sort || 0) - (b.sort || 0))
+            const sortedTargetTableOptions = (targetTableResponse.data || []).sort((a, b) => (a.sort || 0) - (b.sort || 0))
+            const sortedOriginFieldOptions = (originFieldResponse.data || []).sort((a, b) => (a.sort || 0) - (b.sort || 0))
+            const sortedTargetFieldOptions = (targetFieldResponse.data || []).sort((a, b) => (a.sort || 0) - (b.sort || 0))
+            setOriginSourceOptions(sortedOriginSourceOptions)
+            setTargetSourceOptions(sortedTargetSourceOptions)
+            setOriginTableOptions(sortedOriginTableOptions)
+            setTargetTableOptions(sortedTargetTableOptions)
+            setOriginFieldOptions(sortedOriginFieldOptions)
+            setTargetFieldOptions(sortedTargetFieldOptions)
+        } catch (error) {
+            console.error('获取选项列表失败:', error)
+            message.error('获取选项列表失败')
+        } finally {
+            setOptionsLoading(false)
+        }
+    }
+
+    /**
+     * 从后端分页接口获取标准字典对照数据
+     */
+    const fetchData = async (options?: {
+        pageNum?: number
+        pageSize?: number
+        condition?: string
+        keyword?: string | null
+        originSource?: number | null
+        status?: number | null
+    }) => {
+        const pageNum = options?.pageNum ?? pagination.current
+        const pageSize = options?.pageSize ?? pagination.pageSize
+
         setLoading(true)
         try {
-            // 模拟API调用
-            await new Promise(resolve => setTimeout(resolve, 500))
-            setData(mockData)
-            setFilteredData(mockData)
-        } catch {
-            message.error('获取标准字典对照失败')
+            // 如果 options 中明确传入了值（包括 null），使用传入的值；否则使用状态变量
+            let keywordValue: string | undefined
+            if (options?.keyword !== undefined) {
+                // 如果传入的是 null，表示清空，使用 undefined
+                // 如果传入的是字符串，使用该字符串
+                keywordValue = options.keyword === null ? undefined : (options.keyword.trim() || undefined)
+            } else {
+                // 如果没有传入，使用状态变量
+                keywordValue = searchText ? searchText.trim() : undefined
+            }
+
+            let originSourceValue: number | undefined
+            if (options?.originSource !== undefined) {
+                // 如果传入的是 null，表示清空，使用 undefined
+                originSourceValue = options.originSource === null ? undefined : options.originSource
+            } else {
+                // 如果没有传入，使用状态变量
+                originSourceValue = originSourceFilter
+            }
+
+            let statusValue: number | undefined
+            if (options?.status !== undefined) {
+                // 如果传入的是 null，表示清空，使用 undefined
+                statusValue = options.status === null ? undefined : options.status
+            } else {
+                // 如果没有传入，使用状态变量
+                statusValue = statusFilter
+            }
+
+            const params: StandardDictPageParams = {
+                pageNum,
+                pageSize,
+                condition: options?.condition ? options.condition.trim() : undefined, // 保留 condition 用于关键字段模糊查询
+                sortField: 'create_time',
+                sortOrder: 'desc',
+                keyword: keywordValue, // keyword 字段
+                originSource: originSourceValue,
+                status: statusValue,
+            }
+
+            const response = await dataManagementService.getStandardDictPage(params)
+            const { records, total, size, current } = response.data
+            setData(records.map(mapStandardDictRecordToModel))
+            setPagination({
+                current: Number(current) || pageNum,
+                pageSize: Number(size) || pageSize,
+                total: Number(total) || 0,
+            })
+        } catch (error) {
+            const errMsg = error instanceof Error ? error.message : '获取标准字典对照列表失败'
+            message.error(errMsg)
         } finally {
             setLoading(false)
         }
     }
 
-    const filterData = () => {
-        let filtered = [...data]
-
-        if (searchText) {
-            filtered = filtered.filter(
-                item =>
-                    item.standardName?.toLowerCase().includes(searchText.toLowerCase()) ||
-                    item.standardDatasetName?.toLowerCase().includes(searchText.toLowerCase()) ||
-                    item.standardDatasetContent?.toLowerCase().includes(searchText.toLowerCase()) ||
-                    item.originalDataSource?.toLowerCase().includes(searchText.toLowerCase()) ||
-                    item.originalTableName?.toLowerCase().includes(searchText.toLowerCase()) ||
-                    item.originalDataField?.toLowerCase().includes(searchText.toLowerCase()) ||
-                    item.originalDataset?.toLowerCase().includes(searchText.toLowerCase()) ||
-                    item.targetDataSource?.toLowerCase().includes(searchText.toLowerCase()) ||
-                    item.targetTableName?.toLowerCase().includes(searchText.toLowerCase()) ||
-                    item.targetField?.toLowerCase().includes(searchText.toLowerCase())
-            )
-        }
-
-        if (statusFilter) {
-            filtered = filtered.filter(item => item.status === statusFilter)
-        }
-
-        if (dataSourceFilter) {
-            filtered = filtered.filter(item => item.originalDataSource === dataSourceFilter)
-        }
-
-        if (standardNameFilter) {
-            filtered = filtered.filter(item => item.standardName === standardNameFilter)
-        }
-
-        setFilteredData(filtered)
+    /**
+     * 处理搜索
+     */
+    const handleSearch = () => {
+        // 重置到第一页并重新查询
+        setPagination(prev => ({ ...prev, current: 1 }))
+        // 如果 searchText 为空，明确传入 null 表示清空；否则传入实际值
+        const keywordValue = searchText && searchText.trim() ? searchText.trim() : null
+        void fetchData({
+            pageNum: 1,
+            pageSize: pagination.pageSize,
+            keyword: keywordValue,
+        })
     }
 
-    const handleAdd = () => {
+    /**
+     * 处理筛选条件变化
+     */
+    const handleFilterChange = () => {
+        setPagination(prev => ({ ...prev, current: 1 }))
+        void fetchData({
+            pageNum: 1,
+            pageSize: pagination.pageSize,
+            keyword: searchText || null, // 空字符串时传入 null
+            originSource: originSourceFilter === undefined ? null : originSourceFilter,
+            status: statusFilter === undefined ? null : statusFilter,
+        })
+    }
+
+    /**
+     * 处理分页变化
+     */
+    const handleTableChange = (page: number, pageSize: number) => {
+        setPagination(prev => ({ ...prev, current: page, pageSize }))
+        void fetchData({ pageNum: page, pageSize })
+    }
+
+    const handleAdd = async () => {
         setEditingRecord(null)
+        setDatasetType('')
+        setDatasetOptions([])
+        setDatasetPagination({ current: 1, pageSize: 20, total: 0, hasMore: true })
         form.resetFields()
         form.setFieldsValue({
             status: true,
         })
+        // 确保选项数据已加载
+        if (originSourceOptions.length === 0 || targetSourceOptions.length === 0 || 
+            originTableOptions.length === 0 || targetTableOptions.length === 0 ||
+            originFieldOptions.length === 0 || targetFieldOptions.length === 0) {
+            await fetchOptions()
+        }
         setModalVisible(true)
     }
 
-    const handleEdit = (record: StandardDictionaryMapping) => {
+    const handleEdit = async (record: StandardDictionaryMapping) => {
         setEditingRecord(record)
+        // 编辑时不清空数据集类型和选项，保持当前状态
         form.setFieldsValue({
             ...record,
             status: record.status === 'active',
         })
+        // 确保选项数据已加载
+        if (originSourceOptions.length === 0 || targetSourceOptions.length === 0 || 
+            originTableOptions.length === 0 || targetTableOptions.length === 0 ||
+            originFieldOptions.length === 0 || targetFieldOptions.length === 0) {
+            await fetchOptions()
+        }
         setModalVisible(true)
     }
 
-    const handleDelete = (record: StandardDictionaryMapping) => {
-        Modal.confirm({
-            title: '确认删除',
-            content: `确定要删除标准字典对照记录吗？`,
-            onOk: () => {
-                const newData = data.filter(item => item.id !== record.id)
-                setData(newData)
-                // 数据更新后，useEffect 会自动触发 filterData
-                message.success('删除成功')
-            },
-        })
+    const handleDelete = async (record: StandardDictionaryMapping) => {
+        try {
+            await dataManagementService.deleteStandardDict(record.id)
+            message.success('删除成功')
+            // 删除成功后刷新列表
+            void fetchData({
+                pageNum: pagination.current,
+                pageSize: pagination.pageSize,
+            })
+        } catch (error) {
+            const errMsg = error instanceof Error ? error.message : '删除失败'
+            message.error(errMsg)
+        }
     }
 
     const handleView = (record: StandardDictionaryMapping) => {
@@ -372,44 +440,66 @@ const StandardDictionaryMapping: React.FC = () => {
     const handleModalOk = async () => {
         try {
             const values = await form.validateFields()
-            const formData: StandardDictionaryMapping = {
-                id: editingRecord?.id || Date.now().toString(),
+
+            // 根据原始数据源label找到对应的originSource（数字）和originSourceName
+            const originDataSourceLabel = values.originalDataSource
+            const originSourceOption = originSourceOptions.find(option => option.label === originDataSourceLabel)
+            if (!originSourceOption) {
+                message.error('请选择有效的原始数据源')
+                return
+            }
+            const originSource = Number(originSourceOption.value)
+            const originSourceName = originSourceOption.label
+
+            // 将表单数据转换为接口需要的格式
+            const requestData = {
                 standardName: values.standardName,
-                standardDatasetName: values.standardDatasetName,
-                standardDatasetContent: values.standardDatasetContent,
-                originalDataSource: values.originalDataSource,
-                originalTableName: values.originalTableName,
-                originalDataField: values.originalDataField,
-                originalDataset: values.originalDataset,
-                targetDataSource: values.targetDataSource,
-                targetTableName: values.targetTableName,
+                standardDataSetName: values.standardDatasetName,
+                standardDataSetContent: values.standardDatasetContent,
+                originSource,
+                originSourceName,
+                originTable: values.originalTableName,
+                originField: values.originalDataField,
+                originDataSet: values.originalDataset,
+                targetSource: values.targetDataSource,
+                targetTable: values.targetTableName,
                 targetField: values.targetField,
-                status: values.status ? 'active' : 'inactive',
-                createTime: editingRecord?.createTime || new Date().toLocaleString('zh-CN'),
-                updateTime: new Date().toLocaleString('zh-CN'),
-                creator: editingRecord?.creator || '当前用户',
+                status: values.status ? 1 : 0, // boolean 转换为 0/1
+                remark: values.remark || '', // 备注字段
             }
 
-            let newData: StandardDictionaryMapping[]
             if (editingRecord) {
-                // 编辑
-                newData = data.map(item => (item.id === editingRecord.id ? formData : item))
-                setData(newData)
-                message.success('修改成功')
+                // 编辑：需要包含 id
+                await dataManagementService.updateStandardDict({
+                    id: editingRecord.id,
+                    ...requestData,
+                })
+                message.success('更新成功')
             } else {
                 // 新增
-                newData = [...data, formData]
-                setData(newData)
-                message.success('新增成功')
+                await dataManagementService.addStandardDict(requestData)
+                message.success('创建成功')
             }
 
-            // 数据更新后，useEffect 会自动触发 filterData
-
+            // 关闭弹窗并重置表单
             setModalVisible(false)
             form.resetFields()
             setEditingRecord(null)
+            setDatasetType('')
+            setDatasetOptions([])
+            setDatasetPagination({ current: 1, pageSize: 20, total: 0, hasMore: true })
+
+            // 刷新列表（回到第一页，显示最新数据）
+            setPagination(prev => ({ ...prev, current: 1 }))
+            void fetchData({
+                pageNum: 1,
+                pageSize: pagination.pageSize,
+            })
         } catch (error) {
-            console.error('表单验证失败:', error)
+            // 错误信息已在服务层处理，这里只做兜底提示
+            if (error instanceof Error && !error.message.includes('失败')) {
+                console.error('表单验证失败:', error)
+            }
         }
     }
 
@@ -417,11 +507,40 @@ const StandardDictionaryMapping: React.FC = () => {
         setModalVisible(false)
         form.resetFields()
         setEditingRecord(null)
+        setDatasetType('')
+        setDatasetOptions([])
+        setDatasetPagination({ current: 1, pageSize: 20, total: 0, hasMore: true })
     }
 
     // Excel导出功能
-    const handleExport = () => {
+    const handleExport = async () => {
         try {
+            // 构建导出参数，使用当前的查询条件
+            let keywordValue: string | undefined
+            keywordValue = searchText ? searchText.trim() : undefined
+
+            let originSourceValue: number | undefined
+            originSourceValue = originSourceFilter
+
+            let statusValue: number | undefined
+            statusValue = statusFilter
+
+            const exportParams: StandardDictPageParams = {
+                pageNum: 1,
+                pageSize: 10000, // 导出时使用较大的pageSize以获取所有数据
+                sortField: 'create_time',
+                sortOrder: 'desc',
+                keyword: keywordValue,
+                originSource: originSourceValue,
+                status: statusValue,
+            }
+
+            const response = await dataManagementService.getStandardDictPage(exportParams)
+            const exportData = response.data.records.map(mapStandardDictRecordToModel).map(item => ({
+                ...item,
+                status: item.status === 'active' ? '启用' : '禁用',
+            }))
+
             const exportColumns = [
                 { title: '标准名称', dataIndex: 'standardName', key: 'standardName' },
                 {
@@ -468,17 +587,13 @@ const StandardDictionaryMapping: React.FC = () => {
                 { title: '状态', dataIndex: 'status', key: 'status' },
                 { title: '创建人', dataIndex: 'creator', key: 'creator' },
                 { title: '创建时间', dataIndex: 'createTime', key: 'createTime' },
-                { title: '更新时间', dataIndex: 'updateTime', key: 'updateTime' },
             ]
 
-            // 准备导出数据，转换状态
-            const exportData = filteredData.map(item => ({
-                ...item,
-                status: item.status === 'active' ? '启用' : '禁用',
-            }))
-
             exportToExcel(exportData, exportColumns, '标准字典关系对照')
+            message.success('导出成功')
         } catch (error) {
+            const errMsg = error instanceof Error ? error.message : '导出失败'
+            message.error(errMsg)
             console.error('导出失败:', error)
         }
     }
@@ -611,9 +726,9 @@ const StandardDictionaryMapping: React.FC = () => {
         },
     }
 
-    // 获取所有数据源用于筛选
+    // 获取所有数据源用于筛选（从当前数据中提取）
     const dataSources = Array.from(new Set(data.map(item => item.originalDataSource)))
-    // 获取所有标准名称用于筛选
+    // 获取所有标准名称用于筛选（从当前数据中提取）
     const standardNames = Array.from(new Set(data.map(item => item.standardName)))
 
     const columns: ColumnsType<StandardDictionaryMapping> = [
@@ -738,10 +853,11 @@ const StandardDictionaryMapping: React.FC = () => {
                     </Button>
                     <Popconfirm
                         title='确认删除'
-                        description='确定要删除这条记录吗？'
+                        description='确定要删除这条记录吗？删除后无法恢复。'
                         onConfirm={() => handleDelete(record)}
                         okText='确定'
                         cancelText='取消'
+                        okButtonProps={{ danger: true }}
                     >
                         <Button type='link' danger size='small' icon={<DeleteOutlined />}>
                             删除
@@ -778,7 +894,7 @@ const StandardDictionaryMapping: React.FC = () => {
                     <Button icon={<ExportOutlined />} onClick={handleExport}>
                         导出
                     </Button>
-                    <Button icon={<ReloadOutlined />} onClick={fetchData}>
+                    <Button icon={<ReloadOutlined />} onClick={() => fetchData({ pageNum: pagination.current, pageSize: pagination.pageSize })}>
                         刷新
                     </Button>
                 </Space>
@@ -799,45 +915,63 @@ const StandardDictionaryMapping: React.FC = () => {
                             style={{ width: 300 }}
                             value={searchText}
                             onChange={e => setSearchText(e.target.value)}
-                            onSearch={filterData}
+                            onSearch={handleSearch}
+                            onClear={() => {
+                                setSearchText('')
+                                // 清空搜索框时，立即重新查询
+                                setPagination(prev => ({ ...prev, current: 1 }))
+                                void fetchData({
+                                    pageNum: 1,
+                                    pageSize: pagination.pageSize,
+                                    keyword: null,
+                                })
+                            }}
                         />
                         <Select
-                            placeholder='选择标准名称'
+                            placeholder='选择原始数据源'
                             style={{ width: 180 }}
-                            value={standardNameFilter}
-                            onChange={setStandardNameFilter}
+                            value={originSourceFilter}
+                            onChange={(value) => {
+                                setOriginSourceFilter(value)
+                                // 当清空时，value 为 undefined，需要明确传入 null
+                                setPagination(prev => ({ ...prev, current: 1 }))
+                                void fetchData({
+                                    pageNum: 1,
+                                    pageSize: pagination.pageSize,
+                                    keyword: searchText || null,
+                                    originSource: value === undefined ? null : value,
+                                    status: statusFilter === undefined ? null : statusFilter,
+                                })
+                            }}
                             allowClear
                         >
-                            {standardNames.map(name => (
-                                <Option key={name} value={name}>
-                                    {name}
-                                </Option>
-                            ))}
-                        </Select>
-                        <Select
-                            placeholder='选择数据源'
-                            style={{ width: 180 }}
-                            value={dataSourceFilter}
-                            onChange={setDataSourceFilter}
-                            allowClear
-                        >
-                            {dataSources.map(source => (
-                                <Option key={source} value={source}>
-                                    {source}
-                                </Option>
-                            ))}
+                            <Option value={1}>HIS系统</Option>
+                            <Option value={2}>EMR系统</Option>
+                            <Option value={3}>LIS系统</Option>
+                            <Option value={4}>PACS系统</Option>
                         </Select>
                         <Select
                             placeholder='选择状态'
                             style={{ width: 150 }}
                             value={statusFilter}
-                            onChange={setStatusFilter}
+                            onChange={(value) => {
+                                setStatusFilter(value)
+                                // 当清空时，value 为 undefined，需要明确传入 null
+                                setPagination(prev => ({ ...prev, current: 1 }))
+                                void fetchData({
+                                    pageNum: 1,
+                                    pageSize: pagination.pageSize,
+                                    keyword: searchText || null,
+                                    originSource: originSourceFilter === undefined ? null : originSourceFilter,
+                                    status: value === undefined ? null : value,
+                                })
+                            }}
                             allowClear
                         >
-                            <Option value='active'>启用</Option>
-                            <Option value='inactive'>禁用</Option>
+                            <Option value={1}>启用</Option>
+                            <Option value={0}>禁用</Option>
                         </Select>
-                        <Button type='primary' icon={<SearchOutlined />} onClick={filterData}>
+                        <Button type='primary' icon={<SearchOutlined />} onClick={handleSearch}>
                             查询
                         </Button>
                     </Space>
@@ -845,14 +979,19 @@ const StandardDictionaryMapping: React.FC = () => {
 
                 <Table
                     columns={columns}
-                    dataSource={filteredData}
+                    dataSource={data}
                     rowKey='id'
                     loading={loading}
                     scroll={{ x: 1400 }}
                     pagination={{
+                        current: pagination.current,
+                        pageSize: pagination.pageSize,
+                        total: pagination.total,
                         showSizeChanger: true,
                         showQuickJumper: true,
                         showTotal: total => `共 ${total} 条记录`,
+                        onChange: handleTableChange,
+                        onShowSizeChange: handleTableChange,
                     }}
                 />
             </Card>
@@ -911,12 +1050,17 @@ const StandardDictionaryMapping: React.FC = () => {
                                 label='原始数据源'
                                 rules={[{ required: true, message: '请选择原始数据源' }]}
                             >
-                                <Select placeholder='请选择原始数据源'>
-                                    <Option value='HIS系统'>HIS系统</Option>
-                                    <Option value='EMR系统'>EMR系统</Option>
-                                    <Option value='LIS系统'>LIS系统</Option>
-                                    <Option value='PACS系统'>PACS系统</Option>
-                                    <Option value='其他'>其他</Option>
+                                <Select 
+                                    placeholder='请选择原始数据源'
+                                    loading={optionsLoading}
+                                    showSearch
+                                    optionFilterProp='children'
+                                >
+                                    {originSourceOptions.map(option => (
+                                        <Option key={option.value} value={option.label}>
+                                            {option.label}
+                                        </Option>
+                                    ))}
                                 </Select>
                             </Form.Item>
                         </Col>
@@ -924,29 +1068,100 @@ const StandardDictionaryMapping: React.FC = () => {
                             <Form.Item
                                 name='originalTableName'
                                 label='原始表'
-                                rules={[{ required: true, message: '请输入原始表名称' }]}
+                                rules={[{ required: true, message: '请选择原始表' }]}
                             >
-                                <Input placeholder='请输入原始表名称' />
+                                <Select 
+                                    placeholder='请选择原始表'
+                                    loading={optionsLoading}
+                                    showSearch
+                                    optionFilterProp='children'
+                                >
+                                    {originTableOptions.map(option => (
+                                        <Option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </Option>
+                                    ))}
+                                </Select>
                             </Form.Item>
                         </Col>
                         <Col span={8}>
                             <Form.Item
                                 name='originalDataField'
                                 label='原始字段'
-                                rules={[{ required: true, message: '请输入原始字段名称' }]}
+                                rules={[{ required: true, message: '请选择原始字段' }]}
                             >
-                                <Input placeholder='请输入原始字段名称' />
+                                <Select 
+                                    placeholder='请选择原始字段'
+                                    loading={optionsLoading}
+                                    showSearch
+                                    optionFilterProp='children'
+                                >
+                                    {originFieldOptions.map(option => (
+                                        <Option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </Option>
+                                    ))}
+                                </Select>
                             </Form.Item>
                         </Col>
                     </Row>
 
-                    <Form.Item
-                        name='originalDataset'
-                        label='原始数据集'
-                        rules={[{ required: true, message: '请输入原始数据集' }]}
-                    >
-                        <Input placeholder='请输入原始数据集，如：M' />
-                    </Form.Item>
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item
+                                name='datasetType'
+                                label='数据集类型'
+                                rules={[{ required: true, message: '请选择数据集类型' }]}
+                            >
+                                <Select 
+                                    placeholder='请选择数据集类型'
+                                    onChange={(value) => {
+                                        setDatasetType(value as 'business' | 'medical' | 'status')
+                                        setDatasetOptions([])
+                                        setDatasetPagination({ current: 1, pageSize: 20, total: 0, hasMore: true })
+                                        form.setFieldsValue({ originalDataset: undefined })
+                                        if (value) {
+                                            fetchDatasetOptions(value as 'business' | 'medical' | 'status', 1)
+                                        }
+                                    }}
+                                >
+                                    <Option value='business'>业务数据集</Option>
+                                    <Option value='medical'>医疗字典集</Option>
+                                    <Option value='status'>状态字典集</Option>
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item
+                                name='originalDataset'
+                                label='原始数据集'
+                                rules={[{ required: true, message: '请选择原始数据集' }]}
+                            >
+                                <Select 
+                                    placeholder={datasetType ? '请选择原始数据集' : '请先选择数据集类型'}
+                                    loading={datasetLoading}
+                                    showSearch
+                                    optionFilterProp='children'
+                                    disabled={!datasetType}
+                                    onPopupScroll={(e) => {
+                                        const { target } = e
+                                        if (target && (target as HTMLElement).scrollTop + (target as HTMLElement).offsetHeight === (target as HTMLElement).scrollHeight) {
+                                            // 滚动到底部，加载更多
+                                            if (datasetPagination.hasMore && !datasetLoading) {
+                                                fetchDatasetOptions(datasetType as 'business' | 'medical' | 'status', datasetPagination.current + 1)
+                                            }
+                                        }
+                                    }}
+                                >
+                                    {datasetOptions.map(option => (
+                                        <Option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </Option>
+                                    ))}
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                    </Row>
 
                     <div style={{ marginBottom: 16, marginTop: 24, padding: '12px', background: '#e6f7ff', borderRadius: '4px' }}>
                         <strong>目标数据</strong>
@@ -958,11 +1173,17 @@ const StandardDictionaryMapping: React.FC = () => {
                                 label='目标源'
                                 rules={[{ required: true, message: '请选择目标源' }]}
                             >
-                                <Select placeholder='请选择目标源'>
-                                    <Option value='标准数据集'>标准数据集</Option>
-                                    <Option value='数据仓库'>数据仓库</Option>
-                                    <Option value='数据湖'>数据湖</Option>
-                                    <Option value='其他'>其他</Option>
+                                <Select 
+                                    placeholder='请选择目标源'
+                                    loading={optionsLoading}
+                                    showSearch
+                                    optionFilterProp='children'
+                                >
+                                    {targetSourceOptions.map(option => (
+                                        <Option key={option.value} value={option.label}>
+                                            {option.label}
+                                        </Option>
+                                    ))}
                                 </Select>
                             </Form.Item>
                         </Col>
@@ -970,18 +1191,40 @@ const StandardDictionaryMapping: React.FC = () => {
                             <Form.Item
                                 name='targetTableName'
                                 label='目标表'
-                                rules={[{ required: true, message: '请输入目标表名称' }]}
+                                rules={[{ required: true, message: '请选择目标表' }]}
                             >
-                                <Input placeholder='请输入目标表名称' />
+                                <Select 
+                                    placeholder='请选择目标表'
+                                    loading={optionsLoading}
+                                    showSearch
+                                    optionFilterProp='children'
+                                >
+                                    {targetTableOptions.map(option => (
+                                        <Option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </Option>
+                                    ))}
+                                </Select>
                             </Form.Item>
                         </Col>
                         <Col span={8}>
                             <Form.Item
                                 name='targetField'
                                 label='目标字段'
-                                rules={[{ required: true, message: '请输入目标字段名称' }]}
+                                rules={[{ required: true, message: '请选择目标字段' }]}
                             >
-                                <Input placeholder='请输入目标字段名称' />
+                                <Select 
+                                    placeholder='请选择目标字段'
+                                    loading={optionsLoading}
+                                    showSearch
+                                    optionFilterProp='children'
+                                >
+                                    {targetFieldOptions.map(option => (
+                                        <Option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </Option>
+                                    ))}
+                                </Select>
                             </Form.Item>
                         </Col>
                     </Row>
@@ -993,6 +1236,18 @@ const StandardDictionaryMapping: React.FC = () => {
                         initialValue={true}
                     >
                         <Switch checkedChildren='启用' unCheckedChildren='禁用' />
+                    </Form.Item>
+
+                    <Form.Item
+                        name='remark'
+                        label='备注'
+                    >
+                        <Input.TextArea 
+                            rows={3} 
+                            placeholder='请输入备注信息（可选）'
+                            maxLength={500}
+                            showCount
+                        />
                     </Form.Item>
                 </Form>
             </Modal>

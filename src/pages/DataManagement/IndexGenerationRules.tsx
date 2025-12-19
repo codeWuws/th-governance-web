@@ -26,13 +26,14 @@ import {
     EyeOutlined,
     CopyOutlined,
 } from '@ant-design/icons'
-import { useDebounce } from '../../hooks/useDebounce'
+import { dataManagementService } from '@/services/dataManagementService'
+import type { PrimaryIndexRuleRecord, PrimaryIndexRulePageParams } from '@/types'
 
 const { Title } = Typography
-const { Search } = Input
 const { Option } = Select
 const { TextArea } = Input
 
+// 前端使用的数据模型
 interface IndexGenerationRule {
     id: string
     name: string // 规则名称
@@ -46,123 +47,216 @@ interface IndexGenerationRule {
     creator: string
 }
 
-const mockRules: IndexGenerationRule[] = [
-    {
-        id: '1',
-        name: '患者主索引生成规则-身份证号',
-        code: 'PATIENT_MPI_IDCARD',
-        sourceTable: 'PAT_BASE_INFO',
-        sourceFields: ['身份证号', '姓名', '性别', '年龄'],
-        description: '基于患者身份证号、姓名、性别、年龄生成唯一主索引',
-        status: 'active',
-        createTime: '2024-01-10 09:00:00',
-        updateTime: '2024-01-15 14:30:00',
-        creator: '数据管理员',
-    },
-    {
-        id: '2',
-        name: '患者主索引生成规则-姓名电话',
-        code: 'PATIENT_MPI_NAME_PHONE',
-        sourceTable: 'PAT_BASE_INFO',
-        sourceFields: ['姓名', '电话', '性别', '年龄', '住址'],
-        description: '基于患者姓名、电话、性别、年龄、住址生成唯一主索引',
-        status: 'active',
-        createTime: '2024-01-11 10:00:00',
-        updateTime: '2024-01-16 16:45:00',
-        creator: '数据管理员',
-    },
-    {
-        id: '3',
-        name: '患者主索引生成规则-完整信息',
-        code: 'PATIENT_MPI_FULL',
-        sourceTable: 'PAT_BASE_INFO',
-        sourceFields: ['身份证号', '姓名', '性别', '年龄', '电话', '住址'],
-        description: '基于患者身份证号、姓名、性别、年龄、电话、住址生成唯一主索引',
-        status: 'active',
-        createTime: '2024-01-12 11:00:00',
-        updateTime: '2024-01-22 09:30:00',
-        creator: '系统管理员',
-    },
-    {
-        id: '4',
-        name: '患者主索引生成规则-姓名住址',
-        code: 'PATIENT_MPI_NAME_ADDR',
-        sourceTable: 'PAT_BASE_INFO',
-        sourceFields: ['姓名', '住址', '性别', '年龄'],
-        description: '基于患者姓名、住址、性别、年龄生成唯一主索引',
-        status: 'active',
-        createTime: '2024-01-13 14:20:00',
-        updateTime: '2024-01-18 10:15:00',
-        creator: '数据管理员',
-    },
-    {
-        id: '5',
-        name: '患者主索引生成规则-电话住址',
-        code: 'PATIENT_MPI_PHONE_ADDR',
-        sourceTable: 'PAT_BASE_INFO',
-        sourceFields: ['电话', '住址', '姓名', '性别'],
-        description: '基于患者电话、住址、姓名、性别生成唯一主索引',
-        status: 'inactive',
-        createTime: '2024-01-14 09:30:00',
-        updateTime: '2024-01-20 11:45:00',
-        creator: '数据管理员',
-    },
-]
+/**
+ * 将后端返回的记录转换为前端使用的数据模型
+ */
+const mapRecordToModel = (record: PrimaryIndexRuleRecord): IndexGenerationRule => {
+    // 将 baseFields 字符串转换为数组（假设用逗号分隔）
+    // 注意：后端存储的应该是 value，而不是 label
+    const sourceFields = record.baseFields
+        ? record.baseFields.split(',').map(field => field.trim()).filter(Boolean)
+        : []
+    
+    return {
+        id: record.id,
+        name: record.ruleName,
+        code: record.ruleCode,
+        // 使用 baseTable（value）而不是 baseTableName（label），因为表单中需要存储 value
+        sourceTable: record.baseTable,
+        sourceFields,
+        description: record.description || '',
+        status: record.status === 1 ? 'active' : 'inactive',
+        createTime: record.createTime,
+        updateTime: record.updateTime || record.createTime,
+        creator: record.createBy || '系统',
+    }
+}
+
 
 const IndexGenerationRules: React.FC = () => {
     const [loading, setLoading] = useState(false)
     const [data, setData] = useState<IndexGenerationRule[]>([])
-    const [filteredData, setFilteredData] = useState<IndexGenerationRule[]>([])
-    const [searchText, setSearchText] = useState('')
-    const [statusFilter, setStatusFilter] = useState<string>('')
     const [modalVisible, setModalVisible] = useState(false)
     const [detailModalVisible, setDetailModalVisible] = useState(false)
     const [editingRecord, setEditingRecord] = useState<IndexGenerationRule | null>(null)
     const [viewingRecord, setViewingRecord] = useState<IndexGenerationRule | null>(null)
     const [form] = Form.useForm()
+    const [filterForm] = Form.useForm() // 筛选表单
+    
+    // 下拉选项数据
+    const [baseTableOptions, setBaseTableOptions] = useState<Array<{ value: string; label: string }>>([])
+    const [baseFieldOptions, setBaseFieldOptions] = useState<Array<{ value: string; label: string }>>([])
+    
+    // 分页状态
+    const [pagination, setPagination] = useState<{ current: number; pageSize: number; total: number }>({
+        current: 1,
+        pageSize: 10,
+        total: 0,
+    })
 
-    const fetchData = async () => {
+    /**
+     * 获取数据
+     * @param options 可选的查询参数，用于覆盖状态变量
+     */
+    const fetchData = async (options?: {
+        pageNum?: number
+        pageSize?: number
+        keyword?: string | null
+        status?: number | null
+        condition?: string | null
+    }) => {
         setLoading(true)
         try {
-            // 模拟API调用
-            await new Promise(resolve => setTimeout(resolve, 500))
-            setData(mockRules)
-        } catch {
-            message.error('获取主索引生成规则失败')
+            const pageNum = options?.pageNum ?? pagination.current
+            const pageSize = options?.pageSize ?? pagination.pageSize
+            
+            // 获取筛选表单的值
+            const filterValues = filterForm.getFieldsValue()
+            
+            // 处理关键字
+            let keywordValue: string | undefined
+            if (options?.keyword !== undefined) {
+                keywordValue = options.keyword === null ? undefined : (options.keyword.trim() || undefined)
+            } else {
+                keywordValue = filterValues.keyword ? filterValues.keyword.trim() : undefined
+            }
+            
+            // 处理条件查询
+            let conditionValue: string | undefined
+            if (options?.condition !== undefined) {
+                conditionValue = options.condition === null ? undefined : (options.condition.trim() || undefined)
+            } else {
+                conditionValue = filterValues.condition ? filterValues.condition.trim() : undefined
+            }
+            
+            // 处理状态
+            let statusValue: number | undefined
+            if (options?.status !== undefined) {
+                statusValue = options.status === null ? undefined : options.status
+            } else {
+                const status = filterValues.status
+                if (status === undefined || status === null) {
+                    statusValue = undefined
+                } else {
+                    statusValue = status === 1 || status === '1' ? 1 : status === 0 || status === '0' ? 0 : undefined
+                }
+            }
+
+            const params: PrimaryIndexRulePageParams = {
+                pageNum,
+                pageSize,
+                condition: conditionValue,
+                sortField: 'create_time',
+                sortOrder: 'desc',
+                keyword: keywordValue,
+                status: statusValue,
+            }
+
+            const response = await dataManagementService.getPrimaryIndexRulePage(params)
+            const { records, total, size, current } = response.data
+            setData(records.map(mapRecordToModel))
+            setPagination({
+                current: Number(current) || pageNum,
+                pageSize: Number(size) || pageSize,
+                total: Number(total) || 0,
+            })
+        } catch (error) {
+            const errMsg = error instanceof Error ? error.message : '获取主索引生成规则列表失败'
+            message.error(errMsg)
         } finally {
             setLoading(false)
         }
     }
 
-    const debouncedSearchText = useDebounce(searchText, 300)
+    /**
+     * 获取依据表选项
+     */
+    const fetchBaseTableOptions = async () => {
+        try {
+            const response = await dataManagementService.getBaseTableOptions()
+            if (response.code === 200 && response.data) {
+                // 按 sort 字段排序
+                const sortedOptions = [...response.data].sort((a, b) => a.sort - b.sort)
+                setBaseTableOptions(
+                    sortedOptions.map(item => ({
+                        value: item.value,
+                        label: item.label,
+                    }))
+                )
+            }
+        } catch (error) {
+            const errMsg = error instanceof Error ? error.message : '获取依据表选项失败'
+            message.error(errMsg)
+        }
+    }
+
+    /**
+     * 获取字段选项
+     */
+    const fetchBaseFieldOptions = async () => {
+        try {
+            const response = await dataManagementService.getBaseFieldOptions()
+            if (response.code === 200 && response.data) {
+                // 按 sort 字段排序
+                const sortedOptions = [...response.data].sort((a, b) => a.sort - b.sort)
+                setBaseFieldOptions(
+                    sortedOptions.map(item => ({
+                        value: item.value,
+                        label: item.label,
+                    }))
+                )
+            }
+        } catch (error) {
+            const errMsg = error instanceof Error ? error.message : '获取字段选项失败'
+            message.error(errMsg)
+        }
+    }
 
     useEffect(() => {
-        fetchData()
+        void fetchData()
+        void fetchBaseTableOptions()
+        void fetchBaseFieldOptions()
     }, [])
 
-    useEffect(() => {
-        let filtered = [...data]
+    /**
+     * 处理查询
+     */
+    const handleSearch = () => {
+        const filterValues = filterForm.getFieldsValue()
+        setPagination(prev => ({ ...prev, current: 1 }))
+        void fetchData({
+            pageNum: 1,
+            pageSize: pagination.pageSize,
+            keyword: filterValues.keyword ? filterValues.keyword.trim() : null,
+            condition: filterValues.condition ? filterValues.condition.trim() : null,
+            status: filterValues.status !== undefined && filterValues.status !== null 
+                ? (filterValues.status === 1 || filterValues.status === '1' ? 1 : 0)
+                : null,
+        })
+    }
 
-        if (debouncedSearchText) {
-            filtered = filtered.filter(
-                item =>
-                    item.name.toLowerCase().includes(debouncedSearchText.toLowerCase()) ||
-                    item.code.toLowerCase().includes(debouncedSearchText.toLowerCase()) ||
-                    item.sourceTable.toLowerCase().includes(debouncedSearchText.toLowerCase()) ||
-                    item.description.toLowerCase().includes(debouncedSearchText.toLowerCase()) ||
-                    item.sourceFields.some(field => field.toLowerCase().includes(debouncedSearchText.toLowerCase()))
-            )
-        }
+    /**
+     * 重置筛选条件
+     */
+    const handleReset = () => {
+        filterForm.resetFields()
+        setPagination(prev => ({ ...prev, current: 1 }))
+        // 重置后重新查询，传入 null 表示清空所有筛选条件
+        void fetchData({
+            pageNum: 1,
+            pageSize: pagination.pageSize,
+            keyword: null,
+            condition: null,
+            status: null,
+        })
+    }
 
-        if (statusFilter) {
-            filtered = filtered.filter(item => item.status === statusFilter)
-        }
-
-        setFilteredData(filtered)
-    }, [data, debouncedSearchText, statusFilter])
-
-    const handleSearch = (value: string) => {
-        setSearchText(value)
+    /**
+     * 处理分页变化
+     */
+    const handleTableChange = (page: number, pageSize: number) => {
+        setPagination(prev => ({ ...prev, current: page, pageSize }))
+        void fetchData({ pageNum: page, pageSize })
     }
 
     const handleAdd = () => {
@@ -189,70 +283,110 @@ const IndexGenerationRules: React.FC = () => {
         setDetailModalVisible(true)
     }
 
-    const handleCopy = (_record: IndexGenerationRule) => {
-        const newRecord: IndexGenerationRule = {
-            ..._record,
-            id: Date.now().toString(),
-            name: `${_record.name}_副本`,
-            code: `${_record.code}_COPY`,
-            status: 'inactive',
-            createTime: new Date().toLocaleString('zh-CN'),
-            updateTime: new Date().toLocaleString('zh-CN'),
-        }
-        setData([...data, newRecord])
-        message.success('复制成功')
+    const handleCopy = (record: IndexGenerationRule) => {
+        // 复制记录数据，但不包括id等系统字段
+        setEditingRecord(null) // 设置为null，表示是新增操作
+        
+        // 设置表单值，规则名称添加"_副本"后缀
+        form.setFieldsValue({
+            name: `${record.name}_副本`,
+            code: record.code,
+            sourceTable: record.sourceTable,
+            sourceFields: record.sourceFields,
+            description: record.description,
+            status: record.status === 'active', // 转换为boolean
+        })
+        
+        setModalVisible(true)
+        message.info('已复制规则，请修改后保存')
     }
-
 
     const handleDelete = async (id: string) => {
         try {
-            // 模拟API调用
-            await new Promise(resolve => setTimeout(resolve, 300))
-            const newData = data.filter(item => item.id !== id)
-            setData(newData)
-            // 数据更新后，useEffect 会自动触发过滤
-            message.success('删除成功')
-        } catch {
-            message.error('删除失败')
+            // TODO: 实现删除功能，需要调用后端接口
+            message.info('删除功能待实现')
+            // 删除成功后刷新列表
+            // const currentPageDataCount = data.length
+            // const nextPageNum =
+            //     currentPageDataCount === 1 && pagination.current > 1
+            //         ? pagination.current - 1
+            //         : pagination.current
+            // setPagination(prev => ({ ...prev, current: nextPageNum }))
+            // void fetchData({
+            //     pageNum: nextPageNum,
+            //     pageSize: pagination.pageSize,
+            // })
+        } catch (error) {
+            const errMsg = error instanceof Error ? error.message : '删除失败'
+            message.error(errMsg)
         }
     }
 
     const handleModalOk = async () => {
         try {
             const values = await form.validateFields()
-            // 将 Switch 的 boolean 值转换为 'active'/'inactive'
-            const formData = {
-                ...values,
-                status: values.status ? 'active' : 'inactive',
-            }
+            
+            // 将表单数据转换为 API 需要的格式
+            // sourceFields 数组转换为逗号分隔的字符串
+            const baseFields = Array.isArray(values.sourceFields) 
+                ? values.sourceFields.join(',') 
+                : ''
+            
+            // status 从 boolean 转换为 0/1（0-禁用，1-启用）
+            const status = values.status ? 1 : 0
 
             if (editingRecord) {
                 // 编辑
-                const updatedData = data.map(item =>
-                    item.id === editingRecord.id
-                        ? { ...item, ...formData, updateTime: new Date().toLocaleString('zh-CN') }
-                        : item
-                )
-                setData(updatedData)
-                message.success('更新成功')
+                const updateParams = {
+                    id: editingRecord.id,
+                    ruleName: values.name,
+                    ruleCode: values.code,
+                    baseTable: values.sourceTable,
+                    baseFields: baseFields,
+                    description: values.description || '',
+                    status: status,
+                    remark: values.remark || '',
+                }
+
+                const response = await dataManagementService.updatePrimaryIndexRule(updateParams)
+                if (response.code === 200) {
+                    message.success('更新成功')
+                    setModalVisible(false)
+                    form.resetFields()
+                    setEditingRecord(null)
+                    // 刷新列表
+                    void fetchData()
+                } else {
+                    message.error(response.msg || '更新失败')
+                }
             } else {
                 // 新增
-                const newRecord: IndexGenerationRule = {
-                    ...formData,
-                    id: Date.now().toString(),
-                    createTime: new Date().toLocaleString('zh-CN'),
-                    updateTime: new Date().toLocaleString('zh-CN'),
-                    creator: '当前用户',
+                const addParams = {
+                    ruleName: values.name,
+                    ruleCode: values.code,
+                    baseTable: values.sourceTable,
+                    baseFields: baseFields,
+                    description: values.description || '',
+                    status: status,
+                    remark: values.remark || '',
                 }
-                setData([...data, newRecord])
-                message.success('添加成功')
-            }
 
-            setModalVisible(false)
-            form.resetFields()
-            setEditingRecord(null)
+                const response = await dataManagementService.addPrimaryIndexRule(addParams)
+                if (response.code === 200) {
+                    message.success('添加成功')
+                    setModalVisible(false)
+                    form.resetFields()
+                    setEditingRecord(null)
+                    // 刷新列表
+                    void fetchData()
+                } else {
+                    message.error(response.msg || '添加失败')
+                }
+            }
         } catch (error) {
-            console.error('表单验证失败:', error)
+            const errMsg = error instanceof Error ? error.message : '操作失败'
+            message.error(errMsg)
+            console.error('表单提交失败:', error)
         }
     }
 
@@ -282,6 +416,26 @@ const IndexGenerationRules: React.FC = () => {
             default:
                 return status
         }
+    }
+
+    /**
+     * 根据字段值获取字段标签
+     * @param value 字段值
+     * @returns 字段标签，如果找不到则返回原值
+     */
+    const getFieldLabel = (value: string): string => {
+        const option = baseFieldOptions.find(opt => opt.value === value)
+        return option ? option.label : value
+    }
+
+    /**
+     * 根据表值获取表标签
+     * @param value 表值
+     * @returns 表标签，如果找不到则返回原值
+     */
+    const getTableLabel = (value: string): string => {
+        const option = baseTableOptions.find(opt => opt.value === value)
+        return option ? option.label : value
     }
 
     const columns = [
@@ -316,11 +470,14 @@ const IndexGenerationRules: React.FC = () => {
             dataIndex: 'sourceTable',
             key: 'sourceTable',
             width: 150,
-            render: (text: string) => (
-                <code style={{ background: '#e6f7ff', padding: '2px 4px', borderRadius: '4px' }}>
-                    {text}
-                </code>
-            ),
+            render: (text: string) => {
+                const label = getTableLabel(text)
+                return (
+                    <code style={{ background: '#e6f7ff', padding: '2px 4px', borderRadius: '4px' }}>
+                        {label}
+                    </code>
+                )
+            },
         },
         {
             title: '依据字段',
@@ -331,7 +488,7 @@ const IndexGenerationRules: React.FC = () => {
                 <Space size='small' wrap>
                     {fields.map((field, index) => (
                         <Tag key={index} color='blue'>
-                            {field}
+                            {getFieldLabel(field)}
                         </Tag>
                     ))}
                 </Space>
@@ -431,7 +588,7 @@ const IndexGenerationRules: React.FC = () => {
                     主索引生成规则
                 </Title>
                 <Space>
-                    <Button icon={<ReloadOutlined />} onClick={fetchData} loading={loading}>
+                    <Button icon={<ReloadOutlined />} onClick={() => fetchData()} loading={loading}>
                         刷新
                     </Button>
                     <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
@@ -447,37 +604,57 @@ const IndexGenerationRules: React.FC = () => {
                 style={{ marginBottom: 24 }}
             />
             <Card>
-                <Space style={{ marginBottom: 16 }} wrap>
-                    <Search
-                        placeholder='搜索规则名称、编码、依据表或描述'
-                        allowClear
-                        onSearch={handleSearch}
-                        style={{ width: 300 }}
-                        prefix={<SearchOutlined />}
-                    />
-                    <Select
-                        placeholder='状态'
-                        style={{ width: 120 }}
-                        allowClear
-                        value={statusFilter}
-                        onChange={setStatusFilter}
-                    >
-                        <Option value='active'>启用</Option>
-                        <Option value='inactive'>禁用</Option>
-                    </Select>
-                </Space>
+                {/* 筛选表单 */}
+                <Form
+                    form={filterForm}
+                    layout='inline'
+                    style={{ marginBottom: 16 }}
+                >
+                    <Form.Item name='keyword' label='关键字'>
+                        <Input
+                            placeholder='请输入规则名称、编码等'
+                            allowClear
+                            style={{ width: 200 }}
+                            onPressEnter={handleSearch}
+                        />
+                    </Form.Item>
+                    <Form.Item name='status' label='状态'>
+                        <Select
+                            placeholder='请选择状态'
+                            allowClear
+                            style={{ width: 120 }}
+                        >
+                            <Option value={1}>启用</Option>
+                            <Option value={0}>禁用</Option>
+                        </Select>
+                    </Form.Item>
+                    <Form.Item>
+                        <Space>
+                            <Button icon={<SearchOutlined />} type='primary' onClick={handleSearch} loading={loading}>
+                                查询
+                            </Button>
+                            <Button onClick={handleReset}>
+                                重置
+                            </Button>
+                        </Space>
+                    </Form.Item>
+                </Form>
                 <Table
                     columns={columns}
-                    dataSource={filteredData}
+                    dataSource={data}
                     loading={loading}
                     rowKey='id'
                     scroll={{ x: 1200 }}
                     pagination={{
+                        current: pagination.current,
+                        pageSize: pagination.pageSize,
+                        total: pagination.total,
                         showSizeChanger: true,
                         showQuickJumper: true,
                         showTotal: total => `共 ${total} 条`,
                         pageSizeOptions: ['10', '20', '50', '100'],
-                        defaultPageSize: 20,
+                        onChange: handleTableChange,
+                        onShowSizeChange: handleTableChange,
                     }}
                 />
             </Card>
@@ -519,9 +696,20 @@ const IndexGenerationRules: React.FC = () => {
                     <Form.Item
                         name='sourceTable'
                         label='依据表'
-                        rules={[{ required: true, message: '请输入依据表名称' }]}
+                        rules={[{ required: true, message: '请选择依据表' }]}
                     >
-                        <Input placeholder='请输入依据表名称，如：PAT_BASE_INFO' />
+                        <Select
+                            placeholder='请选择依据表'
+                            showSearch
+                            optionFilterProp='label'
+                            loading={baseTableOptions.length === 0}
+                        >
+                            {baseTableOptions.map(option => (
+                                <Option key={option.value} value={option.value}>
+                                    {option.label}
+                                </Option>
+                            ))}
+                        </Select>
                     </Form.Item>
 
                     <Form.Item
@@ -533,16 +721,14 @@ const IndexGenerationRules: React.FC = () => {
                             mode='multiple'
                             placeholder='请选择依据字段（可多选）'
                             showSearch
-                            optionFilterProp='children'
+                            optionFilterProp='label'
+                            loading={baseFieldOptions.length === 0}
                         >
-                            <Option value='身份证号'>身份证号</Option>
-                            <Option value='姓名'>姓名</Option>
-                            <Option value='年龄'>年龄</Option>
-                            <Option value='性别'>性别</Option>
-                            <Option value='电话'>电话</Option>
-                            <Option value='住址'>住址</Option>
-                            <Option value='出生日期'>出生日期</Option>
-                            <Option value='民族'>民族</Option>
+                            {baseFieldOptions.map(option => (
+                                <Option key={option.value} value={option.value}>
+                                    {option.label}
+                                </Option>
+                            ))}
                         </Select>
                     </Form.Item>
 
@@ -595,14 +781,14 @@ const IndexGenerationRules: React.FC = () => {
                                     borderRadius: '4px',
                                 }}
                             >
-                                {viewingRecord.sourceTable}
+                                {getTableLabel(viewingRecord.sourceTable)}
                             </code>
                         </Descriptions.Item>
                         <Descriptions.Item label='依据字段'>
                             <Space size='small' wrap>
                                 {viewingRecord.sourceFields.map((field, index) => (
                                     <Tag key={index} color='blue'>
-                                        {field}
+                                        {getFieldLabel(field)}
                                     </Tag>
                                 ))}
                             </Space>

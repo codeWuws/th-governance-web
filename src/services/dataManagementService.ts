@@ -40,6 +40,31 @@ import type {
     UpdateStatusDictRequest,
     StatusDictSaveResponse,
     StatusDictDeleteResponse,
+    StandardDictPageParams,
+    StandardDictPageResponse,
+    OriginSourceOptionsResponse,
+    TargetSourceOptionsResponse,
+    OriginTableOptionsResponse,
+    TargetTableOptionsResponse,
+    OriginFieldOptionsResponse,
+    TargetFieldOptionsResponse,
+    AddStandardDictRequest,
+    UpdateStandardDictRequest,
+    StandardDictSaveResponse,
+    StandardDictDeleteResponse,
+    PrimaryIndexRulePageParams,
+    PrimaryIndexRulePageResponse,
+    BaseTableOptionsResponse,
+    BaseFieldOptionsResponse,
+    AddPrimaryIndexRuleRequest,
+    UpdatePrimaryIndexRuleRequest,
+    PrimaryIndexRuleSaveResponse,
+    MasterIndexConfigPageParams,
+    MasterIndexConfigPageResponse,
+    AddMasterIndexConfigRequest,
+    UpdateMasterIndexConfigRequest,
+    MasterIndexConfigSaveResponse,
+    MasterIndexConfigDeleteResponse,
 } from '@/types'
 import { api, request } from '@/utils/request'
 import { logger } from '@/utils/logger'
@@ -85,17 +110,17 @@ export class DataManagementService {
      */
     static async mergePatientEmpi(
         patients: Array<{
+            id: string
             patientName: string
             sexCode: string
             birthDate: string
             idNumber: string
             phone: string
             hospitalNo: string
-            registrationNumber: string
-            consulationType: string
             address: string
-            deptName: string
-            selected?: boolean
+            selected: boolean
+            empi: string
+            empiStatus: number
         }>
     ): Promise<ApiResponse<null>> {
         try {
@@ -139,6 +164,7 @@ export class DataManagementService {
             sexCode?: string
             idNumber?: string
             hospitalNo?: string
+            empi?: string
         }
     ): Promise<ApiResponse<{
         records: PatientEmpiRecord[]
@@ -875,6 +901,498 @@ export class DataManagementService {
             )
         }
     }
+
+    /**
+     * 标准字典对照分页查询
+     * @description 根据条件分页查询标准字典对照列表
+     * @param params 查询参数
+     * @returns Promise<StandardDictPageResponse>
+     */
+    static async getStandardDictPage(
+        params: StandardDictPageParams
+    ): Promise<StandardDictPageResponse> {
+        try {
+            logger.debug('发送标准字典对照分页查询请求到: /data/standard/page', params)
+            const response = await api.post<StandardDictPageResponse>(
+                '/data/standard/page',
+                params
+            )
+            logger.debug('标准字典对照分页查询API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '标准字典对照分页查询API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取标准字典对照列表失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 获取原始数据源选项列表
+     * @description 获取标准字典对照新增和编辑时使用的原始数据源下拉选项
+     * @returns Promise<OriginSourceOptionsResponse>
+     */
+    static async getOriginSourceOptions(): Promise<OriginSourceOptionsResponse> {
+        try {
+            logger.debug('发送获取原始数据源选项请求到: /data/standard/originSourceOptions')
+            const response = await api.get<OriginSourceOptionsResponse>(
+                '/data/standard/originSourceOptions'
+            )
+            logger.debug('获取原始数据源选项API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取原始数据源选项API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取原始数据源选项失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 获取目标源选项列表
+     * @description 获取标准字典对照新增和编辑时使用的目标源下拉选项
+     * @returns Promise<TargetSourceOptionsResponse>
+     */
+    static async getTargetSourceOptions(): Promise<TargetSourceOptionsResponse> {
+        try {
+            logger.debug('发送获取目标源选项请求到: /data/standard/targetSourceOptions')
+            const response = await api.get<TargetSourceOptionsResponse>(
+                '/data/standard/targetSourceOptions'
+            )
+            logger.debug('获取目标源选项API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取目标源选项API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取目标源选项失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 获取原始表选项列表
+     * @description 获取标准字典对照新增和编辑时使用的原始表下拉选项
+     * @returns Promise<OriginTableOptionsResponse>
+     */
+    static async getOriginTableOptions(): Promise<OriginTableOptionsResponse> {
+        try {
+            logger.debug('发送获取原始表选项请求到: /data/standard/originTableOptions')
+            const response = await api.get<OriginTableOptionsResponse>(
+                '/data/standard/originTableOptions'
+            )
+            logger.debug('获取原始表选项API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取原始表选项API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取原始表选项失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 获取目标表选项列表
+     * @description 获取标准字典对照新增和编辑时使用的目标表下拉选项
+     * @returns Promise<TargetTableOptionsResponse>
+     */
+    static async getTargetTableOptions(): Promise<TargetTableOptionsResponse> {
+        try {
+            logger.debug('发送获取目标表选项请求到: /data/standard/targetTableOptions')
+            const response = await api.get<TargetTableOptionsResponse>(
+                '/data/standard/targetTableOptions'
+            )
+            logger.debug('获取目标表选项API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取目标表选项API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取目标表选项失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 获取原始字段选项列表
+     * @description 获取标准字典对照新增和编辑时使用的原始字段下拉选项
+     * @returns Promise<OriginFieldOptionsResponse>
+     */
+    static async getOriginFieldOptions(): Promise<OriginFieldOptionsResponse> {
+        try {
+            logger.debug('发送获取原始字段选项请求到: /data/standard/originFieldOptions')
+            const response = await api.get<OriginFieldOptionsResponse>(
+                '/data/standard/originFieldOptions'
+            )
+            logger.debug('获取原始字段选项API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取原始字段选项API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取原始字段选项失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 获取目标字段选项列表
+     * @description 获取标准字典对照新增和编辑时使用的目标字段下拉选项
+     * @returns Promise<TargetFieldOptionsResponse>
+     */
+    static async getTargetFieldOptions(): Promise<TargetFieldOptionsResponse> {
+        try {
+            logger.debug('发送获取目标字段选项请求到: /data/standard/targetFieldOptions')
+            const response = await api.get<TargetFieldOptionsResponse>(
+                '/data/standard/targetFieldOptions'
+            )
+            logger.debug('获取目标字段选项API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取目标字段选项API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取目标字段选项失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 新增标准字典对照
+     * @description 创建新的标准字典对照
+     * @param params 新增标准字典对照请求参数
+     * @returns Promise<StandardDictSaveResponse>
+     */
+    static async addStandardDict(params: AddStandardDictRequest): Promise<StandardDictSaveResponse> {
+        try {
+            logger.debug('发送新增标准字典对照请求到: /data/standard/add', params)
+            const response = await api.post<StandardDictSaveResponse>(
+                '/data/standard/add',
+                params
+            )
+            logger.debug('新增标准字典对照API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '新增标准字典对照API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `新增标准字典对照失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 更新标准字典对照
+     * @description 根据ID更新标准字典对照信息
+     * @param params 更新标准字典对照请求参数
+     * @returns Promise<StandardDictSaveResponse>
+     */
+    static async updateStandardDict(
+        params: UpdateStandardDictRequest
+    ): Promise<StandardDictSaveResponse> {
+        try {
+            logger.debug('发送更新标准字典对照请求到: /data/standard/update', params)
+            const response = await api.post<StandardDictSaveResponse>(
+                '/data/standard/update',
+                params
+            )
+            logger.debug('更新标准字典对照API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '更新标准字典对照API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `更新标准字典对照失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 删除标准字典对照
+     * @description 根据ID删除标准字典对照
+     * @param id 标准字典对照ID
+     * @returns Promise<StandardDictDeleteResponse>
+     */
+    static async deleteStandardDict(id: string): Promise<StandardDictDeleteResponse> {
+        try {
+            logger.debug('发送删除标准字典对照请求到: /data/standard/' + id)
+            const response = await api.delete<StandardDictDeleteResponse>(
+                `/data/standard/${id}`
+            )
+            logger.debug('删除标准字典对照API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '删除标准字典对照API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `删除标准字典对照失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 获取主索引生成规则分页列表
+     * @description 根据条件分页查询主索引生成规则
+     * @param params 查询参数
+     * @returns Promise<PrimaryIndexRulePageResponse>
+     */
+    static async getPrimaryIndexRulePage(
+        params: PrimaryIndexRulePageParams
+    ): Promise<PrimaryIndexRulePageResponse> {
+        try {
+            logger.debug('发送主索引生成规则分页查询请求到: /data/primary-index-rule/page', params)
+            const response = await api.post<PrimaryIndexRulePageResponse>(
+                '/data/primary-index-rule/page',
+                params
+            )
+            logger.debug('主索引生成规则分页查询API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '主索引生成规则分页查询API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取主索引生成规则列表失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 获取依据表选项列表
+     * @description 获取主索引生成规则新增和编辑时使用的依据表下拉选项
+     * @returns Promise<BaseTableOptionsResponse>
+     */
+    static async getBaseTableOptions(): Promise<BaseTableOptionsResponse> {
+        try {
+            logger.debug('发送获取依据表选项请求到: /data/primary-index-rule/baseTableOptions')
+            const response = await api.get<BaseTableOptionsResponse>(
+                '/data/primary-index-rule/baseTableOptions'
+            )
+            logger.debug('获取依据表选项API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取依据表选项API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取依据表选项失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 获取字段选项列表
+     * @description 获取主索引生成规则新增和编辑时使用的字段下拉选项
+     * @returns Promise<BaseFieldOptionsResponse>
+     */
+    static async getBaseFieldOptions(): Promise<BaseFieldOptionsResponse> {
+        try {
+            logger.debug('发送获取字段选项请求到: /data/primary-index-rule/baseFieldOptions')
+            const response = await api.get<BaseFieldOptionsResponse>(
+                '/data/primary-index-rule/baseFieldOptions'
+            )
+            logger.debug('获取字段选项API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取字段选项API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取字段选项失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 新增主索引生成规则
+     * @description 创建新的主索引生成规则
+     * @param params 新增主索引生成规则请求参数
+     * @returns Promise<PrimaryIndexRuleSaveResponse>
+     */
+    static async addPrimaryIndexRule(
+        params: AddPrimaryIndexRuleRequest
+    ): Promise<PrimaryIndexRuleSaveResponse> {
+        try {
+            logger.debug('发送新增主索引生成规则请求到: /data/primary-index-rule/add', params)
+            const response = await api.post<PrimaryIndexRuleSaveResponse>(
+                '/data/primary-index-rule/add',
+                params
+            )
+            logger.debug('新增主索引生成规则API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '新增主索引生成规则API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `新增主索引生成规则失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 更新主索引生成规则
+     * @description 根据ID更新主索引生成规则信息
+     * @param params 更新主索引生成规则请求参数
+     * @returns Promise<PrimaryIndexRuleSaveResponse>
+     */
+    static async updatePrimaryIndexRule(
+        params: UpdatePrimaryIndexRuleRequest
+    ): Promise<PrimaryIndexRuleSaveResponse> {
+        try {
+            logger.debug('发送更新主索引生成规则请求到: /data/primary-index-rule/update', params)
+            const response = await api.post<PrimaryIndexRuleSaveResponse>(
+                '/data/primary-index-rule/update',
+                params
+            )
+            logger.debug('更新主索引生成规则API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '更新主索引生成规则API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `更新主索引生成规则失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 获取主索引配置分页列表
+     * @description 根据条件分页查询主索引配置
+     * @param params 查询参数
+     * @returns Promise<MasterIndexConfigPageResponse>
+     */
+    static async getMasterIndexConfigPage(
+        params: MasterIndexConfigPageParams
+    ): Promise<MasterIndexConfigPageResponse> {
+        try {
+            logger.debug('发送主索引配置分页查询请求到: /index/master-index-config/page', params)
+            const response = await api.post<MasterIndexConfigPageResponse>(
+                '/index/master-index-config/page',
+                params
+            )
+            logger.debug('主索引配置分页查询API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '主索引配置分页查询API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取主索引配置列表失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 新增主索引配置
+     * @description 创建新的主索引配置
+     * @param params 新增主索引配置请求参数
+     * @returns Promise<MasterIndexConfigSaveResponse>
+     */
+    static async addMasterIndexConfig(
+        params: AddMasterIndexConfigRequest
+    ): Promise<MasterIndexConfigSaveResponse> {
+        try {
+            logger.debug('发送新增主索引配置请求到: /index/master-index-config/add', params)
+            const response = await api.post<MasterIndexConfigSaveResponse>(
+                '/index/master-index-config/add',
+                params
+            )
+            logger.debug('新增主索引配置API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '新增主索引配置API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `新增主索引配置失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 更新主索引配置
+     * @description 根据ID更新主索引配置信息
+     * @param params 更新主索引配置请求参数
+     * @returns Promise<MasterIndexConfigSaveResponse>
+     */
+    static async updateMasterIndexConfig(
+        params: UpdateMasterIndexConfigRequest
+    ): Promise<MasterIndexConfigSaveResponse> {
+        try {
+            logger.debug('发送更新主索引配置请求到: /index/master-index-config/update', params)
+            const response = await api.post<MasterIndexConfigSaveResponse>(
+                '/index/master-index-config/update',
+                params
+            )
+            logger.debug('更新主索引配置API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '更新主索引配置API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `更新主索引配置失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 删除主索引配置
+     * @description 根据ID删除主索引配置
+     * @param id 主索引配置ID
+     * @returns Promise<MasterIndexConfigDeleteResponse>
+     */
+    static async deleteMasterIndexConfig(id: string): Promise<MasterIndexConfigDeleteResponse> {
+        try {
+            logger.debug('发送删除主索引配置请求到: /index/master-index-config/' + id)
+            const response = await api.delete<MasterIndexConfigDeleteResponse>(
+                `/index/master-index-config/${id}`
+            )
+            logger.debug('删除主索引配置API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '删除主索引配置API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `删除主索引配置失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
 }
 
 /**
@@ -910,6 +1428,25 @@ export const dataManagementService = {
     updateStatusDict: DataManagementService.updateStatusDict,
     deleteStatusDict: DataManagementService.deleteStatusDict,
     exportStatusDict: DataManagementService.exportStatusDict,
+    getStandardDictPage: DataManagementService.getStandardDictPage,
+    getOriginSourceOptions: DataManagementService.getOriginSourceOptions,
+    getTargetSourceOptions: DataManagementService.getTargetSourceOptions,
+    getOriginTableOptions: DataManagementService.getOriginTableOptions,
+    getTargetTableOptions: DataManagementService.getTargetTableOptions,
+    getOriginFieldOptions: DataManagementService.getOriginFieldOptions,
+    getTargetFieldOptions: DataManagementService.getTargetFieldOptions,
+    addStandardDict: DataManagementService.addStandardDict,
+    updateStandardDict: DataManagementService.updateStandardDict,
+    deleteStandardDict: DataManagementService.deleteStandardDict,
+    getPrimaryIndexRulePage: DataManagementService.getPrimaryIndexRulePage,
+    getBaseTableOptions: DataManagementService.getBaseTableOptions,
+    getBaseFieldOptions: DataManagementService.getBaseFieldOptions,
+    addPrimaryIndexRule: DataManagementService.addPrimaryIndexRule,
+    updatePrimaryIndexRule: DataManagementService.updatePrimaryIndexRule,
+    getMasterIndexConfigPage: DataManagementService.getMasterIndexConfigPage,
+    addMasterIndexConfig: DataManagementService.addMasterIndexConfig,
+    updateMasterIndexConfig: DataManagementService.updateMasterIndexConfig,
+    deleteMasterIndexConfig: DataManagementService.deleteMasterIndexConfig,
 }
 
 export default dataManagementService

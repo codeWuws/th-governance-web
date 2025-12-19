@@ -3549,8 +3549,9 @@ const mockTables: Record<string, TableInfo> = {
 type ViewMode = 'empty' | 'category' | 'tableFields'
 
 const DataAssetManagement: React.FC = () => {
-    const [dataSources, setDataSources] = useState<DataSource[]>(mockDataSources)
-    const [categories, setCategories] = useState<AssetCategory[]>(mockCategories)
+    // 根据版本决定初始数据：开发版本使用空数组，演示版本使用模拟数据
+    const [dataSources, setDataSources] = useState<DataSource[]>(isDevVersion() ? [] : mockDataSources)
+    const [categories, setCategories] = useState<AssetCategory[]>(isDevVersion() ? [] : mockCategories)
     const [selectedKeys, setSelectedKeys] = useState<React.Key[]>([])
     const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([])
     const [searchText, setSearchText] = useState('')

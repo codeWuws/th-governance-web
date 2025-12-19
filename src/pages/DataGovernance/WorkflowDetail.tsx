@@ -4,6 +4,7 @@ import {
     EyeOutlined,
     PlayCircleOutlined,
     CloudSyncOutlined,
+    DownloadOutlined,
 } from '@ant-design/icons'
 import { Button, Card, Progress, Spin, Steps, Tag, Typography, Modal, Space } from 'antd'
 import uiMessage from '@/utils/uiMessage'
@@ -151,6 +152,47 @@ const WorkflowDetail: React.FC = () => {
     const [sensitiveResultData, setSensitiveResultData] = useState<Array<Record<string, unknown>>>([])
     const [sensitiveResultLoading, setSensitiveResultLoading] = useState(false)
     const [sensitiveResultPagination, setSensitiveResultPagination] = useState<{
+        current: number
+        pageSize: number
+        total: number
+    }>({
+        current: 1,
+        pageSize: 20,
+        total: 0,
+    })
+
+    // 导出清洗结果加载状态
+    const [exportCleaningLoading, setExportCleaningLoading] = useState(false)
+
+    // 导出去重结果加载状态
+    const [exportDeduplicateLoading, setExportDeduplicateLoading] = useState(false)
+
+    // 导出丢孤儿结果加载状态
+    const [exportOrphanLoading, setExportOrphanLoading] = useState(false)
+
+    // 导出数据脱敏结果加载状态
+    const [exportSensitiveLoading, setExportSensitiveLoading] = useState(false)
+
+    // 导出EMOI结果加载状态
+    const [exportEmoiLoading, setExportEmoiLoading] = useState(false)
+
+    // EMPI结果状态
+    const [empiResultData, setEmpiResultData] = useState<Array<Record<string, unknown>>>([])
+    const [empiResultLoading, setEmpiResultLoading] = useState(false)
+    const [empiResultPagination, setEmpiResultPagination] = useState<{
+        current: number
+        pageSize: number
+        total: number
+    }>({
+        current: 1,
+        pageSize: 20,
+        total: 0,
+    })
+
+    // EMOI结果状态
+    const [emoiResultData, setEmoiResultData] = useState<Array<Record<string, unknown>>>([])
+    const [emoiResultLoading, setEmoiResultLoading] = useState(false)
+    const [emoiResultPagination, setEmoiResultPagination] = useState<{
         current: number
         pageSize: number
         total: number
@@ -378,6 +420,26 @@ const WorkflowDetail: React.FC = () => {
             })
             // 加载第一页数据
             await fetchDeduplicateResult(taskId, 1, 20)
+        } else if (stepIndex === 4 && step.nodeType === WorkflowNodeType.EMPI_DEFINITION_DISTRIBUTION && taskId) {
+            // 如果是EMPI发放步骤（第五个步骤），获取EMPI结果
+            // 重置分页
+            setEmpiResultPagination({
+                current: 1,
+                pageSize: 20,
+                total: 0,
+            })
+            // 加载第一页数据
+            await fetchEmpiResult(taskId, 1, 20)
+        } else if (stepIndex === 5 && step.nodeType === WorkflowNodeType.EMOI_DEFINITION_DISTRIBUTION && taskId) {
+            // 如果是EMOI发放步骤（第六个步骤），获取EMOI结果
+            // 重置分页
+            setEmoiResultPagination({
+                current: 1,
+                pageSize: 20,
+                total: 0,
+            })
+            // 加载第一页数据
+            await fetchEmoiResult(taskId, 1, 20)
         } else if (stepIndex === 7 && step.nodeType === WorkflowNodeType.DATA_ORPHAN && taskId) {
             // 如果是丢孤儿步骤（第八个步骤），获取丢孤儿结果
             // 重置分页
@@ -408,6 +470,18 @@ const WorkflowDetail: React.FC = () => {
             })
             setDeduplicateResultData([])
             setDeduplicateResultPagination({
+                current: 1,
+                pageSize: 20,
+                total: 0,
+            })
+            setEmpiResultData([])
+            setEmpiResultPagination({
+                current: 1,
+                pageSize: 20,
+                total: 0,
+            })
+            setEmoiResultData([])
+            setEmoiResultPagination({
                 current: 1,
                 pageSize: 20,
                 total: 0,
@@ -549,6 +623,60 @@ const WorkflowDetail: React.FC = () => {
         }
     }
 
+    // 获取EMPI结果
+    const fetchEmpiResult = async (batchId: string, pageNum: number, pageSize: number) => {
+        setEmpiResultLoading(true)
+        try {
+            const response = await WorkflowService.getEmpiResult(batchId, pageNum, pageSize)
+            // 接口返回标准 ApiResponse 格式：{ code, msg, data: { records, total, size, current, pages } }
+            if (response.code === 200 && response.data) {
+                setEmpiResultData(response.data.records || [])
+                setEmpiResultPagination({
+                    current: response.data.current || pageNum,
+                    pageSize: response.data.size || pageSize,
+                    total: response.data.total || 0,
+                })
+            } else {
+                const errorMsg = (response as { msg?: string }).msg || '获取EMPI步骤结果失败'
+                uiMessage.error(errorMsg)
+                setEmpiResultData([])
+            }
+        } catch (error) {
+            logger.error('获取EMPI步骤结果失败', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('获取EMPI步骤结果失败')
+            setEmpiResultData([])
+        } finally {
+            setEmpiResultLoading(false)
+        }
+    }
+
+    // 获取EMOI结果
+    const fetchEmoiResult = async (batchId: string, pageNum: number, pageSize: number) => {
+        setEmoiResultLoading(true)
+        try {
+            const response = await WorkflowService.getEmoiResult(batchId, pageNum, pageSize)
+            // 接口返回标准 ApiResponse 格式：{ code, msg, data: { records, total, size, current, pages } }
+            if (response.code === 200 && response.data) {
+                setEmoiResultData(response.data.records || [])
+                setEmoiResultPagination({
+                    current: response.data.current || pageNum,
+                    pageSize: response.data.size || pageSize,
+                    total: response.data.total || 0,
+                })
+            } else {
+                const errorMsg = (response as { msg?: string }).msg || '获取EMOI步骤结果失败'
+                uiMessage.error(errorMsg)
+                setEmoiResultData([])
+            }
+        } catch (error) {
+            logger.error('获取EMOI步骤结果失败', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('获取EMOI步骤结果失败')
+            setEmoiResultData([])
+        } finally {
+            setEmoiResultLoading(false)
+        }
+    }
+
     // 处理丢孤儿结果分页变化
     const handleOrphanResultPageChange = (page: number, pageSize: number) => {
         if (taskId && selectedStepResult?.stepIndex === 7) {
@@ -560,6 +688,125 @@ const WorkflowDetail: React.FC = () => {
     const handleSensitiveResultPageChange = (page: number, pageSize: number) => {
         if (taskId && selectedStepResult?.stepIndex === 8) {
             fetchSensitiveResult(taskId, page, pageSize)
+        }
+    }
+
+    // 处理EMPI结果分页变化
+    const handleEmpiResultPageChange = (page: number, pageSize: number) => {
+        if (taskId && selectedStepResult?.stepIndex === 4) {
+            fetchEmpiResult(taskId, page, pageSize)
+        }
+    }
+
+    // 处理EMOI结果分页变化
+    const handleEmoiResultPageChange = (page: number, pageSize: number) => {
+        if (taskId && selectedStepResult?.stepIndex === 5) {
+            fetchEmoiResult(taskId, page, pageSize)
+        }
+    }
+
+    // 导出数据清洗结果
+    const handleExportCleaningResult = async () => {
+        if (!taskId) {
+            uiMessage.error('任务ID不存在，无法导出')
+            return
+        }
+
+        setExportCleaningLoading(true)
+        try {
+            logger.info('开始导出数据清洗结果', { taskId })
+            await WorkflowService.exportCleaningResult(taskId)
+            uiMessage.success('导出成功')
+            logger.info('数据清洗结果导出成功', { taskId })
+        } catch (error) {
+            logger.error('导出数据清洗结果失败', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('导出失败，请稍后重试')
+        } finally {
+            setExportCleaningLoading(false)
+        }
+    }
+
+    // 导出数据去重结果
+    const handleExportDeduplicateResult = async () => {
+        if (!taskId) {
+            uiMessage.error('任务ID不存在，无法导出')
+            return
+        }
+
+        setExportDeduplicateLoading(true)
+        try {
+            logger.info('开始导出数据去重结果', { taskId })
+            await WorkflowService.exportDeduplicateResult(taskId)
+            uiMessage.success('导出成功')
+            logger.info('数据去重结果导出成功', { taskId })
+        } catch (error) {
+            logger.error('导出数据去重结果失败', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('导出失败，请稍后重试')
+        } finally {
+            setExportDeduplicateLoading(false)
+        }
+    }
+
+    // 导出丢孤儿结果
+    const handleExportOrphanResult = async () => {
+        if (!taskId) {
+            uiMessage.error('任务ID不存在，无法导出')
+            return
+        }
+
+        setExportOrphanLoading(true)
+        try {
+            logger.info('开始导出丢孤儿结果', { taskId })
+            await WorkflowService.exportOrphanResult(taskId)
+            uiMessage.success('导出成功')
+            logger.info('丢孤儿结果导出成功', { taskId })
+        } catch (error) {
+            logger.error('导出丢孤儿结果失败', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('导出失败，请稍后重试')
+        } finally {
+            setExportOrphanLoading(false)
+        }
+    }
+
+    // 导出数据脱敏结果
+    const handleExportSensitiveResult = async () => {
+        if (!taskId) {
+            uiMessage.error('任务ID不存在，无法导出')
+            return
+        }
+
+        setExportSensitiveLoading(true)
+        try {
+            logger.info('开始导出数据脱敏结果', { taskId })
+            await WorkflowService.exportSensitiveResult(taskId)
+            uiMessage.success('导出成功')
+            logger.info('数据脱敏结果导出成功', { taskId })
+        } catch (error) {
+            logger.error('导出数据脱敏结果失败', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('导出失败，请稍后重试')
+        } finally {
+            setExportSensitiveLoading(false)
+        }
+    }
+
+    // 导出EMOI结果
+    const handleExportEmoiResult = async () => {
+        if (!taskId) {
+            uiMessage.error('任务ID不存在，无法导出')
+            return
+        }
+
+        setExportEmoiLoading(true)
+        try {
+            logger.info('开始导出EMOI结果', { taskId })
+            await WorkflowService.exportEmoiResult(taskId)
+            uiMessage.success('导出成功')
+            logger.info('EMOI结果导出成功', { taskId })
+        } catch (error) {
+            logger.error('导出EMOI结果失败', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.error('导出失败，请稍后重试')
+        } finally {
+            setExportEmoiLoading(false)
         }
     }
 
@@ -575,6 +822,18 @@ const WorkflowDetail: React.FC = () => {
         })
         setDeduplicateResultData([])
         setDeduplicateResultPagination({
+            current: 1,
+            pageSize: 20,
+            total: 0,
+        })
+        setEmpiResultData([])
+        setEmpiResultPagination({
+            current: 1,
+            pageSize: 20,
+            total: 0,
+        })
+        setEmoiResultData([])
+        setEmoiResultPagination({
             current: 1,
             pageSize: 20,
             total: 0,
@@ -889,17 +1148,86 @@ const WorkflowDetail: React.FC = () => {
                                         {step.step_status === 2 && 
                                          (step.node_type === WorkflowNodeType.DATA_CLEANSING ||
                                           step.node_type === WorkflowNodeType.DATA_DEDUPLICATION ||
+                                          step.node_type === WorkflowNodeType.EMPI_DEFINITION_DISTRIBUTION ||
+                                          step.node_type === WorkflowNodeType.EMOI_DEFINITION_DISTRIBUTION ||
                                           step.node_type === WorkflowNodeType.DATA_ORPHAN ||
                                           step.node_type === WorkflowNodeType.DATA_DESENSITIZATION) && (
-                                            <Button
-                                                type='link'
-                                                size='small'
-                                                icon={<EyeOutlined />}
-                                                onClick={() => handleViewResult(index)}
-                                                style={{ padding: 0, height: 'auto', marginTop: 8 }}
-                                            >
-                                                查看执行结果
-                                            </Button>
+                                            <Space style={{ marginTop: 8 }}>
+                                                <Button
+                                                    type='link'
+                                                    size='small'
+                                                    icon={<EyeOutlined />}
+                                                    onClick={() => handleViewResult(index)}
+                                                    style={{ padding: 0, height: 'auto' }}
+                                                >
+                                                    查看执行结果
+                                                </Button>
+                                                {/* 数据清洗步骤显示导出按钮 */}
+                                                {step.node_type === WorkflowNodeType.DATA_CLEANSING && (
+                                                    <Button
+                                                        type='link'
+                                                        size='small'
+                                                        icon={<DownloadOutlined />}
+                                                        onClick={handleExportCleaningResult}
+                                                        loading={exportCleaningLoading}
+                                                        style={{ padding: 0, height: 'auto' }}
+                                                    >
+                                                        导出执行结果
+                                                    </Button>
+                                                )}
+                                                {/* 数据去重步骤显示导出按钮 */}
+                                                {step.node_type === WorkflowNodeType.DATA_DEDUPLICATION && (
+                                                    <Button
+                                                        type='link'
+                                                        size='small'
+                                                        icon={<DownloadOutlined />}
+                                                        onClick={handleExportDeduplicateResult}
+                                                        loading={exportDeduplicateLoading}
+                                                        style={{ padding: 0, height: 'auto' }}
+                                                    >
+                                                        导出执行结果
+                                                    </Button>
+                                                )}
+                                                {/* EMOI步骤显示导出按钮 */}
+                                                {step.node_type === WorkflowNodeType.EMOI_DEFINITION_DISTRIBUTION && (
+                                                    <Button
+                                                        type='link'
+                                                        size='small'
+                                                        icon={<DownloadOutlined />}
+                                                        onClick={handleExportEmoiResult}
+                                                        loading={exportEmoiLoading}
+                                                        style={{ padding: 0, height: 'auto' }}
+                                                    >
+                                                        导出执行结果
+                                                    </Button>
+                                                )}
+                                                {/* 丢孤儿步骤显示导出按钮 */}
+                                                {step.node_type === WorkflowNodeType.DATA_ORPHAN && (
+                                                    <Button
+                                                        type='link'
+                                                        size='small'
+                                                        icon={<DownloadOutlined />}
+                                                        onClick={handleExportOrphanResult}
+                                                        loading={exportOrphanLoading}
+                                                        style={{ padding: 0, height: 'auto' }}
+                                                    >
+                                                        导出执行结果
+                                                    </Button>
+                                                )}
+                                                {/* 数据脱敏步骤显示导出按钮 */}
+                                                {step.node_type === WorkflowNodeType.DATA_DESENSITIZATION && (
+                                                    <Button
+                                                        type='link'
+                                                        size='small'
+                                                        icon={<DownloadOutlined />}
+                                                        onClick={handleExportSensitiveResult}
+                                                        loading={exportSensitiveLoading}
+                                                        style={{ padding: 0, height: 'auto' }}
+                                                    >
+                                                        导出执行结果
+                                                    </Button>
+                                                )}
+                                            </Space>
                                         )}
                                     </div>
                                 }
@@ -932,7 +1260,7 @@ const WorkflowDetail: React.FC = () => {
                         关闭
                     </Button>,
                 ]}
-                width={selectedStepResult?.stepIndex === 0 || selectedStepResult?.stepIndex === 1 || selectedStepResult?.stepIndex === 7 || selectedStepResult?.stepIndex === 8 ? 1200 : 600}
+                width={selectedStepResult?.stepIndex === 0 || selectedStepResult?.stepIndex === 1 || selectedStepResult?.stepIndex === 4 || selectedStepResult?.stepIndex === 5 || selectedStepResult?.stepIndex === 7 || selectedStepResult?.stepIndex === 8 ? 1200 : 600}
             >
                 {selectedStepResult && (
                     <div>
@@ -1059,6 +1387,122 @@ const WorkflowDetail: React.FC = () => {
                                             {deduplicateResultLoading
                                                 ? '加载中...'
                                                 : '暂无去重步骤结果'}
+                                        </div>
+                                    )}
+                                </Spin>
+                            </div>
+                        ) : selectedStepResult.stepIndex === 4 &&
+                          EXECUTION_STEPS[selectedStepResult.stepIndex]?.nodeType ===
+                              WorkflowNodeType.EMPI_DEFINITION_DISTRIBUTION ? (
+                            <div>
+                                <Text strong style={{ display: 'block', marginBottom: 16 }}>
+                                    EMPI发放结果：
+                                </Text>
+                                <Spin spinning={empiResultLoading}>
+                                    {empiResultData.length > 0 ? (
+                                        <JsonToTable
+                                            data={empiResultData}
+                                            columnMapping={{
+                                                id: 'ID',
+                                                patientName: '患者姓名',
+                                                patient_name: '患者姓名',
+                                                sexCode: '性别编码',
+                                                sex_code: '性别编码',
+                                                birthDate: '出生日期',
+                                                birth_date: '出生日期',
+                                                idNumber: '身份证号',
+                                                id_number: '身份证号',
+                                                phone: '电话',
+                                                hospitalNo: '住院号',
+                                                hospital_no: '住院号',
+                                                registrationNumber: '就诊号',
+                                                registration_number: '就诊号',
+                                                consulationType: '就诊类型',
+                                                consulation_type: '就诊类型',
+                                                empi: 'EMPI',
+                                                empiStatus: 'EMPI状态',
+                                                empi_status: 'EMPI状态',
+                                                address: '地址',
+                                            }}
+                                            tableProps={{
+                                                scroll: { y: 400 },
+                                                pagination: {
+                                                    current: empiResultPagination.current,
+                                                    pageSize: empiResultPagination.pageSize,
+                                                    total: empiResultPagination.total,
+                                                    showSizeChanger: true,
+                                                    showQuickJumper: true,
+                                                    showTotal: (total, range) =>
+                                                        `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`,
+                                                    onChange: handleEmpiResultPageChange,
+                                                    onShowSizeChange: handleEmpiResultPageChange,
+                                                },
+                                            }}
+                                        />
+                                    ) : (
+                                        <div
+                                            style={{
+                                                padding: 40,
+                                                textAlign: 'center',
+                                                color: '#999',
+                                            }}
+                                        >
+                                            {empiResultLoading
+                                                ? '加载中...'
+                                                : '暂无EMPI发放结果'}
+                                        </div>
+                                    )}
+                                </Spin>
+                            </div>
+                        ) : selectedStepResult.stepIndex === 5 &&
+                          EXECUTION_STEPS[selectedStepResult.stepIndex]?.nodeType ===
+                              WorkflowNodeType.EMOI_DEFINITION_DISTRIBUTION ? (
+                            <div>
+                                <Text strong style={{ display: 'block', marginBottom: 16 }}>
+                                    EMOI发放结果：
+                                </Text>
+                                <Spin spinning={emoiResultLoading}>
+                                    {emoiResultData.length > 0 ? (
+                                        <JsonToTable
+                                            data={emoiResultData}
+                                            columnMapping={{
+                                                id: 'ID',
+                                                batchId: '批次ID',
+                                                batch_id: '批次ID',
+                                                dataId: '数据ID',
+                                                data_id: '数据ID',
+                                                tableName: '表名',
+                                                table_name: '表名',
+                                                table: '表名',
+                                                registrationNumber: '就诊号',
+                                                registration_number: '就诊号',
+                                            }}
+                                            tableProps={{
+                                                scroll: { y: 400 },
+                                                pagination: {
+                                                    current: emoiResultPagination.current,
+                                                    pageSize: emoiResultPagination.pageSize,
+                                                    total: emoiResultPagination.total,
+                                                    showSizeChanger: true,
+                                                    showQuickJumper: true,
+                                                    showTotal: (total, range) =>
+                                                        `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`,
+                                                    onChange: handleEmoiResultPageChange,
+                                                    onShowSizeChange: handleEmoiResultPageChange,
+                                                },
+                                            }}
+                                        />
+                                    ) : (
+                                        <div
+                                            style={{
+                                                padding: 40,
+                                                textAlign: 'center',
+                                                color: '#999',
+                                            }}
+                                        >
+                                            {emoiResultLoading
+                                                ? '加载中...'
+                                                : '暂无EMOI发放结果'}
                                         </div>
                                     )}
                                 </Spin>

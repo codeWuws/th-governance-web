@@ -841,6 +841,8 @@ export interface DashboardStatisticsResponse {
 
 /** 患者索引记录 */
 export interface PatientEmpiRecord {
+    /** 患者ID */
+    id?: string
     /** 患者姓名 */
     patientName: string
     /** 性别代码 */
@@ -859,6 +861,8 @@ export interface PatientEmpiRecord {
     consulationType: string | null
     /** 患者主索引 */
     empi: string | null
+    /** 患者主索引状态 */
+    empiStatus?: number
     /** 地址 */
     address: string | null
     /** 科室名称 */
@@ -885,14 +889,22 @@ export interface PatientEmpiListParams {
     idNumber?: string
     /** 医院编号（可选） */
     hospitalNo?: string
+    /** 患者主索引（可选） */
+    empi?: string
 }
 
 /** 患者索引列表响应数据 */
 export interface PatientEmpiListData {
     /** 记录列表 */
     records: PatientEmpiRecord[]
-    /** 总条数（如果后端返回） */
-    total?: number
+    /** 总条数（字符串格式） */
+    total: string
+    /** 每页条数（字符串格式） */
+    size: string
+    /** 当前页码（字符串格式） */
+    current: string
+    /** 总页数（字符串格式） */
+    pages: string
 }
 
 /** 患者索引列表响应 */
@@ -1828,6 +1840,610 @@ export interface StatusDictSaveResponse {
 
 /** 状态字典删除响应 */
 export interface StatusDictDeleteResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data?: null
+}
+
+// ==================== 标准字典对照相关类型定义 ====================
+
+/** 标准字典对照分页查询参数 */
+export interface StandardDictPageParams {
+    /** 关键字段模糊查询 */
+    condition?: string
+    /** 页码，从1开始 */
+    pageNum: number
+    /** 每页大小 */
+    pageSize: number
+    /** 排序字段 */
+    sortField?: string
+    /** 排序顺序：asc | desc */
+    sortOrder?: 'asc' | 'desc'
+    /** 关键字 */
+    keyword?: string
+    /** 原始数据源：0-全部，1-HIS系统，2-EMR系统，3-LIS系统等 */
+    originSource?: number
+    /** 状态：0-禁用，1-启用 */
+    status?: number
+}
+
+/** 标准字典对照记录 */
+export interface StandardDictRecord {
+    /** 主键ID */
+    id: string
+    /** 标准名称 */
+    standardName: string
+    /** 标准数据集名称 */
+    standardDataSetName: string
+    /** 标准数据集内容 */
+    standardDataSetContent: string
+    /** 原始数据源：1-HIS系统，2-EMR系统，3-LIS系统等 */
+    originSource: number
+    /** 原始数据源名称 */
+    originSourceName: string
+    /** 原始表 */
+    originTable: string
+    /** 原始字段 */
+    originField: string
+    /** 原始数据集 */
+    originDataSet: string
+    /** 目标源 */
+    targetSource: string
+    /** 目标表 */
+    targetTable: string
+    /** 目标字段 */
+    targetField: string
+    /** 状态：0-禁用，1-启用 */
+    status: number
+    /** 状态名称 */
+    statusName?: string | null
+    /** 创建人 */
+    createBy?: string
+    /** 创建时间 */
+    createTime: string
+}
+
+/** 标准字典对照分页数据 */
+export interface StandardDictPageData {
+    /** 记录列表 */
+    records: StandardDictRecord[]
+    /** 总数 */
+    total: string
+    /** 每页大小 */
+    size: string
+    /** 当前页 */
+    current: string
+    /** 总页数 */
+    pages: string
+}
+
+/** 标准字典对照分页响应 */
+export interface StandardDictPageResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 分页数据 */
+    data: StandardDictPageData
+}
+
+/** 原始数据源选项 */
+export interface OriginSourceOption {
+    /** 选项值 */
+    value: string
+    /** 选项标签 */
+    label: string
+    /** 排序 */
+    sort: number
+}
+
+/** 原始数据源选项列表响应 */
+export interface OriginSourceOptionsResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 原始数据源选项列表 */
+    data: OriginSourceOption[]
+}
+
+/** 目标源选项 */
+export interface TargetSourceOption {
+    /** 选项值 */
+    value: string
+    /** 选项标签 */
+    label: string
+    /** 排序 */
+    sort: number
+}
+
+/** 目标源选项列表响应 */
+export interface TargetSourceOptionsResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 目标源选项列表 */
+    data: TargetSourceOption[]
+}
+
+/** 原始表选项 */
+export interface OriginTableOption {
+    /** 选项值 */
+    value: string
+    /** 选项标签 */
+    label: string
+    /** 排序 */
+    sort: number
+}
+
+/** 原始表选项列表响应 */
+export interface OriginTableOptionsResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 原始表选项列表 */
+    data: OriginTableOption[]
+}
+
+/** 目标表选项 */
+export interface TargetTableOption {
+    /** 选项值 */
+    value: string
+    /** 选项标签 */
+    label: string
+    /** 排序 */
+    sort: number
+}
+
+/** 目标表选项列表响应 */
+export interface TargetTableOptionsResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 目标表选项列表 */
+    data: TargetTableOption[]
+}
+
+/** 原始字段选项 */
+export interface OriginFieldOption {
+    /** 选项值 */
+    value: string
+    /** 选项标签 */
+    label: string
+    /** 排序 */
+    sort: number
+}
+
+/** 原始字段选项列表响应 */
+export interface OriginFieldOptionsResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 原始字段选项列表 */
+    data: OriginFieldOption[]
+}
+
+/** 目标字段选项 */
+export interface TargetFieldOption {
+    /** 选项值 */
+    value: string
+    /** 选项标签 */
+    label: string
+    /** 排序 */
+    sort: number
+}
+
+/** 目标字段选项列表响应 */
+export interface TargetFieldOptionsResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 目标字段选项列表 */
+    data: TargetFieldOption[]
+}
+
+/** 新增标准字典对照请求参数 */
+export interface AddStandardDictRequest {
+    /** 标准名称 */
+    standardName: string
+    /** 标准数据集名称 */
+    standardDataSetName: string
+    /** 标准数据集内容 */
+    standardDataSetContent: string
+    /** 原始数据源（数字） */
+    originSource: number
+    /** 原始数据源名称 */
+    originSourceName: string
+    /** 原始表 */
+    originTable: string
+    /** 原始字段 */
+    originField: string
+    /** 原始数据集 */
+    originDataSet: string
+    /** 目标源 */
+    targetSource: string
+    /** 目标表 */
+    targetTable: string
+    /** 目标字段 */
+    targetField: string
+    /** 状态：0-禁用，1-启用 */
+    status: number
+    /** 备注 */
+    remark?: string
+}
+
+/** 修改标准字典对照请求参数 */
+export interface UpdateStandardDictRequest {
+    /** 主键ID */
+    id: string
+    /** 标准名称 */
+    standardName: string
+    /** 标准数据集名称 */
+    standardDataSetName: string
+    /** 标准数据集内容 */
+    standardDataSetContent: string
+    /** 原始数据源（数字） */
+    originSource: number
+    /** 原始数据源名称 */
+    originSourceName: string
+    /** 原始表 */
+    originTable: string
+    /** 原始字段 */
+    originField: string
+    /** 原始数据集 */
+    originDataSet: string
+    /** 目标源 */
+    targetSource: string
+    /** 目标表 */
+    targetTable: string
+    /** 目标字段 */
+    targetField: string
+    /** 状态：0-禁用，1-启用 */
+    status: number
+    /** 备注 */
+    remark?: string
+}
+
+/** 标准字典对照保存响应 */
+export interface StandardDictSaveResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data?: null
+}
+
+/** 标准字典对照删除响应 */
+export interface StandardDictDeleteResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data?: null
+}
+
+// ==================== 主索引生成规则相关类型定义 ====================
+
+/** 主索引生成规则分页查询参数 */
+export interface PrimaryIndexRulePageParams {
+    /** 关键字段模糊查询 */
+    condition?: string
+    /** 页码，从1开始 */
+    pageNum: number
+    /** 每页大小 */
+    pageSize: number
+    /** 排序字段 */
+    sortField?: string
+    /** 排序顺序：asc | desc */
+    sortOrder?: 'asc' | 'desc'
+    /** 关键字 */
+    keyword?: string
+    /** 状态：0-禁用，1-启用 */
+    status?: number
+}
+
+/** 主索引生成规则记录 */
+export interface PrimaryIndexRuleRecord {
+    /** 主键ID */
+    id: string
+    /** 规则名称 */
+    ruleName: string
+    /** 规则编码 */
+    ruleCode: string
+    /** 基础表 */
+    baseTable: string
+    /** 基础表名称 */
+    baseTableName?: string
+    /** 基础字段 */
+    baseFields: string
+    /** 基础字段名称 */
+    baseFieldsName?: string
+    /** 描述 */
+    description?: string
+    /** 状态：0-禁用，1-启用 */
+    status: number
+    /** 状态名称 */
+    statusName?: string
+    /** 创建人 */
+    createBy?: string
+    /** 创建时间 */
+    createTime: string
+    /** 更新人 */
+    updateBy?: string
+    /** 更新时间 */
+    updateTime?: string
+    /** 备注 */
+    remark?: string
+    /** 删除标志 */
+    delFlag?: number
+}
+
+/** 主索引生成规则分页数据 */
+export interface PrimaryIndexRulePageData {
+    /** 记录列表 */
+    records: PrimaryIndexRuleRecord[]
+    /** 总数 */
+    total: string
+    /** 每页大小 */
+    size: string
+    /** 当前页 */
+    current: string
+    /** 总页数 */
+    pages: string
+}
+
+/** 主索引生成规则分页响应 */
+export interface PrimaryIndexRulePageResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 分页数据 */
+    data: PrimaryIndexRulePageData
+}
+
+/** 依据表选项 */
+export interface BaseTableOption {
+    /** 选项值 */
+    value: string
+    /** 选项标签 */
+    label: string
+    /** 排序 */
+    sort: number
+}
+
+/** 依据表选项列表响应 */
+export interface BaseTableOptionsResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 依据表选项列表 */
+    data: BaseTableOption[]
+}
+
+/** 字段选项 */
+export interface BaseFieldOption {
+    /** 选项值 */
+    value: string
+    /** 选项标签 */
+    label: string
+    /** 排序 */
+    sort: number
+}
+
+/** 字段选项列表响应 */
+export interface BaseFieldOptionsResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 字段选项列表 */
+    data: BaseFieldOption[]
+}
+
+/** 新增主索引生成规则请求 */
+export interface AddPrimaryIndexRuleRequest {
+    /** 规则名称 */
+    ruleName: string
+    /** 规则编码 */
+    ruleCode: string
+    /** 基础表 */
+    baseTable: string
+    /** 基础字段（逗号分隔的字符串） */
+    baseFields: string
+    /** 描述 */
+    description?: string
+    /** 状态：0-禁用，1-启用 */
+    status: number
+    /** 备注 */
+    remark?: string
+}
+
+/** 更新主索引生成规则请求 */
+export interface UpdatePrimaryIndexRuleRequest {
+    /** 主键ID */
+    id: string
+    /** 规则名称 */
+    ruleName: string
+    /** 规则编码 */
+    ruleCode: string
+    /** 基础表 */
+    baseTable: string
+    /** 基础字段（逗号分隔的字符串） */
+    baseFields: string
+    /** 描述 */
+    description?: string
+    /** 状态：0-禁用，1-启用 */
+    status: number
+    /** 备注 */
+    remark?: string
+}
+
+/** 主索引生成规则保存响应 */
+export interface PrimaryIndexRuleSaveResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data?: null
+}
+
+// ==================== 主索引配置相关类型定义 ====================
+
+/** 主索引配置分页查询参数 */
+export interface MasterIndexConfigPageParams {
+    /** 关键字段模糊查询 */
+    condition?: string
+    /** 页码，从1开始 */
+    pageNum: number
+    /** 每页大小 */
+    pageSize: number
+    /** 排序字段 */
+    sortField?: string
+    /** 排序顺序：asc | desc */
+    sortOrder?: 'asc' | 'desc'
+    /** 配置名称 */
+    configName?: string
+    /** 规则编码 */
+    ruleCode?: string
+    /** 生成方式：1-固定生成，2-随机生成 */
+    generateType?: number
+    /** 状态：0-禁用，1-启用 */
+    status?: number
+}
+
+/** 主索引配置记录 */
+export interface MasterIndexConfigRecord {
+    /** 主键ID */
+    id: string
+    /** 配置名称 */
+    configName: string
+    /** 规则编码 */
+    ruleCode: string
+    /** 生成方式：1-固定生成，2-随机生成 */
+    generateType: number
+    /** 生成方式名称 */
+    generateTypeName: string
+    /** 固定前缀（固定生成时使用） */
+    prefix: string | null
+    /** 长度 */
+    length: number
+    /** 配置信息 */
+    configInfo: string
+    /** 描述 */
+    description: string
+    /** 状态：0-禁用，1-启用 */
+    status: number
+    /** 状态名称 */
+    statusName: string
+    /** 创建人 */
+    createBy: string
+    /** 创建时间 */
+    createTime: string
+    /** 更新人 */
+    updateBy: string | null
+    /** 更新时间 */
+    updateTime: string
+    /** 备注 */
+    remark: string | null
+    /** 删除标志 */
+    delFlag: number
+}
+
+/** 主索引配置分页数据 */
+export interface MasterIndexConfigPageData {
+    /** 记录列表 */
+    records: MasterIndexConfigRecord[]
+    /** 总数 */
+    total: string
+    /** 每页大小 */
+    size: string
+    /** 当前页 */
+    current: string
+    /** 总页数 */
+    pages: string
+}
+
+/** 主索引配置分页响应 */
+export interface MasterIndexConfigPageResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 分页数据 */
+    data: MasterIndexConfigPageData
+}
+
+/** 新增主索引配置请求 */
+export interface AddMasterIndexConfigRequest {
+    /** 配置名称 */
+    configName: string
+    /** 规则编码 */
+    ruleCode: string
+    /** 生成方式：1-固定生成，2-随机生成 */
+    generateType: number
+    /** 固定前缀（固定生成时使用） */
+    prefix?: string
+    /** 长度 */
+    length: number
+    /** 配置信息 */
+    configInfo?: string
+    /** 描述 */
+    description?: string
+    /** 状态：0-禁用，1-启用 */
+    status: number
+    /** 备注 */
+    remark?: string
+}
+
+/** 更新主索引配置请求 */
+export interface UpdateMasterIndexConfigRequest {
+    /** 主键ID */
+    id: string
+    /** 配置名称 */
+    configName: string
+    /** 规则编码 */
+    ruleCode: string
+    /** 生成方式：1-固定生成，2-随机生成 */
+    generateType: number
+    /** 固定前缀（固定生成时使用） */
+    prefix?: string
+    /** 长度 */
+    length: number
+    /** 配置信息 */
+    configInfo?: string
+    /** 描述 */
+    description?: string
+    /** 状态：0-禁用，1-启用 */
+    status: number
+    /** 备注 */
+    remark?: string
+}
+
+/** 主索引配置保存响应 */
+export interface MasterIndexConfigSaveResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 响应数据 */
+    data?: null
+}
+
+/** 主索引配置删除响应 */
+export interface MasterIndexConfigDeleteResponse {
     /** 响应状态码 */
     code: number
     /** 响应消息 */

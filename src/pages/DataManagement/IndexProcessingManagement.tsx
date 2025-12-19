@@ -49,17 +49,19 @@ const MergeHistoryDialog: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
     
-    // 搜索条件（去掉关键字模糊查询）
+    // 搜索条件
     const [searchName, setSearchName] = useState('')
     const [searchSexCode, setSearchSexCode] = useState<string>('')
     const [searchIdNumber, setSearchIdNumber] = useState('')
     const [searchHospitalNo, setSearchHospitalNo] = useState('')
+    const [searchEmpi, setSearchEmpi] = useState('')
     
     // 实际用于搜索的条件
     const [activeName, setActiveName] = useState('')
     const [activeSexCode, setActiveSexCode] = useState<string>('')
     const [activeIdNumber, setActiveIdNumber] = useState('')
     const [activeHospitalNo, setActiveHospitalNo] = useState('')
+    const [activeEmpi, setActiveEmpi] = useState('')
 
     // 获取合并历史数据
     const fetchHistoryData = async () => {
@@ -74,6 +76,7 @@ const MergeHistoryDialog: React.FC = () => {
                 sexCode?: string
                 idNumber?: string
                 hospitalNo?: string
+                empi?: string
             } = {
                 pageNum: currentPage,
                 pageSize: pageSize,
@@ -93,6 +96,9 @@ const MergeHistoryDialog: React.FC = () => {
             }
             if (activeHospitalNo.trim()) {
                 params.hospitalNo = activeHospitalNo.trim()
+            }
+            if (activeEmpi.trim()) {
+                params.empi = activeEmpi.trim()
             }
 
             const response = await dataManagementService.getPatientEmpiDistributionRecordList(params)
@@ -121,7 +127,7 @@ const MergeHistoryDialog: React.FC = () => {
     // 当分页或搜索条件变化时，重新获取数据
     useEffect(() => {
         fetchHistoryData()
-    }, [currentPage, pageSize, activeName, activeSexCode, activeIdNumber, activeHospitalNo])
+    }, [currentPage, pageSize, activeName, activeSexCode, activeIdNumber, activeHospitalNo, activeEmpi])
 
     // 处理搜索
     const handleSearch = () => {
@@ -129,6 +135,7 @@ const MergeHistoryDialog: React.FC = () => {
         setActiveSexCode(searchSexCode)
         setActiveIdNumber(searchIdNumber)
         setActiveHospitalNo(searchHospitalNo)
+        setActiveEmpi(searchEmpi)
         setCurrentPage(1)
     }
 
@@ -138,10 +145,12 @@ const MergeHistoryDialog: React.FC = () => {
         setSearchSexCode('')
         setSearchIdNumber('')
         setSearchHospitalNo('')
+        setSearchEmpi('')
         setActiveName('')
         setActiveSexCode('')
         setActiveIdNumber('')
         setActiveHospitalNo('')
+        setActiveEmpi('')
         setCurrentPage(1)
     }
 
@@ -324,9 +333,17 @@ const MergeHistoryDialog: React.FC = () => {
                                 onPressEnter={handleSearch}
                                 style={{ width: 150 }}
                             />
+                            <Input
+                                placeholder='患者主索引'
+                                allowClear
+                                value={searchEmpi}
+                                onChange={e => setSearchEmpi(e.target.value)}
+                                onPressEnter={handleSearch}
+                                style={{ width: 150 }}
+                            />
                             <Button
                                 onClick={handleClearSearch}
-                                disabled={!searchName && !searchSexCode && !searchIdNumber && !searchHospitalNo}
+                                disabled={!searchName && !searchSexCode && !searchIdNumber && !searchHospitalNo && !searchEmpi}
                             >
                                 清空
                             </Button>
@@ -880,11 +897,12 @@ const IndexProcessingManagement: React.FC = () => {
     const [loading, setLoading] = useState(false)
     const [patientRecords, setPatientRecords] = useState<PatientEmpiRecord[]>([])
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
-    // 四个独立的搜索条件
+    // 五个独立的搜索条件
     const [searchName, setSearchName] = useState('')
     const [searchSexCode, setSearchSexCode] = useState<string>('')
     const [searchIdNumber, setSearchIdNumber] = useState('')
     const [searchHospitalNo, setSearchHospitalNo] = useState('')
+    const [searchEmpi, setSearchEmpi] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
     const [total, setTotal] = useState(0)
@@ -898,6 +916,7 @@ const IndexProcessingManagement: React.FC = () => {
     const [activeSearchSexCode, setActiveSearchSexCode] = useState<string>('')
     const [activeSearchIdNumber, setActiveSearchIdNumber] = useState('')
     const [activeSearchHospitalNo, setActiveSearchHospitalNo] = useState('')
+    const [activeSearchEmpi, setActiveSearchEmpi] = useState('')
 
     // 获取数据
     const fetchData = async () => {
@@ -914,6 +933,7 @@ const IndexProcessingManagement: React.FC = () => {
                 sexCode?: string
                 idNumber?: string
                 hospitalNo?: string
+                empi?: string
             } = {
                 pageNum: currentPage,
                 pageSize: pageSize,
@@ -934,6 +954,9 @@ const IndexProcessingManagement: React.FC = () => {
             if (activeSearchHospitalNo.trim()) {
                 params.hospitalNo = activeSearchHospitalNo.trim()
             }
+            if (activeSearchEmpi.trim()) {
+                params.empi = activeSearchEmpi.trim()
+            }
 
             const response = await dataManagementService.getPatientEmpiList(params)
 
@@ -941,25 +964,16 @@ const IndexProcessingManagement: React.FC = () => {
                 const records = response.data.records || []
                 setPatientRecords(records)
                 
-                // 处理total字段：如果后端返回了total，使用它；否则根据当前页数据估算
-                // 注意：如果后端没有返回total，分页可能不准确，建议后端返回total字段
-                if (response.data.total !== undefined && response.data.total !== null) {
-                    setTotal(response.data.total)
-                } else {
-                    // 如果当前页数据量等于页大小，可能还有更多数据，设置为当前页数*页大小+1
-                    // 否则设置为当前数据量
-                    const estimatedTotal = records.length === pageSize 
-                        ? currentPage * pageSize + 1 
-                        : (currentPage - 1) * pageSize + records.length
-                    setTotal(estimatedTotal)
-                    logger.warn('后端未返回total字段，使用估算值', { estimatedTotal })
-                }
+                // 处理total字段：后端返回的是字符串格式，需要转换为数字
+                const totalNum = parseInt(response.data.total || '0', 10)
+                setTotal(totalNum)
                 
                 logger.info('成功获取患者索引列表', {
                     recordsCount: records.length,
-                    total: response.data.total,
-                    currentPage,
-                    pageSize,
+                    total: totalNum,
+                    currentPage: response.data.current,
+                    pageSize: response.data.size,
+                    pages: response.data.pages,
                 })
             } else {
                 uiMessage.error(response.msg || '获取患者数据失败')
@@ -976,7 +990,7 @@ const IndexProcessingManagement: React.FC = () => {
     // 当分页变化时，重新获取数据
     useEffect(() => {
         fetchData()
-    }, [currentPage, pageSize, activeSearchName, activeSearchSexCode, activeSearchIdNumber, activeSearchHospitalNo])
+    }, [currentPage, pageSize, activeSearchName, activeSearchSexCode, activeSearchIdNumber, activeSearchHospitalNo, activeSearchEmpi])
 
     // 处理搜索按钮点击
     const handleSearch = () => {
@@ -985,6 +999,7 @@ const IndexProcessingManagement: React.FC = () => {
         setActiveSearchSexCode(searchSexCode)
         setActiveSearchIdNumber(searchIdNumber)
         setActiveSearchHospitalNo(searchHospitalNo)
+        setActiveSearchEmpi(searchEmpi)
         setCurrentPage(1) // 重置到第一页
     }
 
@@ -994,11 +1009,13 @@ const IndexProcessingManagement: React.FC = () => {
         setSearchSexCode('')
         setSearchIdNumber('')
         setSearchHospitalNo('')
+        setSearchEmpi('')
         // 同时清空实际搜索条件并触发搜索
         setActiveSearchName('')
         setActiveSearchSexCode('')
         setActiveSearchIdNumber('')
         setActiveSearchHospitalNo('')
+        setActiveSearchEmpi('')
         setCurrentPage(1)
     }
 
@@ -1113,17 +1130,17 @@ const IndexProcessingManagement: React.FC = () => {
                         throw new Error('患者记录为空')
                     }
                     return {
+                        id: record.id || '',
                         patientName: record.patientName?.trim() || '',
                         sexCode: record.sexCode?.trim() || '',
                         birthDate: record.birthDate?.trim() || '',
                         idNumber: record.idNumber?.trim() || '',
                         phone: record.phone?.trim() || '',
                         hospitalNo: record.hospitalNo?.trim() || '',
-                        registrationNumber: record.registrationNumber?.trim() || '',
-                        consulationType: record.consulationType?.trim() || '',
                         address: record.address?.trim() || '',
-                        deptName: record.deptName?.trim() || '',
                         selected: index === 0, // 第一个患者（基础患者）标记为选中
+                        empi: record.empi?.trim() || '',
+                        empiStatus: record.empiStatus ?? 0,
                     }
                 })
 
@@ -1423,9 +1440,17 @@ const IndexProcessingManagement: React.FC = () => {
                                     onPressEnter={handleSearch}
                                     style={{ width: 150 }}
                                 />
+                                <Input
+                                    placeholder='患者主索引'
+                                    allowClear
+                                    value={searchEmpi}
+                                    onChange={e => setSearchEmpi(e.target.value)}
+                                    onPressEnter={handleSearch}
+                                    style={{ width: 150 }}
+                                />
                                 <Button
                                     onClick={handleClearSearch}
-                                    disabled={!searchName && !searchSexCode && !searchIdNumber && !searchHospitalNo}
+                                    disabled={!searchName && !searchSexCode && !searchIdNumber && !searchHospitalNo && !searchEmpi}
                                 >
                                     清空
                                 </Button>
