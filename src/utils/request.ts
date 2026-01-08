@@ -71,12 +71,15 @@ const handleApiError = (error: AxiosError): Promise<never> => {
 
     const { status, data } = response
 
-    // 401状态码特殊处理：清除本地凭证
+    // 401状态码特殊处理：清除本地凭证并跳转到登录页
     if (status === 401) {
-        // 未授权：清除本地凭证，但不进行路由跳转，交由调用方自行处理
-        // 说明：当前项目没有 /login 页面，且用户期望在错误时不跳转页面
+        // 清除本地凭证
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
+        // 跳转到登录页（避免循环跳转，只在非登录页时跳转）
+        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+            window.location.href = '/dataflow/login'
+        }
     }
 
     // 所有非200状态码统一处理：优先返回后端提供的msg

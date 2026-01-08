@@ -1,0 +1,83 @@
+.loginContainer {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 20px;
+}
+
+.loginContent {
+    width: 100%;
+    max-width: 420px;
+}
+
+.loginCard {
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+}
+
+.logoSection {
+    text-align: center;
+    margin-bottom: 32px;
+    padding-top: 8px;
+}
+
+.logo {
+    font-size: 28px;
+    font-weight: 600;
+    color: #1890ff;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+}
+
+.subtitle {
+    font-size: 14px;
+    color: #8c8c8c;
+}
+
+.loginForm {
+    margin-top: 8px;
+}
+
+.loginButton {
+    height: 44px;
+    font-size: 16px;
+    font-weight: 500;
+    border-radius: 6px;
+    margin-top: 8px;
+}
+
+.testAccounts {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.testAccountsTitle {
+    display: block;
+    font-size: 12px;
+    margin-bottom: 12px;
+    color: #8c8c8c;
+}
+
+.accountList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.accountList :global(.ant-btn-link) {
+    padding: 0;
+    height: auto;
+    font-size: 13px;
+    text-align: left;
+    color: #1890ff;
+}
+
+.accountList :global(.ant-btn-link:hover) {
+    color: #40a9ff;
+}
+
+

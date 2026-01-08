@@ -20,7 +20,6 @@ import {
     MenuProps,
     Tabs,
     Alert,
-    Spin,
 } from 'antd'
 import type { DataNode } from 'antd/es/tree'
 import {
@@ -3549,9 +3548,8 @@ const mockTables: Record<string, TableInfo> = {
 type ViewMode = 'empty' | 'category' | 'tableFields'
 
 const DataAssetManagement: React.FC = () => {
-    // 根据版本决定初始数据：开发版本使用空数组，演示版本使用模拟数据
-    const [dataSources, setDataSources] = useState<DataSource[]>(isDevVersion() ? [] : mockDataSources)
-    const [categories, setCategories] = useState<AssetCategory[]>(isDevVersion() ? [] : mockCategories)
+    const [dataSources, setDataSources] = useState<DataSource[]>(mockDataSources)
+    const [categories, setCategories] = useState<AssetCategory[]>(mockCategories)
     const [selectedKeys, setSelectedKeys] = useState<React.Key[]>([])
     const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([])
     const [searchText, setSearchText] = useState('')
@@ -3582,9 +3580,10 @@ const DataAssetManagement: React.FC = () => {
         tableType: string
         engine: string
     }>>([])
-    const [contentLoading, setContentLoading] = useState(false) // 查看表和查看字段公用一个loading
+    const [tableListLoading, setTableListLoading] = useState(false)
     const [databaseOptions, setDatabaseOptions] = useState<DatabaseOption[]>([])
     const [databaseOptionsLoading, setDatabaseOptionsLoading] = useState(false)
+    const [columnDetailsLoading, setColumnDetailsLoading] = useState(false)
     const [tableInfoList, setTableInfoList] = useState<TableInfoItem[]>([])
     const [tableInfoLoading, setTableInfoLoading] = useState(false)
     const [columnDetailsData, setColumnDetailsData] = useState<{
@@ -3983,7 +3982,7 @@ const DataAssetManagement: React.FC = () => {
         }
 
         try {
-            setContentLoading(true)
+            setTableListLoading(true)
             // 先清空列表，避免显示旧数据
             setTableList([])
             const response = await dataManagementService.getAssetTableList(categoryId)
@@ -4030,7 +4029,7 @@ const DataAssetManagement: React.FC = () => {
             message.error('加载表列表失败，请稍后重试')
             setTableList([])
         } finally {
-            setContentLoading(false)
+            setTableListLoading(false)
         }
     }, [])
 
@@ -4167,7 +4166,7 @@ const DataAssetManagement: React.FC = () => {
                             loadTableList(cat.id)
                         } else {
                             // 演示版本：使用mock数据，添加loading效果
-                            setContentLoading(true)
+                            setTableListLoading(true)
                             setTableList([])
                             // 模拟异步加载
                             setTimeout(() => {
@@ -4188,7 +4187,7 @@ const DataAssetManagement: React.FC = () => {
                                         }
                                     })
                                 )
-                                setContentLoading(false)
+                                setTableListLoading(false)
                             }, 300)
                         }
                     } else if (node.nodeType === 'dataSource') {
@@ -4621,7 +4620,7 @@ const DataAssetManagement: React.FC = () => {
         if (isDevVersion()) {
             // 开发版本：调用接口获取字段详情
             try {
-                setContentLoading(true)
+                setColumnDetailsLoading(true)
                 const response = await dataManagementService.getColumnDetails({
                     id: selectedCategory.id,
                     tableName: tableName,
@@ -4664,11 +4663,11 @@ const DataAssetManagement: React.FC = () => {
                 console.error('获取字段详情失败:', error)
                 message.error(error instanceof Error ? error.message : '获取字段详情失败，请稍后重试')
             } finally {
-                setContentLoading(false)
+                setColumnDetailsLoading(false)
             }
         } else {
             // 演示版本：使用mock数据，添加loading效果
-            setContentLoading(true)
+            setColumnDetailsLoading(true)
             // 模拟异步加载
             setTimeout(() => {
                 const tableInfo = mockTables[tableName]
@@ -4676,7 +4675,7 @@ const DataAssetManagement: React.FC = () => {
                     setSelectedTable(tableInfo)
                     setViewMode('tableFields')
                 }
-                setContentLoading(false)
+                setColumnDetailsLoading(false)
             }, 300)
         }
     }
@@ -4904,20 +4903,19 @@ const DataAssetManagement: React.FC = () => {
                         </div>
                         <div className={styles.infoSection}>
                             <div className={styles.sectionTitle}>字段列表 ({selectedTable.fields.length})</div>
-                            <Spin spinning={contentLoading}>
-                                <Table
-                                    className={styles.infoTable}
-                                    dataSource={selectedTable.fields}
-                                    columns={columns}
-                                    rowKey='name'
-                                    pagination={false}
-                                    size='small'
-                                    scroll={{ 
-                                        x: 800,
-                                        y: 500, // 设置表格高度，超出部分显示滚动条
-                                    }}
-                                />
-                            </Spin>
+                            <Table
+                                className={styles.infoTable}
+                                dataSource={selectedTable.fields}
+                                columns={columns}
+                                rowKey='name'
+                                pagination={false}
+                                size='small'
+                                loading={columnDetailsLoading}
+                                scroll={{ 
+                                    x: 800,
+                                    y: 'calc(100vh - 550px)', // 自适应高度，根据视口高度计算（预留头部、基本信息、标题等空间）
+                                }}
+                            />
                         </div>
                     </div>
                 </>
@@ -4951,11 +4949,11 @@ const DataAssetManagement: React.FC = () => {
                                     label: `表 (${isDevVersion() ? tableList.length : cat.tables.length})`,
                                     children: (
                                         <div className={styles.infoSection}>
-                                            <Spin spinning={contentLoading}>
-                                                <Table
-                                                    className={styles.infoTable}
-                                                    dataSource={tableList}
-                                                    columns={[
+                                            <Table
+                                                className={styles.infoTable}
+                                                dataSource={tableList}
+                                                loading={tableListLoading}
+                                                columns={[
                                                     { 
                                                         title: '表名', 
                                                         dataIndex: 'name', 
@@ -5024,7 +5022,10 @@ const DataAssetManagement: React.FC = () => {
                                                 ]}
                                                 pagination={false}
                                                 size='small'
-                                                scroll={{ x: 1200 }}
+                                                scroll={{ 
+                                                    x: 1200,
+                                                    y: 'calc(100vh - 380px)', // 自适应高度，根据视口高度计算（预留头部、标签页等空间）
+                                                }}
                                                 onRow={(record) => ({
                                                     onClick: () => {
                                                         handleTableRowClick(record.name)
@@ -5034,7 +5035,6 @@ const DataAssetManagement: React.FC = () => {
                                                     },
                                                 })}
                                             />
-                                            </Spin>
                                         </div>
                                     ),
                                 },

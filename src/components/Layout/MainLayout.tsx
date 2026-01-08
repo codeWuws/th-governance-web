@@ -4,6 +4,7 @@ import { Outlet } from 'react-router-dom'
 import Breadcrumb from '../Breadcrumb'
 import TabBar from '../TabBar'
 import Sidebar from './Sidebar'
+import UserInfo from './UserInfo'
 
 const { Content } = Layout
 
@@ -13,6 +14,8 @@ const MainLayout: React.FC = () => {
         token: { colorBgContainer, borderRadiusLG },
     } = theme.useToken()
 
+    // 注意：用户状态恢复逻辑已移至 ProtectedRoute 组件中统一处理
+
     const handleToggle = () => {
         setCollapsed(!collapsed)
     }
@@ -21,7 +24,13 @@ const MainLayout: React.FC = () => {
         <Layout style={{ minHeight: '100vh', position: 'relative' }}>
             <Sidebar collapsed={collapsed} onToggle={handleToggle} />
 
-            <Layout style={{ marginLeft: collapsed ? 80 : 256, transition: 'margin-left 0.2s' }}>
+            <Layout
+                style={{
+                    marginLeft: collapsed ? 80 : 256,
+                    marginTop: 0,
+                    transition: 'margin-left 0.2s',
+                }}
+            >
                 <Content
                     style={{
                         margin: '0 16px 24px',
@@ -43,9 +52,11 @@ const MainLayout: React.FC = () => {
                             minHeight: '52px',
                             display: 'flex',
                             alignItems: 'center',
+                            justifyContent: 'space-between',
                         }}
                     >
                         <Breadcrumb />
+                        <UserInfo />
                     </div>
                     <div style={{ padding: '0 16px', marginTop: 12, marginBottom: 8 }}>
                         <TabBar />

@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "medical-terminology": {
+      "command": "uvx",
+      "args": ["medical-terminology-mcp@latest"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": ["validate_medical_term", "suggest_medical_term"]
+    },
+    "data-governance": {
+      "command": "uvx", 
+      "args": ["data-governance-mcp@latest"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": ["validate_data_quality", "generate_governance_report"]
+    }
+  }
+}

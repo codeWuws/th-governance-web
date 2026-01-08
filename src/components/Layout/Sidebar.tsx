@@ -307,6 +307,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
                 bottom: 0,
                 background: '#fff',
                 borderRight: '1px solid #f0f0f0',
+                zIndex: 999,
             }}
         >
             <div

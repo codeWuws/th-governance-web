@@ -763,9 +763,130 @@ const masterIndexConfigMockProvider = {
 }
 
 /**
+ * 认证模块模拟数据
+ */
+const authMockProvider = {
+    getMockData: async (config: AxiosRequestConfig): Promise<AxiosResponse> => {
+        const url = config.url || ''
+        
+        // 登录接口
+        if (url.includes('/api/auth/login') && config.method?.toUpperCase() === 'POST') {
+            const data = config.data as { username?: string; password?: string } || {}
+            const username = data.username || ''
+            const password = data.password || ''
+            
+            // 模拟账号验证
+            const mockAccounts: Record<string, { password: string; user: any }> = {
+                admin: {
+                    password: '123456',
+                    user: {
+                        id: 1,
+                        username: 'admin',
+                        email: 'admin@example.com',
+                        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
+                        role: 'admin',
+                        createdAt: new Date().toISOString(),
+                    },
+                },
+                doctor: {
+                    password: '123456',
+                    user: {
+                        id: 2,
+                        username: 'doctor',
+                        email: 'doctor@example.com',
+                        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=doctor',
+                        role: 'user',
+                        createdAt: new Date().toISOString(),
+                    },
+                },
+                researcher: {
+                    password: '123456',
+                    user: {
+                        id: 3,
+                        username: 'researcher',
+                        email: 'researcher@example.com',
+                        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=researcher',
+                        role: 'user',
+                        createdAt: new Date().toISOString(),
+                    },
+                },
+            }
+            
+            const account = mockAccounts[username]
+            
+            if (account && account.password === password) {
+                const token = `mock_jwt_token_${username}_${Date.now()}`
+                return createMockResponse({
+                    token,
+                    refreshToken: `mock_refresh_token_${username}_${Date.now()}`,
+                    user: account.user,
+                })
+            } else {
+                return createMockResponse(
+                    {
+                        code: 401,
+                        msg: '用户名或密码错误',
+                        data: null,
+                    },
+                    401,
+                    'Unauthorized'
+                )
+            }
+        }
+        
+        // 获取当前用户信息
+        if (url.includes('/api/auth/me') && config.method?.toUpperCase() === 'GET') {
+            // 从token中解析用户名（简化处理）
+            const token = config.headers?.Authorization?.toString().replace('Bearer ', '') || ''
+            const usernameMatch = token.match(/mock_jwt_token_(\w+)_/)
+            const username = usernameMatch ? usernameMatch[1] : 'admin'
+            
+            const mockUsers: Record<string, any> = {
+                admin: {
+                    id: 1,
+                    username: 'admin',
+                    email: 'admin@example.com',
+                    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
+                    role: 'admin',
+                    createdAt: new Date().toISOString(),
+                },
+                doctor: {
+                    id: 2,
+                    username: 'doctor',
+                    email: 'doctor@example.com',
+                    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=doctor',
+                    role: 'user',
+                    createdAt: new Date().toISOString(),
+                },
+                researcher: {
+                    id: 3,
+                    username: 'researcher',
+                    email: 'researcher@example.com',
+                    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=researcher',
+                    role: 'user',
+                    createdAt: new Date().toISOString(),
+                },
+            }
+            
+            return createMockResponse(mockUsers[username] || mockUsers.admin)
+        }
+        
+        // 登出接口
+        if (url.includes('/api/auth/logout') && config.method?.toUpperCase() === 'POST') {
+            return createMockResponse(null)
+        }
+        
+        throw new Error(`未实现的模拟数据: ${url}`)
+    },
+}
+
+/**
  * 注册所有模拟数据提供者
  */
 export const registerAllMockProviders = (): void => {
+    // 注册认证模块
+    registerMockData('/api/auth', authMockProvider)
+    
     // 注册仪表盘模块
     registerMockData('/dashboard', dashboardMockProvider)
     registerMockData('/task/log/page', dashboardMockProvider)

@@ -1,0 +1,22 @@
+{
+  "project": {
+    "name": "医学数据治理质控平台",
+    "type": "medical-data-governance",
+    "version": "0.0.1"
+  },
+  "development": {
+    "autoFormat": true,
+    "strictTypeCheck": true,
+    "medicalDataValidation": true
+  },
+  "codeGeneration": {
+    "componentTemplate": "medical-component",
+    "serviceTemplate": "medical-service",
+    "testTemplate": "medical-test"
+  },
+  "compliance": {
+    "dataPrivacy": "HIPAA",
+    "medicalStandards": ["HL7", "FHIR"],
+    "auditLogging": true
+  }
+}

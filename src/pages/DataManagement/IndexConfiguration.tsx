@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
     Alert,
     Card,
@@ -17,9 +17,7 @@ import {
     Descriptions,
     Switch,
     InputNumber,
-    Radio,
 } from 'antd'
-import type { TablePaginationConfig } from 'antd'
 import {
     PlusOutlined,
     EditOutlined,
@@ -27,170 +25,251 @@ import {
     SearchOutlined,
     ReloadOutlined,
     EyeOutlined,
-    ImportOutlined,
-    ExportOutlined,
-    DownloadOutlined,
 } from '@ant-design/icons'
-import { useDebounce } from '../../hooks/useDebounce'
-import { exportToExcel, importFromExcel, downloadExcelTemplate } from '../../utils/excel'
-import { dataManagementService } from '../../services/dataManagementService'
-import type { UploadProps } from 'antd'
-import type { MasterIndexConfigRecord } from '../../types'
-import { Upload } from 'antd'
-import { isDevVersion, isDemoVersion } from '../../utils/versionControl'
+import { dataManagementService } from '@/services/dataManagementService'
+import type {
+    MasterIndexConfigRecord,
+    MasterIndexConfigPageParams,
+    AddMasterIndexConfigRequest,
+    UpdateMasterIndexConfigRequest,
+} from '@/types'
 
 const { Title } = Typography
-const { Search } = Input
 const { Option } = Select
 const { TextArea } = Input
 
-// 生成方式类型
-type GenerationType = 1 | 2 // 1-固定生成，2-随机生成
-
+// 前端使用的数据模型
 interface IndexConfiguration {
     id: string
-    name: string // 配置名称
-    code: string // 规则编码
-    generationType: GenerationType // 生成方式：1-固定生成，2-随机生成
-    // 固定生成参数
-    fixedPrefix?: string // 固定前缀
-    fixedLength?: number // 固定长度
-    // 随机生成参数
-    randomLength?: number // 随机长度
-    description?: string // 描述
+    configName: string // 配置名称
+    ruleCode: string // 规则编码
+    generateType: number // 生成方式：1-固定生成，2-随机生成
+    generateTypeName: string // 生成方式名称
+    prefix: string | null // 固定前缀（固定生成时使用）
+    length: number // 长度
+    configInfo: string // 配置信息
+    description: string // 描述
     status: number // 状态：0-禁用，1-启用
-    createTime: string
-    updateTime: string
-    creator: string
+    statusName: string // 状态名称
+    createBy: string // 创建人
+    createTime: string // 创建时间
+    updateBy: string | null // 更新人
+    updateTime: string // 更新时间
+    remark: string | null // 备注
+}
+
+/**
+ * 将后端返回的记录转换为前端使用的数据模型
+ */
+const mapRecordToModel = (record: MasterIndexConfigRecord): IndexConfiguration => {
+    return {
+        id: record.id,
+        configName: record.configName,
+        ruleCode: record.ruleCode,
+        generateType: record.generateType,
+        generateTypeName: record.generateTypeName,
+        prefix: record.prefix,
+        length: record.length,
+        configInfo: record.configInfo,
+        description: record.description,
+        status: record.status,
+        statusName: record.statusName,
+        createBy: record.createBy,
+        createTime: record.createTime,
+        updateBy: record.updateBy,
+        updateTime: record.updateTime,
+        remark: record.remark,
+    }
 }
 
 const IndexConfiguration: React.FC = () => {
     const [loading, setLoading] = useState(false)
-    const [data, setData] = useState<MasterIndexConfigRecord[]>([])
-    const [searchText, setSearchText] = useState('')
-    const [statusFilter, setStatusFilter] = useState<number | undefined>(undefined)
-    const [generationTypeFilter, setGenerationTypeFilter] = useState<number | undefined>(undefined)
+    const [data, setData] = useState<IndexConfiguration[]>([])
     const [modalVisible, setModalVisible] = useState(false)
     const [detailModalVisible, setDetailModalVisible] = useState(false)
-    const [editingRecord, setEditingRecord] = useState<MasterIndexConfigRecord | null>(null)
-    const [viewingRecord, setViewingRecord] = useState<MasterIndexConfigRecord | null>(null)
+    const [editingRecord, setEditingRecord] = useState<IndexConfiguration | null>(null)
+    const [viewingRecord, setViewingRecord] = useState<IndexConfiguration | null>(null)
     const [form] = Form.useForm()
-    const [pagination, setPagination] = useState({
+    const [filterForm] = Form.useForm() // 筛选表单
+
+    // 分页状态
+    const [pagination, setPagination] = useState<{ current: number; pageSize: number; total: number }>({
         current: 1,
         pageSize: 10,
         total: 0,
     })
 
-    // 用于防止重复加载
-    const isInitialMount = useRef(true)
-    const abortControllerRef = useRef<AbortController | null>(null)
+    // 生成方式选项
+    const generateTypeOptions = [
+        { value: 1, label: '固定生成' },
+        { value: 2, label: '随机生成' },
+    ]
 
-    const debouncedSearchText = useDebounce(searchText, 300)
-
-    const fetchData = async (page = 1, pageSize = 10) => {
-        // 取消之前未完成的请求
-        if (abortControllerRef.current) {
-            abortControllerRef.current.abort()
-        }
-
-        // 创建新的 AbortController
-        abortControllerRef.current = new AbortController()
-
+    /**
+     * 获取数据
+     */
+    const fetchData = async (options?: {
+        pageNum?: number
+        pageSize?: number
+        configName?: string | null
+        ruleCode?: string | null
+        generateType?: number | null
+        status?: number | null
+    }) => {
         setLoading(true)
         try {
-            const response = await dataManagementService.getMasterIndexConfigPage({
-                condition: debouncedSearchText,
-                pageNum: page,
+            const pageNum = options?.pageNum ?? pagination.current
+            const pageSize = options?.pageSize ?? pagination.pageSize
+
+            // 获取筛选表单的值
+            const filterValues = filterForm.getFieldsValue()
+
+            // 处理配置名称
+            let configNameValue: string | undefined
+            if (options?.configName !== undefined) {
+                configNameValue = options.configName === null ? undefined : (options.configName.trim() || undefined)
+            } else {
+                configNameValue = filterValues.configName ? filterValues.configName.trim() : undefined
+            }
+
+            // 处理规则编码
+            let ruleCodeValue: string | undefined
+            if (options?.ruleCode !== undefined) {
+                ruleCodeValue = options.ruleCode === null ? undefined : (options.ruleCode.trim() || undefined)
+            } else {
+                ruleCodeValue = filterValues.ruleCode ? filterValues.ruleCode.trim() : undefined
+            }
+
+            // 处理生成方式
+            let generateTypeValue: number | undefined
+            if (options?.generateType !== undefined) {
+                generateTypeValue = options.generateType === null ? undefined : options.generateType
+            } else {
+                generateTypeValue = filterValues.generateType !== undefined && filterValues.generateType !== null
+                    ? filterValues.generateType
+                    : undefined
+            }
+
+            // 处理状态
+            let statusValue: number | undefined
+            if (options?.status !== undefined) {
+                statusValue = options.status === null ? undefined : options.status
+            } else {
+                const status = filterValues.status
+                if (status === undefined || status === null) {
+                    statusValue = undefined
+                } else {
+                    statusValue = status === 1 || status === '1' ? 1 : status === 0 || status === '0' ? 0 : undefined
+                }
+            }
+
+            const params: MasterIndexConfigPageParams = {
+                pageNum,
                 pageSize,
+                configName: configNameValue,
+                ruleCode: ruleCodeValue,
+                generateType: generateTypeValue,
+                status: statusValue,
                 sortField: 'create_time',
                 sortOrder: 'desc',
-                configName: debouncedSearchText,
-                ruleCode: debouncedSearchText,
-                generateType: generationTypeFilter,
-                status: statusFilter,
-            })
+            }
 
-            if (response.code === 200 && response.data) {
-                setData(response.data.records)
-                setPagination({
-                    current: Number(response.data.current),
-                    pageSize: Number(response.data.size),
-                    total: Number(response.data.total),
-                })
-            } else {
-                message.error(response.msg || '获取主索引配置失败')
-            }
-        } catch (error: any) {
-            // 忽略被取消的请求错误
-            if (error?.name !== 'CanceledError' && error?.message !== 'canceled') {
-                message.error('获取主索引配置失败')
-                console.error('获取主索引配置失败:', error)
-            }
+            const response = await dataManagementService.getMasterIndexConfigPage(params)
+            const { records, total, size, current } = response.data
+            setData(records.map(mapRecordToModel))
+            setPagination({
+                current: Number(current) || pageNum,
+                pageSize: Number(size) || pageSize,
+                total: Number(total) || 0,
+            })
+        } catch (error) {
+            const errMsg = error instanceof Error ? error.message : '获取主索引配置列表失败'
+            message.error(errMsg)
         } finally {
             setLoading(false)
-            abortControllerRef.current = null
         }
     }
 
-    // 初始化加载数据
     useEffect(() => {
-        if (isInitialMount.current) {
-            isInitialMount.current = false
-            fetchData(pagination.current, pagination.pageSize)
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        void fetchData()
     }, [])
 
-    // 监听搜索和筛选条件变化
-    useEffect(() => {
-        if (!isInitialMount.current) {
-            fetchData(1, pagination.pageSize)
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [debouncedSearchText, statusFilter, generationTypeFilter])
+    /**
+     * 处理查询
+     */
+    const handleSearch = () => {
+        const filterValues = filterForm.getFieldsValue()
+        setPagination(prev => ({ ...prev, current: 1 }))
+        void fetchData({
+            pageNum: 1,
+            pageSize: pagination.pageSize,
+            configName: filterValues.configName ? filterValues.configName.trim() : null,
+            ruleCode: filterValues.ruleCode ? filterValues.ruleCode.trim() : null,
+            generateType:
+                filterValues.generateType !== undefined && filterValues.generateType !== null
+                    ? filterValues.generateType
+                    : null,
+            status:
+                filterValues.status !== undefined && filterValues.status !== null
+                    ? filterValues.status === 1 || filterValues.status === '1'
+                        ? 1
+                        : 0
+                    : null,
+        })
+    }
 
-    const handleSearch = (value: string) => {
-        setSearchText(value)
-        setPagination({ ...pagination, current: 1 })
+    /**
+     * 重置筛选条件
+     */
+    const handleReset = () => {
+        filterForm.resetFields()
+        setPagination(prev => ({ ...prev, current: 1 }))
+        void fetchData({
+            pageNum: 1,
+            pageSize: pagination.pageSize,
+            configName: null,
+            ruleCode: null,
+            generateType: null,
+            status: null,
+        })
+    }
+
+    /**
+     * 处理分页变化
+     */
+    const handleTableChange = (page: number, pageSize: number) => {
+        setPagination(prev => ({ ...prev, current: page, pageSize }))
+        void fetchData({ pageNum: page, pageSize })
     }
 
     const handleAdd = () => {
         setEditingRecord(null)
         form.resetFields()
         form.setFieldsValue({
-            status: true,
-            generationType: 1,
+            status: 1,
+            generateType: 1,
+            length: 32,
         })
         setModalVisible(true)
     }
 
-    const handleEdit = (record: MasterIndexConfigRecord) => {
+    const handleEdit = (record: IndexConfiguration) => {
         setEditingRecord(record)
-        // 根据生成方式，将length映射到不同的表单字段
-        const formValues: Record<string, any> = {
+        form.setFieldsValue({
             configName: record.configName,
             ruleCode: record.ruleCode,
-            generationType: record.generateType,
+            generateType: record.generateType,
+            prefix: record.prefix,
+            length: record.length,
+            configInfo: record.configInfo,
             description: record.description,
-            status: record.status === 1,
+            status: record.status,
             remark: record.remark,
-        }
-        
-        // 根据生成方式设置对应的长度字段
-        if (record.generateType === 1) {
-            // 固定生成
-            formValues.prefix = record.prefix
-            formValues.fixedLength = record.length
-        } else {
-            // 随机生成
-            formValues.randomLength = record.length
-        }
-        
-        form.setFieldsValue(formValues)
+        })
         setModalVisible(true)
     }
 
-    const handleView = (record: MasterIndexConfigRecord) => {
+    const handleView = (record: IndexConfiguration) => {
         setViewingRecord(record)
         setDetailModalVisible(true)
     }
@@ -200,76 +279,87 @@ const IndexConfiguration: React.FC = () => {
             const response = await dataManagementService.deleteMasterIndexConfig(id)
             if (response.code === 200) {
                 message.success('删除成功')
-                fetchData(pagination.current, pagination.pageSize)
+                // 删除成功后刷新列表
+                const currentPageDataCount = data.length
+                const nextPageNum =
+                    currentPageDataCount === 1 && pagination.current > 1
+                        ? pagination.current - 1
+                        : pagination.current
+                setPagination(prev => ({ ...prev, current: nextPageNum }))
+                void fetchData({
+                    pageNum: nextPageNum,
+                    pageSize: pagination.pageSize,
+                })
             } else {
                 message.error(response.msg || '删除失败')
             }
         } catch (error) {
-            message.error('删除失败')
-            console.error('删除失败:', error)
+            const errMsg = error instanceof Error ? error.message : '删除失败'
+            message.error(errMsg)
         }
     }
 
     const handleModalOk = async () => {
         try {
             const values = await form.validateFields()
-            
-            // 计算长度和前缀
-            const generateType = values.generationType
-            const prefix = generateType === 1 ? values.prefix : undefined
-            const length = generateType === 1 ? values.fixedLength : values.randomLength
-            
-            // 生成配置信息
-            let configInfo = ''
-            if (generateType === 1 && prefix) {
-                configInfo = `以${prefix}为起始，长度为${length}位`
-            } else if (generateType === 2) {
-                configInfo = `随机生成${length}位主索引`
-            } else {
-                configInfo = `长度为${length}位`
-            }
-            
-            const formData = {
-                configName: values.configName,
-                ruleCode: values.ruleCode,
-                generateType,
-                prefix,
-                length,
-                configInfo,
-                description: values.description,
-                status: values.status ? 1 : 0,
-                remark: values.remark,
-            }
+
+            // 状态从 0/1 转换为 number
+            const status = values.status === 1 || values.status === true ? 1 : 0
 
             if (editingRecord) {
                 // 编辑
-                const response = await dataManagementService.updateMasterIndexConfig({
+                const updateParams: UpdateMasterIndexConfigRequest = {
                     id: editingRecord.id,
-                    ...formData,
-                })
+                    configName: values.configName,
+                    ruleCode: values.ruleCode,
+                    generateType: values.generateType,
+                    prefix: values.generateType === 1 ? values.prefix : undefined,
+                    length: values.length,
+                    configInfo: values.configInfo || '',
+                    description: values.description || '',
+                    status: status,
+                    remark: values.remark || '',
+                }
+
+                const response = await dataManagementService.updateMasterIndexConfig(updateParams)
                 if (response.code === 200) {
                     message.success('更新成功')
                     setModalVisible(false)
                     form.resetFields()
                     setEditingRecord(null)
-                    fetchData(pagination.current, pagination.pageSize)
+                    void fetchData()
                 } else {
                     message.error(response.msg || '更新失败')
                 }
             } else {
                 // 新增
-                const response = await dataManagementService.addMasterIndexConfig(formData)
+                const addParams: AddMasterIndexConfigRequest = {
+                    configName: values.configName,
+                    ruleCode: values.ruleCode,
+                    generateType: values.generateType,
+                    prefix: values.generateType === 1 ? values.prefix : undefined,
+                    length: values.length,
+                    configInfo: values.configInfo || '',
+                    description: values.description || '',
+                    status: status,
+                    remark: values.remark || '',
+                }
+
+                const response = await dataManagementService.addMasterIndexConfig(addParams)
                 if (response.code === 200) {
                     message.success('添加成功')
                     setModalVisible(false)
                     form.resetFields()
-                    fetchData(1, pagination.pageSize)
+                    setEditingRecord(null)
+                    void fetchData()
                 } else {
                     message.error(response.msg || '添加失败')
                 }
             }
         } catch (error) {
-            console.error('表单验证失败:', error)
+            const errMsg = error instanceof Error ? error.message : '操作失败'
+            message.error(errMsg)
+            console.error('表单提交失败:', error)
         }
     }
 
@@ -277,189 +367,6 @@ const IndexConfiguration: React.FC = () => {
         setModalVisible(false)
         form.resetFields()
         setEditingRecord(null)
-    }
-
-    // Excel导出功能
-    const handleExport = () => {
-        try {
-            const exportColumns = [
-                { title: '配置名称', dataIndex: 'configName', key: 'configName' },
-                { title: '规则编码', dataIndex: 'ruleCode', key: 'ruleCode' },
-                { title: '生成方式', dataIndex: 'generateType', key: 'generateType' },
-                { title: '固定前缀', dataIndex: 'prefix', key: 'prefix' },
-                { title: '长度', dataIndex: 'length', key: 'length' },
-                { title: '配置信息', dataIndex: 'configInfo', key: 'configInfo' },
-                { title: '描述', dataIndex: 'description', key: 'description' },
-                { title: '状态', dataIndex: 'status', key: 'status' },
-                { title: '创建人', dataIndex: 'createBy', key: 'createBy' },
-                { title: '创建时间', dataIndex: 'createTime', key: 'createTime' },
-                { title: '更新人', dataIndex: 'updateBy', key: 'updateBy' },
-                { title: '更新时间', dataIndex: 'updateTime', key: 'updateTime' },
-                { title: '备注', dataIndex: 'remark', key: 'remark' },
-            ]
-
-            // 准备导出数据，转换状态和生成方式
-            const exportData = data.map(item => ({
-                ...item,
-                status: getStatusText(item.status),
-                generateType: getGenerationTypeText(item.generateType),
-                prefix: item.prefix || '-',
-                length: `${item.length}位`,
-                updateBy: item.updateBy || '-',
-                remark: item.remark || '-',
-            }))
-
-            exportToExcel(exportData, exportColumns, '主索引配置')
-        } catch (error) {
-            console.error('导出失败:', error)
-            message.error('导出失败')
-        }
-    }
-
-    // Excel导入功能
-    const handleImport = async (file: File) => {
-        try {
-            const importedData = await importFromExcel<Partial<MasterIndexConfigRecord>>(file, {
-                columnMapping: {
-                    '配置名称': 'configName',
-                    '规则编码': 'ruleCode',
-                    '生成方式': 'generateType',
-                    '固定前缀': 'prefix',
-                    '长度': 'length',
-                    '描述': 'description',
-                    '状态': 'status',
-                    '备注': 'remark',
-                },
-                skipFirstRow: true,
-                validateRow: (row) => {
-                    // 验证必填字段
-                    if (!row.configName || !row.ruleCode || !row.generateType) {
-                        return false
-                    }
-                    return true
-                },
-                transformRow: (row) => {
-                    // 转换生成方式
-                    let generateType: GenerationType = 1
-                    if (row.generateType) {
-                        const typeStr = String(row.generateType).trim()
-                        if (typeStr === '固定生成' || typeStr === '1' || typeStr === 'fixed' || typeStr === 'FIXED') {
-                            generateType = 1
-                        } else if (
-                            typeStr === '随机生成' ||
-                            typeStr === '2' ||
-                            typeStr === 'random' ||
-                            typeStr === 'RANDOM'
-                        ) {
-                            generateType = 2
-                        }
-                    }
-
-                    // 转换数据格式
-                    const transformed: Partial<MasterIndexConfigRecord> = {
-                        configName: String(row.configName || '').trim(),
-                        ruleCode: String(row.ruleCode || '').trim(),
-                        generateType,
-                        description: String(row.description || '').trim(),
-                        remark: String(row.remark || '').trim(),
-                        status:
-                            String(row.status || '').trim() === '启用' ||
-                            String(row.status || '').trim() === '1'
-                                ? 1
-                                : 0,
-                    }
-
-                    // 设置前缀和长度
-                    if (generateType === 1) {
-                        transformed.prefix = String(row.prefix || '').trim() || null
-                    } else {
-                        transformed.prefix = null
-                    }
-                    const length = Number(row.length)
-                    transformed.length = isNaN(length) ? 0 : length
-
-                    return transformed as MasterIndexConfigRecord
-                },
-            })
-
-            if (importedData.length === 0) {
-                message.warning('导入的数据为空或格式不正确')
-                return false
-            }
-
-            // 批量添加数据
-            let successCount = 0
-            for (const item of importedData) {
-                try {
-                    await dataManagementService.addMasterIndexConfig({
-                        configName: item.configName || '',
-                        ruleCode: item.ruleCode || '',
-                        generateType: item.generateType || 1,
-                        prefix: item.prefix || undefined,
-                        length: item.length || 0,
-                        description: item.description || undefined,
-                        status: item.status || 1,
-                        remark: item.remark || undefined,
-                    })
-                    successCount++
-                } catch (error) {
-                    console.error('导入单条数据失败:', error)
-                }
-            }
-
-            if (successCount > 0) {
-                message.success(`成功导入 ${successCount} 条数据`)
-                fetchData(1, pagination.pageSize)
-            } else {
-                message.error('导入失败')
-            }
-            return false // 阻止自动上传
-        } catch (error) {
-            console.error('导入失败:', error)
-            message.error('导入失败，请检查文件格式')
-            return false
-        }
-    }
-
-    // 下载导入模板
-    const handleDownloadTemplate = () => {
-        const templateColumns = [
-            { title: '配置名称', dataIndex: 'configName' },
-            { title: '规则编码', dataIndex: 'ruleCode' },
-            { title: '生成方式', dataIndex: 'generateType' },
-            { title: '固定前缀', dataIndex: 'prefix' },
-            { title: '长度', dataIndex: 'length' },
-            { title: '描述', dataIndex: 'description' },
-            { title: '状态', dataIndex: 'status' },
-            { title: '备注', dataIndex: 'remark' },
-        ]
-        downloadExcelTemplate(templateColumns, '主索引配置')
-    }
-
-    // 上传配置
-    const uploadProps: UploadProps = {
-        name: 'file',
-        accept: '.xlsx,.xls',
-        showUploadList: false,
-        beforeUpload: (file) => {
-            const isExcel =
-                file.type ===
-                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-                file.type === 'application/vnd.ms-excel' ||
-                file.name.endsWith('.xlsx') ||
-                file.name.endsWith('.xls')
-            if (!isExcel) {
-                message.error('只支持 Excel 格式的文件！')
-                return false
-            }
-            const isLt5M = file.size / 1024 / 1024 < 5
-            if (!isLt5M) {
-                message.error('文件大小不能超过 5MB！')
-                return false
-            }
-            handleImport(file)
-            return false // 阻止自动上传
-        },
     }
 
     const getStatusColor = (status: number) => {
@@ -470,31 +377,8 @@ const IndexConfiguration: React.FC = () => {
         return status === 1 ? '启用' : '禁用'
     }
 
-    const getGenerationTypeText = (type: number) => {
+    const getGenerateTypeText = (type: number) => {
         return type === 1 ? '固定生成' : '随机生成'
-    }
-
-    const getGenerationTypeColor = (type: number) => {
-        return type === 1 ? 'blue' : 'purple'
-    }
-
-    const formatConfigurationInfo = (record: MasterIndexConfigRecord) => {
-        if (record.generateType === 1) {
-            return record.prefix ? `以${record.prefix}为起始，长度为${record.length}位` : `长度为${record.length}位`
-        } else {
-            return `随机生成${record.length}位主索引`
-        }
-    }
-
-    const handleTableChange = (newPagination: TablePaginationConfig) => {
-        const current = newPagination.current || 1
-        const pageSize = newPagination.pageSize || 10
-        setPagination({
-            current,
-            pageSize,
-            total: pagination.total,
-        })
-        fetchData(current, pageSize)
     }
 
     const columns = [
@@ -513,12 +397,10 @@ const IndexConfiguration: React.FC = () => {
             title: '规则编码',
             dataIndex: 'ruleCode',
             key: 'ruleCode',
-            width: 200,
+            width: 180,
             render: (text: string) => (
                 <Tooltip title={text}>
-                    <code
-                        style={{ background: '#f5f5f5', padding: '2px 4px', borderRadius: '4px' }}
-                    >
+                    <code style={{ background: '#f5f5f5', padding: '2px 4px', borderRadius: '4px' }}>
                         {text}
                     </code>
                 </Tooltip>
@@ -530,36 +412,32 @@ const IndexConfiguration: React.FC = () => {
             key: 'generateType',
             width: 120,
             render: (type: number) => (
-                <Tag color={getGenerationTypeColor(type)}>{getGenerationTypeText(type)}</Tag>
+                <Tag color={type === 1 ? 'blue' : 'purple'}>{getGenerateTypeText(type)}</Tag>
             ),
         },
         {
             title: '固定前缀',
             dataIndex: 'prefix',
             key: 'prefix',
-            width: 100,
-            render: (text: string | null) => (
-                <span>{text || '-'}</span>
-            ),
+            width: 150,
+            render: (prefix: string | null, record: IndexConfiguration) => {
+                if (record.generateType === 1) {
+                    return prefix ? (
+                        <code style={{ background: '#e6f7ff', padding: '2px 4px', borderRadius: '4px' }}>
+                            {prefix}
+                        </code>
+                    ) : (
+                        <span style={{ color: '#999' }}>-</span>
+                    )
+                }
+                return <span style={{ color: '#999' }}>-</span>
+            },
         },
         {
             title: '长度',
             dataIndex: 'length',
             key: 'length',
             width: 80,
-            render: (length: number) => (
-                <span>{length}位</span>
-            ),
-        },
-        {
-            title: '配置信息',
-            key: 'configInfo',
-            width: 250,
-            render: (_: unknown, record: MasterIndexConfigRecord) => (
-                <Tooltip title={formatConfigurationInfo(record)}>
-                    <span>{formatConfigurationInfo(record)}</span>
-                </Tooltip>
-            ),
         },
         {
             title: '描述',
@@ -570,7 +448,7 @@ const IndexConfiguration: React.FC = () => {
             },
             render: (text: string) => (
                 <Tooltip title={text}>
-                    <span>{text || '-'}</span>
+                    <span>{text}</span>
                 </Tooltip>
             ),
         },
@@ -579,9 +457,7 @@ const IndexConfiguration: React.FC = () => {
             dataIndex: 'status',
             key: 'status',
             width: 80,
-            render: (status: number) => (
-                <Tag color={getStatusColor(status)}>{getStatusText(status)}</Tag>
-            ),
+            render: (status: number) => <Tag color={getStatusColor(status)}>{getStatusText(status)}</Tag>,
         },
         {
             title: '创建人',
@@ -600,7 +476,7 @@ const IndexConfiguration: React.FC = () => {
             key: 'action',
             width: 200,
             fixed: 'right' as const,
-            render: (_: unknown, record: MasterIndexConfigRecord) => (
+            render: (_: unknown, record: IndexConfiguration) => (
                 <Space size='small'>
                     <Tooltip title='查看详情'>
                         <Button
@@ -633,9 +509,6 @@ const IndexConfiguration: React.FC = () => {
         },
     ]
 
-    // 监听生成方式变化，动态显示/隐藏相关字段
-    const generationType = Form.useWatch('generationType', form)
-
     return (
         <div style={{ padding: 0 }}>
             <div
@@ -650,18 +523,9 @@ const IndexConfiguration: React.FC = () => {
                     主索引配置
                 </Title>
                 <Space>
-                    <Button icon={<ReloadOutlined />} onClick={() => fetchData(pagination.current, pagination.pageSize)} loading={loading}>
+                    <Button icon={<ReloadOutlined />} onClick={() => fetchData()} loading={loading}>
                         刷新
                     </Button>
-                    {/* <Upload {...uploadProps}>
-                        <Button icon={<ImportOutlined />}>导入</Button>
-                    </Upload>
-                    <Button icon={<DownloadOutlined />} onClick={handleDownloadTemplate}>
-                        下载模板
-                    </Button>
-                    <Button icon={<ExportOutlined />} onClick={handleExport}>
-                        导出
-                    </Button> */}
                     <Button type='primary' icon={<PlusOutlined />} onClick={handleAdd}>
                         新增配置
                     </Button>
@@ -669,70 +533,62 @@ const IndexConfiguration: React.FC = () => {
             </div>
             <Alert
                 message='主索引配置'
-                description={
-                    <>
-                        <div>维护主索引的生成配置规则，支持固定生成和随机生成两种方式。固定生成：以指定前缀为起始，指定长度；随机生成：指定长度（大于10位，20位以内）。</div>
-                        {isDemoVersion() && (
-                            <div style={{ marginTop: 8, color: '#faad14' }}>
-                                <strong>当前为演示版本</strong>，使用模拟数据展示
-                            </div>
-                        )}
-                        {isDevVersion() && (
-                            <div style={{ marginTop: 8, color: '#52c41a' }}>
-                                <strong>当前为开发版本</strong>，使用真实接口数据
-                            </div>
-                        )}
-                    </>
-                }
+                description='配置数据索引参数，包括索引类型、索引字段、索引生成方式和索引参数设置。'
                 type='info'
                 showIcon
                 style={{ marginBottom: 24 }}
             />
             <Card>
-                <Space style={{ marginBottom: 16 }} wrap>
-                    <Search
-                        placeholder='搜索配置名称、规则编码或描述'
-                        allowClear
-                        onSearch={handleSearch}
-                        onChange={(e) => setSearchText(e.target.value)}
-                        value={searchText}
-                        style={{ width: 300 }}
-                        prefix={<SearchOutlined />}
-                    />
-                    <Select
-                        placeholder='生成方式'
-                        style={{ width: 120 }}
-                        allowClear
-                        value={generationTypeFilter}
-                        onChange={(value) => {
-                            setGenerationTypeFilter(value)
-                            setPagination({ ...pagination, current: 1 })
-                        }}
-                    >
-                        <Option value={1}>固定生成</Option>
-                        <Option value={2}>随机生成</Option>
-                    </Select>
-                    <Select
-                        placeholder='状态'
-                        style={{ width: 120 }}
-                        allowClear
-                        value={statusFilter}
-                        onChange={(value) => {
-                            setStatusFilter(value)
-                            setPagination({ ...pagination, current: 1 })
-                        }}
-                    >
-                        <Option value={1}>启用</Option>
-                        <Option value={0}>禁用</Option>
-                    </Select>
-                </Space>
+                {/* 筛选表单 */}
+                <Form form={filterForm} layout='inline' style={{ marginBottom: 16 }}>
+                    <Form.Item name='configName' label='配置名称'>
+                        <Input
+                            placeholder='请输入配置名称'
+                            allowClear
+                            style={{ width: 200 }}
+                            onPressEnter={handleSearch}
+                        />
+                    </Form.Item>
+                    <Form.Item name='ruleCode' label='规则编码'>
+                        <Input
+                            placeholder='请输入规则编码'
+                            allowClear
+                            style={{ width: 200 }}
+                            onPressEnter={handleSearch}
+                        />
+                    </Form.Item>
+                    <Form.Item name='generateType' label='生成方式'>
+                        <Select placeholder='请选择生成方式' allowClear style={{ width: 120 }}>
+                            <Option value={1}>固定生成</Option>
+                            <Option value={2}>随机生成</Option>
+                        </Select>
+                    </Form.Item>
+                    <Form.Item name='status' label='状态'>
+                        <Select placeholder='请选择状态' allowClear style={{ width: 120 }}>
+                            <Option value={1}>启用</Option>
+                            <Option value={0}>禁用</Option>
+                        </Select>
+                    </Form.Item>
+                    <Form.Item>
+                        <Space>
+                            <Button
+                                icon={<SearchOutlined />}
+                                type='primary'
+                                onClick={handleSearch}
+                                loading={loading}
+                            >
+                                查询
+                            </Button>
+                            <Button onClick={handleReset}>重置</Button>
+                        </Space>
+                    </Form.Item>
+                </Form>
                 <Table
                     columns={columns}
                     dataSource={data}
                     loading={loading}
                     rowKey='id'
                     scroll={{ x: 1200 }}
-                    onChange={handleTableChange}
                     pagination={{
                         current: pagination.current,
                         pageSize: pagination.pageSize,
@@ -741,6 +597,8 @@ const IndexConfiguration: React.FC = () => {
                         showQuickJumper: true,
                         showTotal: total => `共 ${total} 条`,
                         pageSizeOptions: ['10', '20', '50', '100'],
+                        onChange: handleTableChange,
+                        onShowSizeChange: handleTableChange,
                     }}
                 />
             </Card>
@@ -759,8 +617,9 @@ const IndexConfiguration: React.FC = () => {
                     form={form}
                     layout='vertical'
                     initialValues={{
-                        status: true,
-                        generationType: 1,
+                        status: 1,
+                        generateType: 1,
+                        length: 32,
                     }}
                 >
                     <Form.Item
@@ -774,89 +633,72 @@ const IndexConfiguration: React.FC = () => {
                     <Form.Item
                         name='ruleCode'
                         label='规则编码'
-                        rules={[
-                            { required: true, message: '请输入规则编码' },
-                            {
-                                pattern: /^[A-Z_]+$/,
-                                message: '规则编码只能包含大写英文字母和下划线',
-                            },
-                        ]}
+                        rules={[{ required: true, message: '请输入规则编码' }]}
                     >
                         <Input placeholder='请输入规则编码（大写英文字母和下划线）' />
                     </Form.Item>
 
                     <Form.Item
-                        name='generationType'
+                        name='generateType'
                         label='生成方式'
                         rules={[{ required: true, message: '请选择生成方式' }]}
                     >
-                        <Radio.Group>
-                            <Radio value={1}>固定生成</Radio>
-                            <Radio value={2}>随机生成</Radio>
-                        </Radio.Group>
+                        <Select placeholder='请选择生成方式'>
+                            {generateTypeOptions.map(option => (
+                                <Option key={option.value} value={option.value}>
+                                    {option.label}
+                                </Option>
+                            ))}
+                        </Select>
                     </Form.Item>
 
-                    {/* 固定生成相关字段 */}
-                    {generationType === 1 && (
-                        <>
-                            <Form.Item
-                                name='prefix'
-                                label='固定前缀'
-                                rules={[{ required: true, message: '请输入固定前缀' }]}
-                            >
-                                <Input placeholder='请输入固定前缀，如：EMPI、MPI等' />
-                            </Form.Item>
-                            <Form.Item
-                                name='fixedLength'
-                                label='长度'
-                                rules={[
-                                    { required: true, message: '请输入长度' },
-                                    { type: 'number', min: 1, message: '长度必须大于0' },
-                                ]}
-                            >
-                                <InputNumber
-                                    placeholder='请输入长度'
-                                    style={{ width: '100%' }}
-                                    min={1}
-                                />
-                            </Form.Item>
-                        </>
-                    )}
+                    <Form.Item
+                        noStyle
+                        shouldUpdate={(prevValues, currentValues) =>
+                            prevValues.generateType !== currentValues.generateType
+                        }
+                    >
+                        {({ getFieldValue }) =>
+                            getFieldValue('generateType') === 1 ? (
+                                <Form.Item
+                                    name='prefix'
+                                    label='固定前缀'
+                                    rules={[{ required: true, message: '固定生成时请输入固定前缀' }]}
+                                >
+                                    <Input placeholder='请输入固定前缀' />
+                                </Form.Item>
+                            ) : null
+                        }
+                    </Form.Item>
 
-                    {/* 随机生成相关字段 */}
-                    {generationType === 2 && (
-                        <Form.Item
-                            name='randomLength'
-                            label='长度'
-                            rules={[
-                                { required: true, message: '请输入长度' },
-                                {
-                                    type: 'number',
-                                    min: 10,
-                                    max: 18,
-                                    message: '长度必须大于10位，18位以内',
-                                },
-                            ]}
-                        >
-                            <InputNumber
-                                placeholder='请输入长度（10-18位）'
-                                style={{ width: '100%' }}
-                                min={10}
-                                max={18}
-                            />
-                        </Form.Item>
-                    )}
+                    <Form.Item
+                        name='length'
+                        label='长度'
+                        rules={[
+                            { required: true, message: '请输入长度' },
+                            { type: 'number', min: 1, max: 128, message: '长度必须在1-128之间' },
+                        ]}
+                    >
+                        <InputNumber placeholder='请输入长度' min={1} max={128} style={{ width: '100%' }} />
+                    </Form.Item>
+
+                    <Form.Item name='configInfo' label='配置信息'>
+                        <TextArea rows={3} placeholder='请输入配置信息' maxLength={500} showCount />
+                    </Form.Item>
 
                     <Form.Item name='description' label='描述'>
                         <TextArea rows={3} placeholder='请输入描述' maxLength={500} showCount />
                     </Form.Item>
 
-                    <Form.Item name='remark' label='备注'>
-                        <TextArea rows={2} placeholder='请输入备注' maxLength={200} showCount />
+                    <Form.Item name='status' label='状态' rules={[{ required: true, message: '请选择状态' }]}>
+                        <Select placeholder='请选择状态'>
+                            <Option value={1}>启用</Option>
+                            <Option value={0}>禁用</Option>
+                        </Select>
                     </Form.Item>
 
-                    <Form.Item name='status' label='状态' valuePropName='checked'>
-                        <Switch checkedChildren='启用' unCheckedChildren='禁用' />
+                    <Form.Item name='remark' label='备注'>
+                        <TextArea rows={2} placeholder='请输入备注' maxLength={200} showCount />
                     </Form.Item>
                 </Form>
             </Modal>
@@ -889,38 +731,44 @@ const IndexConfiguration: React.FC = () => {
                             </code>
                         </Descriptions.Item>
                         <Descriptions.Item label='生成方式'>
-                            <Tag color={getGenerationTypeColor(viewingRecord.generateType)}>
-                                {getGenerationTypeText(viewingRecord.generateType)}
+                            <Tag color={viewingRecord.generateType === 1 ? 'blue' : 'purple'}>
+                                {viewingRecord.generateTypeName}
                             </Tag>
                         </Descriptions.Item>
-                        {viewingRecord.generateType === 1 && viewingRecord.prefix && (
+                        {viewingRecord.generateType === 1 && (
                             <Descriptions.Item label='固定前缀'>
-                                <code
-                                    style={{
-                                        background: '#e6f7ff',
-                                        padding: '2px 4px',
-                                        borderRadius: '4px',
-                                    }}
-                                >
-                                    {viewingRecord.prefix}
-                                </code>
+                                {viewingRecord.prefix ? (
+                                    <code
+                                        style={{
+                                            background: '#e6f7ff',
+                                            padding: '2px 4px',
+                                            borderRadius: '4px',
+                                        }}
+                                    >
+                                        {viewingRecord.prefix}
+                                    </code>
+                                ) : (
+                                    <span style={{ color: '#999' }}>-</span>
+                                )}
                             </Descriptions.Item>
                         )}
-                        <Descriptions.Item label='长度'>{viewingRecord.length}位</Descriptions.Item>
+                        <Descriptions.Item label='长度'>{viewingRecord.length}</Descriptions.Item>
                         <Descriptions.Item label='配置信息'>
-                            {formatConfigurationInfo(viewingRecord)}
+                            {viewingRecord.configInfo || <span style={{ color: '#999' }}>-</span>}
                         </Descriptions.Item>
                         <Descriptions.Item label='描述'>
-                            {viewingRecord.description || '-'}
+                            {viewingRecord.description || <span style={{ color: '#999' }}>-</span>}
                         </Descriptions.Item>
                         <Descriptions.Item label='状态'>
                             <Tag color={getStatusColor(viewingRecord.status)}>
-                                {getStatusText(viewingRecord.status)}
+                                {viewingRecord.statusName}
                             </Tag>
                         </Descriptions.Item>
                         <Descriptions.Item label='创建人'>{viewingRecord.createBy}</Descriptions.Item>
                         <Descriptions.Item label='创建时间'>{viewingRecord.createTime}</Descriptions.Item>
-                        <Descriptions.Item label='更新人'>{viewingRecord.updateBy || '-'}</Descriptions.Item>
+                        {viewingRecord.updateBy && (
+                            <Descriptions.Item label='更新人'>{viewingRecord.updateBy}</Descriptions.Item>
+                        )}
                         <Descriptions.Item label='更新时间'>{viewingRecord.updateTime}</Descriptions.Item>
                         {viewingRecord.remark && (
                             <Descriptions.Item label='备注'>{viewingRecord.remark}</Descriptions.Item>

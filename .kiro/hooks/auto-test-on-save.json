@@ -1,0 +1,13 @@
+{
+  "name": "医学数据模块自动测试",
+  "description": "当保存数据治理相关文件时自动运行测试",
+  "trigger": {
+    "type": "file_save",
+    "pattern": "src/pages/Data*/**/*.{ts,tsx}"
+  },
+  "action": {
+    "type": "send_message",
+    "message": "检测到医学数据模块文件变更，请运行相关测试并检查数据安全合规性。使用 #code-review-rules 进行代码审查。"
+  },
+  "enabled": true
+}

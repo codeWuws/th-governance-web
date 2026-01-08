@@ -1,5 +1,8 @@
 import { createBrowserRouter } from 'react-router-dom'
 import MainLayout from '../components/Layout/MainLayout'
+import ProtectedRoute from '../components/ProtectedRoute'
+import Login from '../pages/Login'
+import NotFound from '../pages/NotFound'
 import Dashboard from '../pages/Dashboard'
 import DatabaseConnection from '../pages/DatabaseConnection'
 import DataGovernance from '../pages/DataGovernance'
@@ -37,8 +40,16 @@ import PermissionSettings from '../pages/SystemSettings/PermissionSettings'
 export const router = createBrowserRouter(
     [
         {
+            path: '/login',
+            element: <Login />,
+        },
+        {
             path: '/',
-            element: <MainLayout />,
+            element: (
+                <ProtectedRoute>
+                    <MainLayout />
+                </ProtectedRoute>
+            ),
             children: [
             {
                 index: true,
@@ -201,6 +212,15 @@ export const router = createBrowserRouter(
                 ],
             },
         ],
+    },
+    // 404路由 - 未登录时跳转到登录页，已登录时显示404页面
+    {
+        path: '*',
+        element: (
+            <ProtectedRoute>
+                <NotFound />
+            </ProtectedRoute>
+        ),
     },
     ],
     {
