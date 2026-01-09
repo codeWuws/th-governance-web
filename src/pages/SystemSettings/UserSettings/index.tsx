@@ -25,6 +25,7 @@ import {
     Badge,
     Tooltip,
 } from 'antd'
+import { uiMessage } from '@/utils/uiMessage'
 import {
     PlusOutlined,
     SearchOutlined,
@@ -117,7 +118,7 @@ const UserSettings: React.FC = () => {
                 setUserRoleAssignments(roleAssignments)
             }
         } catch (error) {
-            message.error('加载用户列表失败')
+            uiMessage.handleSystemError('加载用户列表失败')
             console.error('Load users error:', error)
         } finally {
             setUserLoading(false)
@@ -222,7 +223,7 @@ const UserSettings: React.FC = () => {
                 loadUsers()
             }
         } catch (error) {
-            message.error('状态更新失败')
+            uiMessage.handleSystemError('状态更新失败')
             console.error('Update status error:', error)
         } finally {
             setToggling(null)
@@ -241,7 +242,7 @@ const UserSettings: React.FC = () => {
                 loadUsers()
             }
         } catch (error) {
-            message.error('删除用户失败')
+            uiMessage.handleSystemError('删除用户失败')
             console.error('Delete user error:', error)
         } finally {
             setDeleting(null)
@@ -269,7 +270,7 @@ const UserSettings: React.FC = () => {
                 loadUsers()
             }
         } catch (error) {
-            message.error(editingUser ? '更新用户失败' : '创建用户失败')
+            uiMessage.handleSystemError(editingUser ? '更新用户失败' : '创建用户失败')
             console.error('Submit user error:', error)
         } finally {
             setSaving(false)
@@ -291,7 +292,7 @@ const UserSettings: React.FC = () => {
                 loadUsers()
             }
         } catch (error) {
-            message.error('角色分配失败')
+            uiMessage.handleSystemError('角色分配失败')
             console.error('Assign roles error:', error)
         } finally {
             setAssigningRoles(false)

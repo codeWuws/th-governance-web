@@ -22,6 +22,7 @@ import {
     ReloadOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
+import { uiMessage } from '@/utils/uiMessage'
 import {
     type CategoryStandard,
     CategoryStandardService,
@@ -114,7 +115,7 @@ const CategoryStandardManagement: React.FC = () => {
         } catch (error) {
             // 统一错误提示，优先展示后端/服务封装的错误信息
             const errMsg = error instanceof Error ? error.message : '获取类别标准列表失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
         } finally {
             setLoading(false)
         }
@@ -233,7 +234,7 @@ const CategoryStandardManagement: React.FC = () => {
         } catch (error) {
             // 错误信息已在服务层处理，这里只做兜底提示
             const errMsg = error instanceof Error ? error.message : '删除失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
         }
     }
 
@@ -281,7 +282,7 @@ const CategoryStandardManagement: React.FC = () => {
         } catch (error) {
             // 错误信息已在服务层处理，这里只做兜底提示
             const errMsg = error instanceof Error ? error.message : '操作失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
         }
     }
 

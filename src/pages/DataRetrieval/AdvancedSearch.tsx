@@ -28,6 +28,7 @@ import {
     EyeOutlined,
 } from '@ant-design/icons'
 import { useApi } from '@/hooks/useApi'
+import { uiMessage } from '@/utils/uiMessage'
 import {
     SearchRequest,
     SearchResponse,
@@ -290,7 +291,7 @@ const AdvancedSearch: React.FC = () => {
         )
 
         if (invalidConditions.length > 0) {
-            message.error('请完善所有检索条件')
+            uiMessage.handleSystemError('请完善所有检索条件', true)
             return
         }
 
@@ -336,7 +337,7 @@ const AdvancedSearch: React.FC = () => {
             }
         } catch (err) {
             logger.error('高级搜索失败:', err instanceof Error ? err : undefined)
-            message.error('搜索失败，请稍后重试')
+            uiMessage.handleSystemError('搜索失败，请稍后重试')
         } finally {
             setLoading(false)
         }

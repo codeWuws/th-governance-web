@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx'
 import { message } from 'antd'
+import { uiMessage } from './uiMessage'
 
 /**
  * Excel导出工具函数
@@ -58,7 +59,7 @@ export function exportToExcel<T extends Record<string, any>>(
         message.success('导出成功')
     } catch (error) {
         console.error('导出Excel失败:', error)
-        message.error('导出失败，请重试')
+        uiMessage.handleSystemError('导出失败，请重试')
         throw error
     }
 }
@@ -216,7 +217,7 @@ export function downloadExcelTemplate(
         message.success('模板下载成功')
     } catch (error) {
         console.error('下载模板失败:', error)
-        message.error('下载模板失败')
+        uiMessage.handleSystemError('下载模板失败')
         throw error
     }
 }

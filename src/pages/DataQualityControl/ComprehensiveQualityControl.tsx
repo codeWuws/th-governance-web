@@ -115,7 +115,7 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
             }
         } catch (error) {
             logger.error('加载数据库选项失败:', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('加载数据库选项失败，请重试')
+            uiMessage.handleSystemError('加载数据库选项失败，请重试')
         } finally {
             setDatabaseLoading(false)
         }
@@ -141,7 +141,7 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
             }
         } catch (error) {
             logger.error('加载表信息失败:', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('加载表信息失败，请重试')
+            uiMessage.handleSystemError('加载表信息失败，请重试')
         } finally {
             setTableLoading(false)
         }
@@ -258,12 +258,12 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
                 file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
                 file.type === 'application/vnd.ms-excel'
             if (!isExcel) {
-                uiMessage.error('只支持 Excel 格式的文件！')
+                uiMessage.handleSystemError('只支持 Excel 格式的文件！')
                 return false
             }
             const isLt5M = file.size / 1024 / 1024 < 5
             if (!isLt5M) {
-                uiMessage.error('文件大小不能超过 5MB！')
+                uiMessage.handleSystemError('文件大小不能超过 5MB！')
                 return false
             }
             return false // 阻止自动上传
@@ -275,7 +275,7 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
                 // 模拟解析Excel文件
                 parseExcelResults()
             } else if (status === 'error') {
-                uiMessage.error(`${info.file.name} 文件上传失败`)
+                uiMessage.handleSystemError(`${info.file.name} 文件上传失败`)
             }
         },
     }
@@ -288,7 +288,7 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
         beforeUpload: file => {
             const isLt10M = file.size / 1024 / 1024 < 10
             if (!isLt10M) {
-                uiMessage.error('文件大小不能超过 10MB！')
+                uiMessage.handleSystemError('文件大小不能超过 10MB！')
                 return false
             }
             return false // 阻止自动上传
@@ -334,7 +334,7 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
             uiMessage.success('导出成功')
         } catch (e) {
             logger.error('导出失败', e instanceof Error ? e : new Error(String(e)))
-            uiMessage.error('导出失败，请重试')
+            uiMessage.handleSystemError('导出失败，请重试')
         }
     }
 
@@ -386,7 +386,7 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
             const file = fileList[0]
             const originFile = file.originFileObj as File | undefined
             if (!originFile) {
-                uiMessage.error('文件信息异常，请重新上传')
+                uiMessage.handleSystemError('文件信息异常，请重新上传')
                 return
             }
 
@@ -466,7 +466,7 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
                     onError: (event) => {
                         console.error('=== SSE连接错误 ===', event)
                         logger.error('及时性质控SSE连接错误', new Error(`SSE连接错误: ${event.type || 'unknown'}`))
-                        uiMessage.error('质控检查连接异常，请检查网络')
+                        uiMessage.handleSystemError('质控检查连接异常，请检查网络')
                         setLoading(false)
                         setCurrentTaskId(null)
                         setProgress(0)
@@ -489,7 +489,7 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
             } catch (sseError) {
                 logger.error('启动SSE连接失败:', sseError instanceof Error ? sseError : new Error(String(sseError)))
                 console.error('=== 启动SSE连接失败 ===', sseError)
-                uiMessage.error('启动质控检查连接失败，请稍后重试')
+                uiMessage.handleSystemError('启动质控检查连接失败，请稍后重试')
                 setLoading(false)
                 setCurrentTaskId(null)
                 setProgress(0)
@@ -497,7 +497,7 @@ const ComprehensiveQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDon
             }
         } catch (error) {
             logger.error('质控检查失败:', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('质控检查失败，请重试')
+            uiMessage.handleSystemError('质控检查失败，请重试')
             setLoading(false)
             setCurrentTaskId(null)
             setProgress(0)

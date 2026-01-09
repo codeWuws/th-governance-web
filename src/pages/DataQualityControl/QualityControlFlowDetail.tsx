@@ -116,7 +116,7 @@ const QualityControlFlowDetail: React.FC = () => {
     // 获取质控任务日志详情
     const fetchLogDetail = useCallback(async () => {
         if (!taskId) {
-            uiMessage.error('任务ID不存在')
+            uiMessage.handleSystemError('任务ID不存在')
             navigate('/data-quality-control/flow-management')
             return
         }
@@ -128,11 +128,11 @@ const QualityControlFlowDetail: React.FC = () => {
             if (response.code === 200 && response.data) {
                 setLogDetailData(response.data)
             } else {
-                uiMessage.error(response.msg || '获取任务详情失败')
+                uiMessage.handleSystemError(response.msg || '获取任务详情失败')
             }
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : '获取任务详情时发生未知错误'
-            uiMessage.error(errorMsg)
+            uiMessage.handleSystemError(errorMsg)
         } finally {
             setLoading(false)
         }
@@ -314,7 +314,7 @@ const QualityControlFlowDetail: React.FC = () => {
             }
         } catch (error) {
             logger.error('加载完整性质控结果失败:', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('加载结果失败，请重试')
+            uiMessage.handleSystemError('加载结果失败，请重试')
         } finally {
             setCompletenessResultLoading(false)
         }
@@ -344,7 +344,7 @@ const QualityControlFlowDetail: React.FC = () => {
             }
         } catch (error) {
             logger.error('加载准确性质控结果失败:', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('加载结果失败，请重试')
+            uiMessage.handleSystemError('加载结果失败，请重试')
         } finally {
             setAccuracyResultLoading(false)
         }
@@ -374,7 +374,7 @@ const QualityControlFlowDetail: React.FC = () => {
             }
         } catch (error) {
             logger.error('加载一致性质控结果失败:', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('加载结果失败，请重试')
+            uiMessage.handleSystemError('加载结果失败，请重试')
         } finally {
             setConsistencyResultLoading(false)
         }

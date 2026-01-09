@@ -120,7 +120,7 @@ const DatabaseConnection: React.FC = () => {
                 '获取数据库连接列表失败:',
                 error instanceof Error ? error : new Error(String(error))
             )
-            uiMessage.error(errorMessage)
+            uiMessage.handleSystemError(errorMessage)
         } finally {
             setTableLoading(false)
         }
@@ -155,7 +155,7 @@ const DatabaseConnection: React.FC = () => {
             // 业务异常和网络异常都会在这里捕获，错误信息已由响应拦截器处理
             const errorMessage = error instanceof Error ? error.message : '删除失败'
             logger.error('删除连接失败:', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error(errorMessage)
+            uiMessage.handleSystemError(errorMessage)
         }
     }
 
@@ -172,7 +172,7 @@ const DatabaseConnection: React.FC = () => {
             // 业务异常和网络异常都会在这里捕获，错误信息已由响应拦截器处理
             const errorMessage = error instanceof Error ? error.message : '连接测试失败'
             logger.error('测试连接失败:', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error(errorMessage)
+            uiMessage.handleSystemError(errorMessage)
         } finally {
             setTestingConnections(prev => ({ ...prev, [id]: false }))
         }
@@ -349,7 +349,7 @@ const DatabaseConnection: React.FC = () => {
                         'API调用失败:',
                         apiError instanceof Error ? apiError : new Error(String(apiError))
                     )
-                    uiMessage.error(errorMessage)
+                    uiMessage.handleSystemError(errorMessage)
                 }
             } else {
                 // 新增模式 - 调用 addDbConnection 接口
@@ -380,7 +380,7 @@ const DatabaseConnection: React.FC = () => {
                         'API调用失败:',
                         apiError instanceof Error ? apiError : new Error(String(apiError))
                     )
-                    uiMessage.error(errorMessage)
+                    uiMessage.handleSystemError(errorMessage)
                 }
             }
 
@@ -388,7 +388,7 @@ const DatabaseConnection: React.FC = () => {
             form.resetFields()
         } catch (error) {
             logger.error('表单验证失败:', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('表单验证失败，请检查输入信息')
+            uiMessage.handleSystemError('表单验证失败，请检查输入信息', true)
         } finally {
             setLoading(false)
         }

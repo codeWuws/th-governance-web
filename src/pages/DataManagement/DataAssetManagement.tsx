@@ -40,6 +40,7 @@ import { showConfirm } from '../../utils/showConfirm'
 import { dataManagementService } from '../../services/dataManagementService'
 import { isDevVersion } from '../../utils/versionControl'
 import { logger } from '../../utils/logger'
+import { uiMessage } from '../../utils/uiMessage'
 import type { AssetTreeNode, DatabaseOption, AddAssetRequest, UpdateAssetRequest, TableInfoItem } from '../../types'
 import styles from './DataAssetManagement.module.scss'
 
@@ -3804,11 +3805,11 @@ const DataAssetManagement: React.FC = () => {
                 setDataSources(convertedDataSources)
                 setCategories(convertedCategories)
             } else {
-                message.error(response.msg || '加载资产树失败')
+                uiMessage.handleSystemError(response.msg || '加载资产树失败')
             }
         } catch (error) {
             console.error('加载资产树失败:', error)
-            message.error('加载资产树失败，请稍后重试')
+            uiMessage.handleSystemError('加载资产树失败，请稍后重试')
         } finally {
             isLoadingTree.current = false
             setLoading(false)
@@ -3863,12 +3864,12 @@ const DataAssetManagement: React.FC = () => {
             if (response.code === 200 && response.data) {
                 setDatabaseOptions(response.data)
             } else {
-                message.error(response.msg || '加载数据库选项失败')
+                uiMessage.handleSystemError(response.msg || '加载数据库选项失败')
                 setDatabaseOptions([])
             }
         } catch (error) {
             console.error('加载数据库选项失败:', error)
-            message.error('加载数据库选项失败，请稍后重试')
+            uiMessage.handleSystemError('加载数据库选项失败，请稍后重试')
             setDatabaseOptions([])
         } finally {
             setDatabaseOptionsLoading(false)
@@ -3949,12 +3950,12 @@ const DataAssetManagement: React.FC = () => {
             if (response.code === 200 && response.data) {
                 setTableInfoList(response.data)
             } else {
-                message.error(response.msg || '获取表信息失败')
+                uiMessage.handleSystemError(response.msg || '获取表信息失败')
                 setTableInfoList([])
             }
         } catch (error) {
             logger.error('获取表信息失败:', error instanceof Error ? error : new Error(String(error)))
-            message.error('获取表信息失败，请稍后重试')
+            uiMessage.handleSystemError('获取表信息失败，请稍后重试')
             setTableInfoList([])
         } finally {
             setTableInfoLoading(false)
@@ -4021,12 +4022,12 @@ const DataAssetManagement: React.FC = () => {
                 }))
                 setTableList(convertedTableList)
             } else {
-                message.error(response.msg || '加载表列表失败')
+                uiMessage.handleSystemError(response.msg || '加载表列表失败')
                 setTableList([])
             }
         } catch (error) {
             console.error('加载表列表失败:', error)
-            message.error('加载表列表失败，请稍后重试')
+            uiMessage.handleSystemError('加载表列表失败，请稍后重试')
             setTableList([])
         } finally {
             setTableListLoading(false)
@@ -4272,7 +4273,7 @@ const DataAssetManagement: React.FC = () => {
                         setEditingAsset(null)
                         form.resetFields()
                     } else {
-                        message.error(response.msg || '资产修改失败')
+                        uiMessage.handleSystemError(response.msg || '资产修改失败')
                     }
                 } else {
                     // 新增模式：调用接口
@@ -4310,7 +4311,7 @@ const DataAssetManagement: React.FC = () => {
                         setAddAssetModalVisible(false)
                         form.resetFields()
                     } else {
-                        message.error(response.msg || '资产添加失败')
+                        uiMessage.handleSystemError(response.msg || '资产添加失败')
                     }
                 }
             } else {
@@ -4320,7 +4321,7 @@ const DataAssetManagement: React.FC = () => {
                 // 从选中的数据源获取信息（演示版本使用 dataSources）
                 const selectedDataSource = dataSources.find(ds => ds.id === values.dataSourceId)
                 if (!selectedDataSource) {
-                    message.error('请选择数据源')
+                    uiMessage.handleSystemError('请选择数据源')
                     return
                 }
                 
@@ -4354,7 +4355,7 @@ const DataAssetManagement: React.FC = () => {
             }
         } catch (error) {
             console.error('操作失败:', error)
-            message.error(error instanceof Error ? error.message : '操作失败，请稍后重试')
+            uiMessage.handleSystemError(error instanceof Error ? error.message : '操作失败，请稍后重试')
         } finally {
             setSaving(false)
         }
@@ -4406,12 +4407,12 @@ const DataAssetManagement: React.FC = () => {
             // 确保使用正确的数据源ID（从表单值获取）
             const dataSourceId = values.dataSourceId
             if (!dataSourceId) {
-                message.error('请选择数据源')
+                uiMessage.handleSystemError('请选择数据源')
                 return
             }
 
             if (!values.tables || values.tables.length === 0) {
-                message.error('请至少选择一个表')
+                uiMessage.handleSystemError('请至少选择一个表')
                 return
             }
             
@@ -4465,7 +4466,7 @@ const DataAssetManagement: React.FC = () => {
                         setEditingCategory(null)
                         categoryForm.resetFields()
                     } else {
-                        message.error(response.msg || '资产类别修改失败')
+                        uiMessage.handleSystemError(response.msg || '资产类别修改失败')
                     }
                 } else {
                     // 新增模式：调用接口
@@ -4513,7 +4514,7 @@ const DataAssetManagement: React.FC = () => {
                         setAddCategoryModalVisible(false)
                         categoryForm.resetFields()
                     } else {
-                        message.error(response.msg || '资产类别添加失败')
+                        uiMessage.handleSystemError(response.msg || '资产类别添加失败')
                     }
                 }
             } else {
@@ -4559,10 +4560,10 @@ const DataAssetManagement: React.FC = () => {
             console.error('操作失败:', error)
             // 显示表单验证错误
             if (error && typeof error === 'object' && 'errorFields' in error) {
-                message.error('请检查表单填写是否正确')
+                uiMessage.handleSystemError('请检查表单填写是否正确')
                 return
             }
-            message.error(error instanceof Error ? error.message : '操作失败，请稍后重试')
+            uiMessage.handleSystemError(error instanceof Error ? error.message : '操作失败，请稍后重试')
         } finally {
             setSaving(false)
         }
@@ -4613,7 +4614,7 @@ const DataAssetManagement: React.FC = () => {
     // 处理表行点击
     const handleTableRowClick = async (tableName: string) => {
         if (!selectedCategory) {
-            message.error('请先选择资产类别')
+            uiMessage.handleSystemError('请先选择资产类别')
             return
         }
 
@@ -4657,11 +4658,11 @@ const DataAssetManagement: React.FC = () => {
                     })
                     setViewMode('tableFields')
                 } else {
-                    message.error(response.msg || '获取字段详情失败')
+                    uiMessage.handleSystemError(response.msg || '获取字段详情失败')
                 }
             } catch (error) {
                 console.error('获取字段详情失败:', error)
-                message.error(error instanceof Error ? error.message : '获取字段详情失败，请稍后重试')
+                uiMessage.handleSystemError(error instanceof Error ? error.message : '获取字段详情失败，请稍后重试')
             } finally {
                 setColumnDetailsLoading(false)
             }
@@ -5213,7 +5214,7 @@ const DataAssetManagement: React.FC = () => {
                                                                     setSelectedTable(null)
                                                                     setSelectedKeys([])
                                                                 } else {
-                                                                    message.error(response.msg || '删除失败')
+                                                                    uiMessage.handleSystemError(response.msg || '删除失败')
                                                                 }
                                                             } else {
                                                                 // 演示版本：使用mock数据
@@ -5253,7 +5254,7 @@ const DataAssetManagement: React.FC = () => {
                                                             }
                                                         } catch (error) {
                                                             console.error('删除资产失败:', error)
-                                                            message.error(error instanceof Error ? error.message : '删除失败，请重试')
+                                                            uiMessage.handleSystemError(error instanceof Error ? error.message : '删除失败，请重试')
                                                         }
                                                     },
                                                 })
@@ -5352,7 +5353,7 @@ const DataAssetManagement: React.FC = () => {
                                                                     setSelectedTable(null)
                                                                     setSelectedKeys([])
                                                                 } else {
-                                                                    message.error(response.msg || '删除失败')
+                                                                    uiMessage.handleSystemError(response.msg || '删除失败')
                                                                 }
                                                             } else {
                                                                 // 演示版本：使用mock数据
@@ -5384,7 +5385,7 @@ const DataAssetManagement: React.FC = () => {
                                                             }
                                                         } catch (error) {
                                                             console.error('删除类别失败:', error)
-                                                            message.error(error instanceof Error ? error.message : '删除失败，请重试')
+                                                            uiMessage.handleSystemError(error instanceof Error ? error.message : '删除失败，请重试')
                                                         }
                                                     },
                                                 })

@@ -100,7 +100,7 @@ const WorkflowConfig: React.FC = () => {
             )
             const errorMessage =
                 error instanceof Error ? error.message : '更新工作流配置失败，请稍后重试'
-            uiMessage.error(errorMessage)
+            uiMessage.handleSystemError(errorMessage)
         }
     }, [dispatch])
 
@@ -187,7 +187,7 @@ const WorkflowConfig: React.FC = () => {
                 '获取数据源列表失败:',
                 error instanceof Error ? error : new Error(String(error))
             )
-            uiMessage.error(errorMessage)
+            uiMessage.handleSystemError(errorMessage)
         } finally {
             setLoadingDataSources(false)
         }
@@ -219,7 +219,7 @@ const WorkflowConfig: React.FC = () => {
 
             // 验证ID转换是否成功
             if (isNaN(sourceDbId) || isNaN(targetDbId)) {
-                uiMessage.error('数据源ID或目标源ID无效')
+                uiMessage.handleSystemError('数据源ID或目标源ID无效')
                 return
             }
 
@@ -253,7 +253,7 @@ const WorkflowConfig: React.FC = () => {
 
             if (!success) {
                 logger.warn('工作流启动失败')
-                uiMessage.error('工作流启动失败，请稍后重试')
+                uiMessage.handleSystemError('工作流启动失败，请稍后重试')
             }
         } catch (error) {
             // 如果是表单验证错误，不处理
@@ -264,7 +264,7 @@ const WorkflowConfig: React.FC = () => {
                 '启动工作流时发生异常',
                 error instanceof Error ? error : new Error(String(error))
             )
-            uiMessage.error('启动工作流时发生异常，请稍后重试')
+            uiMessage.handleSystemError('启动工作流时发生异常，请稍后重试')
         }
     }, [dataSourceForm, navigate])
 

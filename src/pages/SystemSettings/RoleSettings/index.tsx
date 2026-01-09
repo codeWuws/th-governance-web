@@ -26,6 +26,7 @@ import {
     Alert,
     Statistic,
 } from 'antd'
+import { uiMessage } from '@/utils/uiMessage'
 import {
     PlusOutlined,
     SearchOutlined,
@@ -98,7 +99,7 @@ const RoleSettings: React.FC = () => {
                 setTotal(response.data.data.total)
             }
         } catch (error) {
-            message.error('加载角色列表失败')
+            uiMessage.handleSystemError('加载角色列表失败')
             console.error('Load roles error:', error)
         } finally {
             setLoading(false)
@@ -194,7 +195,7 @@ const RoleSettings: React.FC = () => {
                 loadRoles()
             }
         } catch (error) {
-            message.error('状态更新失败')
+            uiMessage.handleSystemError('状态更新失败')
             console.error('Update status error:', error)
         } finally {
             setToggling(null)
@@ -213,7 +214,7 @@ const RoleSettings: React.FC = () => {
                 loadRoles()
             }
         } catch (error) {
-            message.error('删除角色失败')
+            uiMessage.handleSystemError('删除角色失败')
             console.error('Delete role error:', error)
         } finally {
             setDeleting(null)
@@ -241,7 +242,7 @@ const RoleSettings: React.FC = () => {
                 loadRoles()
             }
         } catch (error) {
-            message.error(editingRole ? '更新角色失败' : '创建角色失败')
+            uiMessage.handleSystemError(editingRole ? '更新角色失败' : '创建角色失败')
             console.error('Submit role error:', error)
         } finally {
             setSaving(false)

@@ -18,6 +18,7 @@ import dayjs, { type Dayjs } from 'dayjs'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { dataQualityControlService } from '@/services/dataQualityControlService'
+import { uiMessage } from '@/utils/uiMessage'
 import type { QCTaskRecord, QCTaskPageParams } from '@/types'
 import { useApi } from '@/hooks/useApi'
 import styles from './ExecutionHistory.module.scss'
@@ -158,7 +159,7 @@ const ExecutionHistory: React.FC = () => {
 
             await fetchData(params)
         } catch (error) {
-            message.error(
+            uiMessage.handleSystemError(
                 `加载数据失败: ${error instanceof Error ? error.message : '未知错误'}`
             )
         }

@@ -8,6 +8,7 @@ import { Card, Input, Button, Table, Space, Tag, message, Row, Col, Statistic, E
 import { SearchOutlined, ReloadOutlined, EyeOutlined, BarChartOutlined } from '@ant-design/icons'
 import { useDebounce } from '../../hooks/useDebounce'
 import { useApi } from '../../hooks/useApi'
+import { uiMessage } from '@/utils/uiMessage'
 import { SearchRequest, SearchResponse, PatientRecord, SearchType } from './types'
 import { dataRetrievalService } from './services/dataRetrievalService'
 import { useNavigate } from 'react-router-dom'
@@ -92,7 +93,7 @@ const FullTextSearch: React.FC = () => {
                 }
             } catch (err) {
                 logger.error('全文搜索失败', err instanceof Error ? err : undefined)
-                message.error('搜索失败，请稍后重试')
+                uiMessage.handleSystemError('搜索失败，请稍后重试')
             } finally {
                 setLoading(false)
             }

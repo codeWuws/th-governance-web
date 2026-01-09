@@ -19,6 +19,7 @@ import { menuItems } from '@/components/Layout/Sidebar'
 import { mockApi } from '@/mock/rbac'
 import { getAllRoles as mockGetAllRoles } from '@/mock/rbac'
 import { SafetyOutlined, CheckCircleOutlined } from '@ant-design/icons'
+import { uiMessage } from '@/utils/uiMessage'
 
 const toTreeData = (items: any[]): DataNode[] => {
     const mapNode = (node: any): DataNode => {
@@ -121,7 +122,7 @@ const PermissionSettings: React.FC = () => {
                 setRoles(records)
                 setRoleOptions(records.map((r: any) => ({ label: r.name, value: r.id })))
             } catch (err: any) {
-                message.error(err?.message || '加载角色列表失败')
+                uiMessage.handleSystemError(err?.message || '加载角色列表失败')
             } finally {
                 setLoading(false)
             }
@@ -141,7 +142,7 @@ const PermissionSettings: React.FC = () => {
             const perms: string[] = res?.data?.data || []
             setCheckedKeys(perms)
         } catch (err: any) {
-            message.error(err?.message || '加载角色权限失败')
+            uiMessage.handleSystemError(err?.message || '加载角色权限失败')
         } finally {
             setLoading(false)
         }
@@ -157,7 +158,7 @@ const PermissionSettings: React.FC = () => {
             await mockApi.role.updateRolePermissions(selectedRoleId, checkedKeys)
             message.success('权限已保存')
         } catch (err: any) {
-            message.error(err?.message || '保存权限失败')
+            uiMessage.handleSystemError(err?.message || '保存权限失败')
         } finally {
             setSaving(false)
         }

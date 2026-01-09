@@ -40,6 +40,7 @@ import {
     CalendarOutlined,
     PlayCircleOutlined,
 } from '@ant-design/icons'
+import { uiMessage } from '@/utils/uiMessage'
 import { useDebounce } from '../../hooks/useDebounce'
 
 const { Title } = Typography
@@ -281,7 +282,7 @@ const DataQualityAssessment: React.FC = () => {
             await new Promise(resolve => setTimeout(resolve, 500))
             setData(mockAssessments)
         } catch {
-            message.error('获取数据质量评估失败')
+            uiMessage.handleSystemError('获取数据质量评估失败')
         } finally {
             setLoading(false)
         }
@@ -357,7 +358,7 @@ const DataQualityAssessment: React.FC = () => {
             await new Promise(resolve => setTimeout(resolve, 2000))
             message.success('评估任务启动成功')
         } catch {
-            message.error('评估任务启动失败')
+            uiMessage.handleSystemError('评估任务启动失败')
         }
     }
 
@@ -368,7 +369,7 @@ const DataQualityAssessment: React.FC = () => {
             setData(data.filter(item => item.id !== id))
             message.success('删除成功')
         } catch {
-            message.error('删除失败')
+            uiMessage.handleSystemError('删除失败')
         }
     }
 
@@ -412,7 +413,7 @@ const DataQualityAssessment: React.FC = () => {
             setModalVisible(false)
             form.resetFields()
         } catch {
-            message.error('操作失败')
+            uiMessage.handleSystemError('操作失败')
         }
     }
 

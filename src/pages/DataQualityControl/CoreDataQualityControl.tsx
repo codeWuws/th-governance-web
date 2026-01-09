@@ -173,7 +173,7 @@ const CoreDataQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) 
             }
         } catch (error) {
             logger.error('加载准确性质控结果失败:', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('加载结果失败，请重试')
+            uiMessage.handleSystemError('加载结果失败，请重试')
         } finally {
             setResultLoading(false)
         }
@@ -304,7 +304,7 @@ const CoreDataQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) 
                     onError: (event) => {
                         console.error('=== SSE连接错误 ===', event)
                         logger.error('准确性质控SSE连接错误', new Error(`SSE连接错误: ${event.type || 'unknown'}`))
-                        uiMessage.error('准确性质控分析连接异常，请检查网络')
+                        uiMessage.handleSystemError('准确性质控分析连接异常，请检查网络')
                         setLoading(false)
                         setCurrentTaskId(null)
                         setProgress(0)
@@ -327,7 +327,7 @@ const CoreDataQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) 
             } catch (sseError) {
                 logger.error('启动SSE连接失败:', sseError instanceof Error ? sseError : new Error(String(sseError)))
                 console.error('=== 启动SSE连接失败 ===', sseError)
-                uiMessage.error('启动准确性质控分析连接失败，请稍后重试')
+                uiMessage.handleSystemError('启动准确性质控分析连接失败，请稍后重试')
                 setLoading(false)
                 setCurrentTaskId(null)
                 setProgress(0)
@@ -338,7 +338,7 @@ const CoreDataQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) 
                 '准确性质控分析失败:',
                 error instanceof Error ? error : new Error(String(error))
             )
-            uiMessage.error('准确性质控分析失败，请重试')
+            uiMessage.handleSystemError('准确性质控分析失败，请重试')
             setLoading(false)
             setCurrentTaskId(null)
             setProgress(0)
@@ -377,7 +377,7 @@ const CoreDataQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone }) 
             uiMessage.success('导出成功')
         } catch (e) {
             logger.error('导出失败', e instanceof Error ? e : new Error(String(e)))
-            uiMessage.error('导出失败，请重试')
+            uiMessage.handleSystemError('导出失败，请重试')
         }
     }
 

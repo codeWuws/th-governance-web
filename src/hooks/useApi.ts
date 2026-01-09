@@ -121,6 +121,8 @@ export function useApi<T = unknown, P extends unknown[] = unknown[]>(
                         status: 'error',
                     })
 
+                    // 不在这里显示错误提示，因为 request.ts 的错误拦截器已经统一处理了
+                    // 如果页面需要自定义错误处理，可以通过 onError 回调实现
                     onError?.(errorMessage)
                     return Promise.reject(error)
                 }

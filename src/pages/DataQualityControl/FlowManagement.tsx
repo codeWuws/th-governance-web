@@ -57,12 +57,12 @@ const FlowManagement: React.FC = () => {
                     setQcConfigList(response.data || [])
                     logger.info('成功获取质控任务配置列表', response.data)
                 } else {
-                    uiMessage.error(response.msg || '获取质控配置列表失败')
+                    uiMessage.handleSystemError(response.msg || '获取质控配置列表失败')
                     logger.error('获取质控配置列表失败', new Error(response.msg || '获取质控配置列表失败'))
                 }
             } catch (error) {
                 logger.error('获取质控配置列表异常', error as Error)
-                uiMessage.error('获取质控配置列表失败，请稍后重试')
+                uiMessage.handleSystemError('获取质控配置列表失败，请稍后重试')
             } finally {
                 setLoading(false)
             }
@@ -95,7 +95,7 @@ const FlowManagement: React.FC = () => {
             return
         }
         if (selectedTypes.length > MAX_SELECT) {
-            uiMessage.error(`最多可选择 ${MAX_SELECT} 个质控类型`)
+            uiMessage.handleSystemError(`最多可选择 ${MAX_SELECT} 个质控类型`)
             return
         }
 
@@ -129,7 +129,7 @@ const FlowManagement: React.FC = () => {
             }
         } catch (error) {
             logger.error('启动质控流程失败:', error as Error)
-            uiMessage.error('启动流程失败，请稍后重试')
+            uiMessage.handleSystemError('启动流程失败，请稍后重试')
         }
     }
 

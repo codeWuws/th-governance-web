@@ -61,7 +61,7 @@ export const ExecutionHistory: React.FC = () => {
                 }
             } catch (error) {
                 logger.error('获取执行历史失败', error as Error)
-                uiMessage.error('获取执行历史失败，请稍后重试')
+                uiMessage.handleSystemError('获取执行历史失败，请稍后重试')
 
                 // 即使出现错误也提供模拟数据
                 const mockResponse = getMockExecutionHistoryResponse(20, page, size)

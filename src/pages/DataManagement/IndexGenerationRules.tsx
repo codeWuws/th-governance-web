@@ -27,6 +27,7 @@ import {
     CopyOutlined,
 } from '@ant-design/icons'
 import { dataManagementService } from '@/services/dataManagementService'
+import { uiMessage } from '@/utils/uiMessage'
 import type { PrimaryIndexRuleRecord, PrimaryIndexRulePageParams } from '@/types'
 
 const { Title } = Typography
@@ -162,7 +163,7 @@ const IndexGenerationRules: React.FC = () => {
             })
         } catch (error) {
             const errMsg = error instanceof Error ? error.message : '获取主索引生成规则列表失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
         } finally {
             setLoading(false)
         }
@@ -186,7 +187,7 @@ const IndexGenerationRules: React.FC = () => {
             }
         } catch (error) {
             const errMsg = error instanceof Error ? error.message : '获取依据表选项失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
         }
     }
 
@@ -208,7 +209,7 @@ const IndexGenerationRules: React.FC = () => {
             }
         } catch (error) {
             const errMsg = error instanceof Error ? error.message : '获取字段选项失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
         }
     }
 
@@ -318,7 +319,7 @@ const IndexGenerationRules: React.FC = () => {
             // })
         } catch (error) {
             const errMsg = error instanceof Error ? error.message : '删除失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
         }
     }
 
@@ -357,7 +358,7 @@ const IndexGenerationRules: React.FC = () => {
                     // 刷新列表
                     void fetchData()
                 } else {
-                    message.error(response.msg || '更新失败')
+                    uiMessage.handleSystemError(response.msg || '更新失败')
                 }
             } else {
                 // 新增
@@ -380,12 +381,12 @@ const IndexGenerationRules: React.FC = () => {
                     // 刷新列表
                     void fetchData()
                 } else {
-                    message.error(response.msg || '添加失败')
+                    uiMessage.handleSystemError(response.msg || '添加失败')
                 }
             }
         } catch (error) {
             const errMsg = error instanceof Error ? error.message : '操作失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
             console.error('表单提交失败:', error)
         }
     }

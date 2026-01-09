@@ -62,7 +62,7 @@ const TextQualityControl: React.FC = () => {
             }
         } catch (error) {
             logger.error('加载表信息失败:', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('加载表信息失败，请重试')
+            uiMessage.handleSystemError('加载表信息失败，请重试')
         } finally {
             setTableLoading(false)
         }
@@ -132,12 +132,12 @@ const TextQualityControl: React.FC = () => {
             const isImage = file.type.startsWith('image/') ||
                 ['image/tiff', 'image/bmp'].includes(file.type)
             if (!isDoc && !isImage) {
-                uiMessage.error('仅支持文本/文档或图片格式（TXT/DOC/DOCX/PDF/PNG/JPG/JPEG/BMP/TIFF）')
+                uiMessage.handleSystemError('仅支持文本/文档或图片格式（TXT/DOC/DOCX/PDF/PNG/JPG/JPEG/BMP/TIFF）')
                 return false
             }
             const isLt10M = file.size / 1024 / 1024 < 10
             if (!isLt10M) {
-                uiMessage.error('文件大小不能超过 10MB！')
+                uiMessage.handleSystemError('文件大小不能超过 10MB！')
                 return false
             }
             return false // 阻止自动上传
@@ -195,7 +195,7 @@ const TextQualityControl: React.FC = () => {
             const file = fileList[0]
             const originFile = file.originFileObj as File | undefined
             if (!originFile) {
-                uiMessage.error('文件信息异常，请重新上传')
+                uiMessage.handleSystemError('文件信息异常，请重新上传')
                 return
             }
 
@@ -277,7 +277,7 @@ const TextQualityControl: React.FC = () => {
                     onError: (event) => {
                         console.error('=== SSE连接错误 ===', event)
                         logger.error('可靠性质控SSE连接错误', new Error(`SSE连接错误: ${event.type || 'unknown'}`))
-                        uiMessage.error('质控保存连接异常，请检查网络')
+                        uiMessage.handleSystemError('质控保存连接异常，请检查网络')
                         setSaving(false)
                         setCurrentTaskId(null)
                         setProgress(0)
@@ -300,7 +300,7 @@ const TextQualityControl: React.FC = () => {
             } catch (sseError) {
                 logger.error('启动SSE连接失败:', sseError instanceof Error ? sseError : new Error(String(sseError)))
                 console.error('=== 启动SSE连接失败 ===', sseError)
-                uiMessage.error('启动质控保存连接失败，请稍后重试')
+                uiMessage.handleSystemError('启动质控保存连接失败，请稍后重试')
                 setSaving(false)
                 setCurrentTaskId(null)
                 setProgress(0)
@@ -313,7 +313,7 @@ const TextQualityControl: React.FC = () => {
             }
             const errorMessage = error instanceof Error ? error.message : '保存质控结果失败，请重试'
             logger.error('保存质控结果失败:', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error(errorMessage)
+            uiMessage.handleSystemError(errorMessage)
             setSaving(false)
             setCurrentTaskId(null)
             setProgress(0)

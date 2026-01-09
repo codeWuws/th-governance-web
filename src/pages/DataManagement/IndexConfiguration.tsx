@@ -27,6 +27,7 @@ import {
     EyeOutlined,
 } from '@ant-design/icons'
 import { dataManagementService } from '@/services/dataManagementService'
+import { uiMessage } from '@/utils/uiMessage'
 import type {
     MasterIndexConfigRecord,
     MasterIndexConfigPageParams,
@@ -184,7 +185,7 @@ const IndexConfiguration: React.FC = () => {
             })
         } catch (error) {
             const errMsg = error instanceof Error ? error.message : '获取主索引配置列表失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
         } finally {
             setLoading(false)
         }
@@ -291,11 +292,11 @@ const IndexConfiguration: React.FC = () => {
                     pageSize: pagination.pageSize,
                 })
             } else {
-                message.error(response.msg || '删除失败')
+                uiMessage.handleSystemError(response.msg || '删除失败')
             }
         } catch (error) {
             const errMsg = error instanceof Error ? error.message : '删除失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
         }
     }
 
@@ -329,7 +330,7 @@ const IndexConfiguration: React.FC = () => {
                     setEditingRecord(null)
                     void fetchData()
                 } else {
-                    message.error(response.msg || '更新失败')
+                    uiMessage.handleSystemError(response.msg || '更新失败')
                 }
             } else {
                 // 新增
@@ -353,12 +354,12 @@ const IndexConfiguration: React.FC = () => {
                     setEditingRecord(null)
                     void fetchData()
                 } else {
-                    message.error(response.msg || '添加失败')
+                    uiMessage.handleSystemError(response.msg || '添加失败')
                 }
             }
         } catch (error) {
             const errMsg = error instanceof Error ? error.message : '操作失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
             console.error('表单提交失败:', error)
         }
     }

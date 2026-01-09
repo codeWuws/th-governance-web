@@ -8,6 +8,8 @@ import axios, {
 import { getEnv } from './env'
 import { logger } from './logger'
 import { handleMockRequest } from './mockAdapter'
+import { getRuntimeConfig } from './configLoader'
+import { uiMessage } from './uiMessage'
 
 // 扩展 InternalAxiosRequestConfig 接口
 declare module 'axios' {
@@ -71,16 +73,8 @@ const handleApiError = (error: AxiosError): Promise<never> => {
 
     const { status, data } = response
 
-    // 401状态码特殊处理：清除本地凭证并跳转到登录页
-    if (status === 401) {
-        // 清除本地凭证
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
-        // 跳转到登录页（避免循环跳转，只在非登录页时跳转）
-        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-            window.location.href = '/dataflow/login'
-        }
-    }
+    // 401状态码特殊处理：清除本地凭证并跳转到登录页（在响应拦截器中已处理，这里不再重复处理）
+    // 注意：401错误在响应拦截器中已经处理，这里只返回错误对象，不显示提示
 
     // 所有非200状态码统一处理：优先返回后端提供的msg
     const errorData = data as { msg?: string }
@@ -110,9 +104,14 @@ const createCustomAdapter = (): ((config: InternalAxiosRequestConfig) => Promise
 
 // 创建 Axios 实例
 const createAxiosInstance = (): AxiosInstance => {
+    // 优先从运行时配置获取，如果未加载则从环境变量获取
+    const runtimeConfig = getRuntimeConfig()
+    const baseURL = runtimeConfig.apiBaseUrl || getEnv('VITE_APP_API_BASE_URL', '/api')
+    const timeout = runtimeConfig.apiTimeout || parseInt(getEnv('VITE_APP_API_TIMEOUT', '10000'))
+    
     const instance = axios.create({
-        baseURL: getEnv('VITE_APP_API_BASE_URL', '/api'),
-        timeout: parseInt(getEnv('VITE_APP_API_TIMEOUT', '10000')),
+        baseURL,
+        timeout,
         headers: {
             'Content-Type': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
@@ -128,6 +127,18 @@ const createAxiosInstance = (): AxiosInstance => {
 
 // 创建请求实例
 const request: AxiosInstance = createAxiosInstance()
+
+// 监听配置更新事件，动态更新 axios 实例的配置
+if (typeof window !== 'undefined') {
+    window.addEventListener('runtimeConfigUpdated', ((event: CustomEvent<{ apiBaseUrl: string; apiTimeout: number }>) => {
+        const config = event.detail
+        if (config) {
+            request.defaults.baseURL = config.apiBaseUrl
+            request.defaults.timeout = config.apiTimeout
+            logger.info('已更新请求配置:', { baseURL: config.apiBaseUrl, timeout: config.apiTimeout })
+        }
+    }) as EventListener)
+}
 
 // 请求拦截器
 request.interceptors.request.use(
@@ -197,14 +208,17 @@ request.interceptors.response.use(
         if (responseData?.code !== undefined && responseData.code !== 200 && responseData.code !== 0) {
             // 优先返回后端提供的msg，最后使用默认值
             const errorMessage = responseData.msg || `请求失败 (业务状态码: ${responseData.code})`
+            // 直接抛出错误，让错误拦截器统一处理错误提示
             throw new Error(errorMessage)
         }
 
         // 默认返回完整响应对象（包含code、msg、data），保持向后兼容
         // 调用方可以根据需要判断 code === 200 或直接使用 data 字段
         
-        // 如果配置了只返回data字段，则提取data返回（用于简化调用方代码）
+        // 获取请求配置，检查是否需要只返回data字段
         const requestConfig = config as InternalAxiosRequestConfig & RequestConfig
+        
+        // 如果配置了只返回data字段，则提取data返回（用于简化调用方代码）
         if (requestConfig.returnDataOnly && responseData?.data !== undefined) {
             return responseData.data as unknown as AxiosResponse
         }
@@ -229,6 +243,46 @@ request.interceptors.response.use(
             message: error.message,
             data: response?.data,
         } as Record<string, unknown>)
+
+        // 获取请求配置，检查是否需要跳过错误处理
+        const requestConfig = config as InternalAxiosRequestConfig & RequestConfig
+        
+        // 检查是否是取消的请求，取消的请求不需要显示错误提示
+        if (error.code === 'ERR_CANCELED' || error.message?.includes('canceled') || error.message?.includes('aborted')) {
+            return handleApiError(error)
+        }
+        
+        // 401状态码特殊处理：清除本地凭证并跳转到登录页（不显示错误提示）
+        if (response?.status === 401) {
+            // 清除本地凭证
+            localStorage.removeItem('access_token')
+            localStorage.removeItem('refresh_token')
+            // 跳转到登录页（避免循环跳转，只在非登录页时跳转）
+            if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+                window.location.href = '/dataflow/login'
+            }
+            // 401错误不显示提示，直接返回错误
+            return handleApiError(error)
+        }
+
+        // 404状态码通常不需要显示错误提示，页面可以自己处理（如显示空状态）
+        if (response?.status === 404) {
+            return handleApiError(error)
+        }
+
+        // 如果未配置跳过错误处理，则自动显示错误提示
+        // 使用 setTimeout 确保在下一个事件循环中执行，避免在错误拦截器中直接调用导致的问题
+        if (!requestConfig.skipErrorHandler && typeof window !== 'undefined') {
+            const errorMessage = error.message || '请求失败'
+            setTimeout(() => {
+                try {
+                    uiMessage.handleSystemError(errorMessage)
+                } catch (e) {
+                    // 如果 uiMessage 调用失败，只记录日志，不影响错误处理
+                    logger.error('显示错误提示失败:', e)
+                }
+            }, 0)
+        }
 
         // 处理不同类型的错误
         return handleApiError(error)
@@ -285,11 +339,14 @@ export const apiMethods = {
     // 下载文件
     download: (url: string, filename?: string, config?: RequestConfig): Promise<void> => {
         // 对于下载文件，我们需要直接使用axios实例而不是经过拦截器处理的request
+        const runtimeConfig = getRuntimeConfig()
+        const baseURL = runtimeConfig.apiBaseUrl || getEnv('VITE_APP_API_BASE_URL', '/api')
+        
         return axios
             .get(url, {
                 ...config,
                 responseType: 'blob',
-                baseURL: getEnv('VITE_APP_API_BASE_URL', '/api'),
+                baseURL,
             })
             .then((response: AxiosResponse<Blob>) => {
                 const blob = new Blob([response.data])
@@ -470,9 +527,26 @@ export class SSEManager {
         // 构建完整的 URL，复用 request 工具的 baseURL 逻辑
         const fullUrl = this.buildUrl(this.config.url)
 
+        // 检测是否是跨域请求
+        const isCrossOrigin = (() => {
+            try {
+                const urlObj = new URL(fullUrl, window.location.origin)
+                return urlObj.origin !== window.location.origin
+            } catch {
+                // 如果 URL 解析失败，假设是跨域
+                return true
+            }
+        })()
+
+        // 对于跨域请求，如果服务器返回 Access-Control-Allow-Origin: *，
+        // 不能使用 withCredentials: true，因为认证已通过 URL 参数中的 token 处理，
+        // 所以禁用 withCredentials 避免 CORS 错误
+        // 对于同源请求，根据配置决定是否包含 credentials
+        const withCredentials = isCrossOrigin ? false : (this.config.withCredentials ?? false)
+
         // 创建 EventSource 实例
         this.eventSource = new EventSource(fullUrl, {
-            withCredentials: this.config.withCredentials,
+            withCredentials,
         })
 
         // 设置事件监听器
@@ -499,11 +573,35 @@ export class SSEManager {
                 headers.Authorization = `Bearer ${token}`
             }
 
+            // 检测是否是跨域请求
+            const isCrossOrigin = (() => {
+                try {
+                    const urlObj = new URL(fullUrl, window.location.origin)
+                    return urlObj.origin !== window.location.origin
+                } catch {
+                    // 如果 URL 解析失败，假设是跨域
+                    return true
+                }
+            })()
+
+            // 对于跨域请求，如果服务器返回 Access-Control-Allow-Origin: *，
+            // 不能使用 credentials: 'include'，因为认证已通过 Authorization header 处理，
+            // 所以使用 'omit' 避免 CORS 错误
+            // 对于同源请求，根据配置决定是否包含 credentials
+            let credentials: RequestCredentials
+            if (isCrossOrigin) {
+                // 跨域请求：使用 'omit' 避免 CORS 问题（认证通过 Authorization header）
+                credentials = 'omit'
+            } else {
+                // 同源请求：根据配置决定
+                credentials = this.config.withCredentials ? 'include' : 'same-origin'
+            }
+
             const fetchConfig: RequestInit = {
                 method: 'POST',
                 headers,
                 signal: this.abortController.signal,
-                credentials: this.config.withCredentials ? 'include' : 'same-origin',
+                credentials,
             }
 
             // 添加请求体
@@ -511,15 +609,48 @@ export class SSEManager {
                 fetchConfig.body = JSON.stringify(this.config.data)
             }
 
+            // 记录请求信息，方便调试
+            logger.debug('SSE fetch请求:', {
+                url: fullUrl,
+                method: 'POST',
+                headers: Object.keys(headers),
+                hasData: !!this.config.data,
+            })
+
             // 发起fetch请求
-            const response = await fetch(fullUrl, fetchConfig)
+            let response: Response
+            try {
+                response = await fetch(fullUrl, fetchConfig)
+            } catch (fetchError) {
+                // 捕获网络错误，提供更详细的错误信息
+                const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError)
+                const detailedError = new Error(
+                    `SSE fetch连接失败: ${errorMessage}。URL: ${fullUrl}。可能的原因：1) CORS配置问题 2) 网络连接失败 3) 服务器不可达`
+                )
+                logger.error('SSE fetch请求失败:', detailedError, {
+                    url: fullUrl,
+                    error: errorMessage,
+                })
+                throw detailedError
+            }
 
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+                const errorText = await response.text().catch(() => '无法读取错误信息')
+                const errorMessage = `HTTP ${response.status}: ${response.statusText}。响应内容: ${errorText}`
+                logger.error('SSE fetch响应错误:', new Error(errorMessage), {
+                    url: fullUrl,
+                    status: response.status,
+                    statusText: response.statusText,
+                })
+                throw new Error(errorMessage)
             }
 
             if (!response.body) {
-                throw new Error('Response body is null')
+                const errorMessage = 'Response body is null，服务器可能未正确配置SSE响应'
+                logger.error('SSE响应体为空:', new Error(errorMessage), {
+                    url: fullUrl,
+                })
+                throw new Error(errorMessage)
             }
 
             // 连接成功
@@ -561,7 +692,13 @@ export class SSEManager {
                 return
             }
 
-            logger.error('SSE fetch连接错误:', error instanceof Error ? error : new Error(String(error)))
+            // 提供更详细的错误信息
+            const errorDetails = error instanceof Error ? error.message : String(error)
+            logger.error('SSE fetch连接错误:', error instanceof Error ? error : new Error(String(error)), {
+                url: this.config.url,
+                fullUrl: this.buildUrl(this.config.url, false),
+                error: errorDetails,
+            })
             this.handleError(new Event('error'))
         }
     }
@@ -626,16 +763,39 @@ export class SSEManager {
             return addToken ? this.addAuthToUrl(url) : url
         }
 
-        // 使用与 request 工具相同的 baseURL
-        const baseURL = getEnv('VITE_APP_API_BASE_URL', '/api')
+        // 使用与 request 工具相同的 baseURL（优先从运行时配置获取）
+        const runtimeConfig = getRuntimeConfig()
+        const baseURL = runtimeConfig.apiBaseUrl || getEnv('VITE_APP_API_BASE_URL', '/api')
+
+        let fullUrl: string
 
         // 如果 URL 以 /api 开头，直接使用
         if (url.startsWith('/api')) {
-            return addToken ? this.addAuthToUrl(url) : url
+            fullUrl = url
+        } else {
+            // 构建完整 URL，处理 baseURL 和 url 的拼接
+            // 如果 baseURL 是完整 URL（如 http://example.com/api），直接拼接
+            if (baseURL.startsWith('http://') || baseURL.startsWith('https://')) {
+                // 确保 baseURL 不以 / 结尾，url 以 / 开头
+                const base = baseURL.endsWith('/') ? baseURL.slice(0, -1) : baseURL
+                const path = url.startsWith('/') ? url : `/${url}`
+                fullUrl = `${base}${path}`
+            } else {
+                // baseURL 是相对路径（如 /api）
+                // 确保 baseURL 不以 / 结尾，url 以 / 开头
+                const base = baseURL.endsWith('/') ? baseURL.slice(0, -1) : baseURL
+                const path = url.startsWith('/') ? url : `/${url}`
+                fullUrl = `${base}${path}`
+            }
         }
 
-        // 否则添加 baseURL 前缀
-        const fullUrl = `${baseURL}${url.startsWith('/') ? url : `/${url}`}`
+        // 记录构建的 URL，方便调试
+        logger.debug('SSE URL构建:', {
+            originalUrl: url,
+            baseURL,
+            fullUrl,
+        })
+
         return addToken ? this.addAuthToUrl(fullUrl) : fullUrl
     }
 

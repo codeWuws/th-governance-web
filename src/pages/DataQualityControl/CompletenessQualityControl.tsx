@@ -125,7 +125,7 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
             }
         } catch (error) {
             logger.error('加载数据库选项失败:', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('加载数据库选项失败，请重试')
+            uiMessage.handleSystemError('加载数据库选项失败，请重试')
         } finally {
             setDatabaseLoading(false)
         }
@@ -151,7 +151,7 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
             }
         } catch (error) {
             logger.error('加载表信息失败:', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('加载表信息失败，请重试')
+            uiMessage.handleSystemError('加载表信息失败，请重试')
         } finally {
             setTableLoading(false)
         }
@@ -187,7 +187,7 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
             }
         } catch (error) {
             logger.error('加载完整性质控结果失败:', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('加载结果失败，请重试')
+            uiMessage.handleSystemError('加载结果失败，请重试')
         } finally {
             setResultLoading(false)
         }
@@ -333,7 +333,7 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
                     onError: (event) => {
                         console.error('=== SSE连接错误 ===', event)
                         logger.error('完整性质控SSE连接错误', new Error(`SSE连接错误: ${event.type || 'unknown'}`))
-                        uiMessage.error('完整性检查连接异常，请检查网络')
+                        uiMessage.handleSystemError('完整性检查连接异常，请检查网络')
                         setLoading(false)
                         setCurrentTaskId(null)
                         setProgress(0)
@@ -356,7 +356,7 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
             } catch (sseError) {
                 logger.error('启动SSE连接失败:', sseError instanceof Error ? sseError : new Error(String(sseError)))
                 console.error('=== 启动SSE连接失败 ===', sseError)
-                uiMessage.error('启动完整性检查连接失败，请稍后重试')
+                uiMessage.handleSystemError('启动完整性检查连接失败，请稍后重试')
                 setLoading(false)
                 setCurrentTaskId(null)
                 setProgress(0)
@@ -367,7 +367,7 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
                 '完整性检查失败:',
                 error instanceof Error ? error : new Error(String(error))
             )
-            uiMessage.error('完整性检查失败，请重试')
+            uiMessage.handleSystemError('完整性检查失败，请重试')
             setLoading(false)
             setCurrentTaskId(null)
             setProgress(0)
@@ -471,7 +471,7 @@ const CompletenessQualityControl: React.FC<AutoProps> = ({ autoStart, onAutoDone
             uiMessage.success('导出成功')
         } catch (e) {
             logger.error('导出失败', e instanceof Error ? e : new Error(String(e)))
-            uiMessage.error('导出失败，请重试')
+            uiMessage.handleSystemError('导出失败，请重试')
         }
     }
 

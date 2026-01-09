@@ -112,7 +112,7 @@ const StartQCProcessDialog: React.FC<StartQCProcessDialogProps> = ({
                     onError: (event) => {
                         console.error('=== SSE连接错误 ===', event)
                         logger.error('SSE连接错误', new Error(`SSE连接错误: ${event.type || 'unknown'}`))
-                        uiMessage.error('质控流程连接异常，请检查网络')
+                        uiMessage.handleSystemError('质控流程连接异常，请检查网络')
                     },
                     onClose: () => {
                         console.log('=== SSE连接已关闭 ===')
@@ -132,7 +132,7 @@ const StartQCProcessDialog: React.FC<StartQCProcessDialogProps> = ({
             } catch (sseError) {
                 logger.error('启动SSE连接失败:', sseError instanceof Error ? sseError : new Error(String(sseError)))
                 console.error('=== 启动SSE连接失败 ===', sseError)
-                uiMessage.error('启动质控流程连接失败，请稍后重试')
+                uiMessage.handleSystemError('启动质控流程连接失败，请稍后重试')
                 throw sseError
             }
             
@@ -143,7 +143,7 @@ const StartQCProcessDialog: React.FC<StartQCProcessDialogProps> = ({
         } catch (error) {
             setLoading(false)
             logger.error('启动质控流程失败:', error as Error)
-            uiMessage.error('启动质控流程失败，请稍后重试')
+            uiMessage.handleSystemError('启动质控流程失败，请稍后重试')
             // 抛出错误，让 showDialog 知道操作失败，弹窗保持打开以便用户重试
             throw error
         }

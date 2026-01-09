@@ -22,6 +22,7 @@ import {
     Tabs,
     Progress,
 } from 'antd'
+import { uiMessage } from '@/utils/uiMessage'
 import {
     BarChartOutlined,
     PieChartOutlined,
@@ -82,7 +83,7 @@ const SearchAnalysis: React.FC = () => {
             }
         } catch (err) {
             console.error('分析失败:', err)
-            message.error('数据分析失败，请稍后重试')
+            uiMessage.handleSystemError('数据分析失败，请稍后重试')
         } finally {
             setLoading(false)
         }

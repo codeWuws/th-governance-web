@@ -22,6 +22,7 @@ import {
     Row as AntRow,
     Col as AntCol,
 } from 'antd'
+import { uiMessage } from '@/utils/uiMessage'
 import {
     PlusOutlined,
     EditOutlined,
@@ -231,7 +232,7 @@ const DataQualityControl: React.FC = () => {
             await new Promise(resolve => setTimeout(resolve, 500))
             setData(mockQualityControls)
         } catch {
-            message.error('获取数据质控失败')
+            uiMessage.handleSystemError('获取数据质控失败')
         } finally {
             setLoading(false)
         }
@@ -302,7 +303,7 @@ const DataQualityControl: React.FC = () => {
             await new Promise(resolve => setTimeout(resolve, 2000))
             message.success('质控规则执行成功')
         } catch {
-            message.error('质控规则执行失败')
+            uiMessage.handleSystemError('质控规则执行失败')
         }
     }
 
@@ -313,7 +314,7 @@ const DataQualityControl: React.FC = () => {
             setData(data.filter(item => item.id !== id))
             message.success('删除成功')
         } catch {
-            message.error('删除失败')
+            uiMessage.handleSystemError('删除失败')
         }
     }
 
@@ -355,7 +356,7 @@ const DataQualityControl: React.FC = () => {
             setModalVisible(false)
             form.resetFields()
         } catch {
-            message.error('操作失败')
+            uiMessage.handleSystemError('操作失败')
         }
     }
 

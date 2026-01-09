@@ -258,7 +258,7 @@ const WorkflowDetail: React.FC = () => {
             uiMessage.success('刷新成功')
         } catch (error) {
             logger.error('刷新失败', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('刷新失败，请稍后重试')
+            uiMessage.handleSystemError('刷新失败，请稍后重试')
         } finally {
             setRefreshLoading(false)
         }
@@ -516,12 +516,12 @@ const WorkflowDetail: React.FC = () => {
                 })
             } else {
                 const errorMsg = (response as { msg?: string }).msg || '获取数据清洗结果失败'
-                uiMessage.error(errorMsg)
+                uiMessage.handleSystemError(errorMsg)
                 setCleaningResultData([])
             }
         } catch (error) {
             logger.error('获取数据清洗结果失败', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('获取数据清洗结果失败')
+            uiMessage.handleSystemError('获取数据清洗结果失败')
             setCleaningResultData([])
         } finally {
             setCleaningResultLoading(false)
@@ -543,12 +543,12 @@ const WorkflowDetail: React.FC = () => {
                 })
             } else {
                 const errorMsg = (response as { msg?: string }).msg || '获取去重步骤结果失败'
-                uiMessage.error(errorMsg)
+                uiMessage.handleSystemError(errorMsg)
                 setDeduplicateResultData([])
             }
         } catch (error) {
             logger.error('获取去重步骤结果失败', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('获取去重步骤结果失败')
+            uiMessage.handleSystemError('获取去重步骤结果失败')
             setDeduplicateResultData([])
         } finally {
             setDeduplicateResultLoading(false)
@@ -577,12 +577,12 @@ const WorkflowDetail: React.FC = () => {
                 })
             } else {
                 const errorMsg = (response as { msg?: string }).msg || '获取丢孤儿步骤结果失败'
-                uiMessage.error(errorMsg)
+                uiMessage.handleSystemError(errorMsg)
                 setOrphanResultData([])
             }
         } catch (error) {
             logger.error('获取丢孤儿步骤结果失败', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('获取丢孤儿步骤结果失败')
+            uiMessage.handleSystemError('获取丢孤儿步骤结果失败')
             setOrphanResultData([])
         } finally {
             setOrphanResultLoading(false)
@@ -611,12 +611,12 @@ const WorkflowDetail: React.FC = () => {
                 })
             } else {
                 const errorMsg = (response as { msg?: string }).msg || '获取数据脱敏步骤结果失败'
-                uiMessage.error(errorMsg)
+                uiMessage.handleSystemError(errorMsg)
                 setSensitiveResultData([])
             }
         } catch (error) {
             logger.error('获取数据脱敏步骤结果失败', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('获取数据脱敏步骤结果失败')
+            uiMessage.handleSystemError('获取数据脱敏步骤结果失败')
             setSensitiveResultData([])
         } finally {
             setSensitiveResultLoading(false)
@@ -638,12 +638,12 @@ const WorkflowDetail: React.FC = () => {
                 })
             } else {
                 const errorMsg = (response as { msg?: string }).msg || '获取EMPI步骤结果失败'
-                uiMessage.error(errorMsg)
+                uiMessage.handleSystemError(errorMsg)
                 setEmpiResultData([])
             }
         } catch (error) {
             logger.error('获取EMPI步骤结果失败', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('获取EMPI步骤结果失败')
+            uiMessage.handleSystemError('获取EMPI步骤结果失败')
             setEmpiResultData([])
         } finally {
             setEmpiResultLoading(false)
@@ -665,12 +665,12 @@ const WorkflowDetail: React.FC = () => {
                 })
             } else {
                 const errorMsg = (response as { msg?: string }).msg || '获取EMOI步骤结果失败'
-                uiMessage.error(errorMsg)
+                uiMessage.handleSystemError(errorMsg)
                 setEmoiResultData([])
             }
         } catch (error) {
             logger.error('获取EMOI步骤结果失败', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('获取EMOI步骤结果失败')
+            uiMessage.handleSystemError('获取EMOI步骤结果失败')
             setEmoiResultData([])
         } finally {
             setEmoiResultLoading(false)
@@ -708,7 +708,7 @@ const WorkflowDetail: React.FC = () => {
     // 导出数据清洗结果
     const handleExportCleaningResult = async () => {
         if (!taskId) {
-            uiMessage.error('任务ID不存在，无法导出')
+            uiMessage.handleSystemError('任务ID不存在，无法导出')
             return
         }
 
@@ -720,7 +720,7 @@ const WorkflowDetail: React.FC = () => {
             logger.info('数据清洗结果导出成功', { taskId })
         } catch (error) {
             logger.error('导出数据清洗结果失败', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('导出失败，请稍后重试')
+            uiMessage.handleSystemError('导出失败，请稍后重试')
         } finally {
             setExportCleaningLoading(false)
         }
@@ -729,7 +729,7 @@ const WorkflowDetail: React.FC = () => {
     // 导出数据去重结果
     const handleExportDeduplicateResult = async () => {
         if (!taskId) {
-            uiMessage.error('任务ID不存在，无法导出')
+            uiMessage.handleSystemError('任务ID不存在，无法导出')
             return
         }
 
@@ -741,7 +741,7 @@ const WorkflowDetail: React.FC = () => {
             logger.info('数据去重结果导出成功', { taskId })
         } catch (error) {
             logger.error('导出数据去重结果失败', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('导出失败，请稍后重试')
+            uiMessage.handleSystemError('导出失败，请稍后重试')
         } finally {
             setExportDeduplicateLoading(false)
         }
@@ -750,7 +750,7 @@ const WorkflowDetail: React.FC = () => {
     // 导出丢孤儿结果
     const handleExportOrphanResult = async () => {
         if (!taskId) {
-            uiMessage.error('任务ID不存在，无法导出')
+            uiMessage.handleSystemError('任务ID不存在，无法导出')
             return
         }
 
@@ -762,7 +762,7 @@ const WorkflowDetail: React.FC = () => {
             logger.info('丢孤儿结果导出成功', { taskId })
         } catch (error) {
             logger.error('导出丢孤儿结果失败', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('导出失败，请稍后重试')
+            uiMessage.handleSystemError('导出失败，请稍后重试')
         } finally {
             setExportOrphanLoading(false)
         }
@@ -771,7 +771,7 @@ const WorkflowDetail: React.FC = () => {
     // 导出数据脱敏结果
     const handleExportSensitiveResult = async () => {
         if (!taskId) {
-            uiMessage.error('任务ID不存在，无法导出')
+            uiMessage.handleSystemError('任务ID不存在，无法导出')
             return
         }
 
@@ -783,7 +783,7 @@ const WorkflowDetail: React.FC = () => {
             logger.info('数据脱敏结果导出成功', { taskId })
         } catch (error) {
             logger.error('导出数据脱敏结果失败', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('导出失败，请稍后重试')
+            uiMessage.handleSystemError('导出失败，请稍后重试')
         } finally {
             setExportSensitiveLoading(false)
         }
@@ -792,7 +792,7 @@ const WorkflowDetail: React.FC = () => {
     // 导出EMOI结果
     const handleExportEmoiResult = async () => {
         if (!taskId) {
-            uiMessage.error('任务ID不存在，无法导出')
+            uiMessage.handleSystemError('任务ID不存在，无法导出')
             return
         }
 
@@ -804,7 +804,7 @@ const WorkflowDetail: React.FC = () => {
             logger.info('EMOI结果导出成功', { taskId })
         } catch (error) {
             logger.error('导出EMOI结果失败', error instanceof Error ? error : new Error(String(error)))
-            uiMessage.error('导出失败，请稍后重试')
+            uiMessage.handleSystemError('导出失败，请稍后重试')
         } finally {
             setExportEmoiLoading(false)
         }
@@ -897,7 +897,7 @@ const WorkflowDetail: React.FC = () => {
     // 继续执行工作流
     const handleContinueExecution = async () => {
         if (!taskId) {
-            uiMessage.error('任务ID不存在，无法继续执行')
+            uiMessage.handleSystemError('任务ID不存在，无法继续执行')
             return
         }
 
@@ -915,7 +915,7 @@ const WorkflowDetail: React.FC = () => {
                     fetchLogDetail()
                 },
                 onError: (error: string) => {
-                    uiMessage.error(`继续执行失败: ${error}`)
+                    uiMessage.handleSystemError(`继续执行失败: ${error}`)
                     setContinueLoading(false)
                     logger.error('继续执行工作流失败', new Error(error), { taskId })
                 },
@@ -930,7 +930,7 @@ const WorkflowDetail: React.FC = () => {
             }
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : '继续执行时发生未知错误'
-            uiMessage.error(`继续执行失败: ${errorMsg}`)
+            uiMessage.handleSystemError(`继续执行失败: ${errorMsg}`)
             setContinueLoading(false)
             logger.error('继续执行工作流异常', error instanceof Error ? error : new Error(errorMsg), { taskId })
         }
@@ -939,7 +939,7 @@ const WorkflowDetail: React.FC = () => {
     // 触发数据同步（数据录入）
     const handleDataSync = async () => {
         if (!taskId) {
-            uiMessage.error('任务ID不存在，无法进行数据录入')
+            uiMessage.handleSystemError('任务ID不存在，无法进行数据录入')
             return
         }
 
@@ -957,12 +957,12 @@ const WorkflowDetail: React.FC = () => {
                 await fetchLogDetail()
             } else {
                 const errorMsg = (response as { msg?: string }).msg || '数据录入失败'
-                uiMessage.error(errorMsg)
+                uiMessage.handleSystemError(errorMsg)
                 logger.error('数据录入失败', new Error(errorMsg), { taskId, response })
             }
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : '数据录入（同步）失败'
-            uiMessage.error(errorMsg)
+            uiMessage.handleSystemError(errorMsg)
             logger.error('数据录入（同步）异常', error instanceof Error ? error : new Error(errorMsg), { taskId })
         } finally {
             setDataSyncLoading(false)

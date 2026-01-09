@@ -113,12 +113,12 @@ const MergeHistoryDialog: React.FC = () => {
                 })
             } else {
                 const errorMsg = (response as any).msg || '获取合并历史记录失败'
-                uiMessage.error(errorMsg)
+                uiMessage.handleSystemError(errorMsg)
                 logger.error('获取合并历史记录失败', new Error(errorMsg))
             }
         } catch (error) {
             logger.error('获取合并历史记录异常', error as Error)
-            uiMessage.error('获取合并历史记录失败，请稍后重试')
+            uiMessage.handleSystemError('获取合并历史记录失败，请稍后重试')
         } finally {
             setLoading(false)
         }
@@ -976,12 +976,12 @@ const IndexProcessingManagement: React.FC = () => {
                     pages: response.data.pages,
                 })
             } else {
-                uiMessage.error(response.msg || '获取患者数据失败')
+                uiMessage.handleSystemError(response.msg || '获取患者数据失败')
                 logger.error('获取患者索引列表失败', new Error(response.msg || '未知错误'))
             }
         } catch (error) {
             logger.error('获取患者索引列表异常', error as Error)
-            uiMessage.error('获取患者数据失败，请稍后重试')
+            uiMessage.handleSystemError('获取患者数据失败，请稍后重试')
         } finally {
             setLoading(false)
         }
@@ -1159,14 +1159,14 @@ const IndexProcessingManagement: React.FC = () => {
                     await fetchData()
                 } else {
                     const errorMsg = (response as any).msg || '合并失败，请稍后重试'
-                    message.error(errorMsg)
+                    uiMessage.handleSystemError(errorMsg)
                     logger.error('合并患者失败', new Error(errorMsg))
                     throw new Error(errorMsg)
                 }
             } catch (error) {
                 logger.error('合并患者失败', error as Error)
                 const errorMessage = error instanceof Error ? error.message : '合并失败，请稍后重试'
-                message.error(errorMessage)
+                uiMessage.handleSystemError(errorMessage)
                 throw error
             } finally {
                 setLoading(false)

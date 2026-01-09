@@ -24,6 +24,7 @@ import {
 } from '@ant-design/icons'
 import { dataManagementService } from '@/services/dataManagementService'
 import type { CategoryItem, MedicalDictPageParams, MedicalDictRecord } from '@/types'
+import { uiMessage } from '@/utils/uiMessage'
 
 const { Option } = Select
 
@@ -201,7 +202,7 @@ const MedicalDictionaryManagement: React.FC = () => {
             })
         } catch (error) {
             const errMsg = error instanceof Error ? error.message : '获取医疗字典列表失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
         } finally {
             setLoading(false)
         }
@@ -215,7 +216,7 @@ const MedicalDictionaryManagement: React.FC = () => {
             setCategoryList(response.data || [])
         } catch (error) {
             console.error('获取分类列表失败:', error)
-            message.error('获取分类列表失败')
+            uiMessage.handleSystemError('获取分类列表失败')
         } finally {
             setCategoryListLoading(false)
         }
@@ -262,7 +263,7 @@ const MedicalDictionaryManagement: React.FC = () => {
         } catch (error) {
             // 错误信息已在服务层处理，这里只做兜底提示
             const errMsg = error instanceof Error ? error.message : '删除失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
         }
     }
 
@@ -289,10 +290,10 @@ const MedicalDictionaryManagement: React.FC = () => {
             const categoryName = values.category
             const categoryItem = categoryList.find(item => item.categoryName === categoryName)
             if (!categoryItem) {
-                message.error('请选择有效的分类')
+                uiMessage.handleSystemError('请选择有效的分类', true)
                 return
             }
-            const categoryId = Number(categoryItem.id)
+            const categoryId = categoryItem.id
 
             // 将表单数据转换为接口需要的格式
             const requestData = {
@@ -333,10 +334,10 @@ const MedicalDictionaryManagement: React.FC = () => {
             if (error && typeof error === 'object' && 'errorFields' in error) {
                 // 表单验证错误，不需要额外提示
                 console.error('表单验证失败:', error)
-            } else {
-                const errMsg = error instanceof Error ? error.message : '操作失败'
-                message.error(errMsg)
-            }
+                } else {
+                    const errMsg = error instanceof Error ? error.message : '操作失败'
+                    uiMessage.handleSystemError(errMsg)
+                }
         }
     }
 

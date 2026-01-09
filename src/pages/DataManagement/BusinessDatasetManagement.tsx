@@ -35,6 +35,7 @@ import type {
     DataSourceOption,
     CategoryItem,
 } from '@/types'
+import { uiMessage } from '@/utils/uiMessage'
 
 const { Option } = Select
 const { Search } = Input
@@ -123,7 +124,7 @@ const BusinessDatasetManagement: React.FC = () => {
             setCategoryList(response.data || [])
         } catch (error) {
             console.error('获取分类列表失败:', error)
-            message.error('获取分类列表失败')
+            uiMessage.handleSystemError('获取分类列表失败')
         } finally {
             setCategoryListLoading(false)
         }
@@ -139,7 +140,7 @@ const BusinessDatasetManagement: React.FC = () => {
             setDataSourceOptions(sortedOptions)
         } catch (error) {
             console.error('获取数据源选项失败:', error)
-            message.error('获取数据源选项失败')
+            uiMessage.handleSystemError('获取数据源选项失败')
         } finally {
             setDataSourceOptionsLoading(false)
         }
@@ -208,7 +209,7 @@ const BusinessDatasetManagement: React.FC = () => {
         } catch (error) {
             // 统一错误提示，优先展示后端/服务封装的错误信息
             const errMsg = error instanceof Error ? error.message : '获取业务数据集列表失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
         } finally {
             setLoading(false)
         }
@@ -313,7 +314,7 @@ const BusinessDatasetManagement: React.FC = () => {
         } catch (error) {
             // 错误信息已在服务层处理，这里只做兜底提示
             const errMsg = error instanceof Error ? error.message : '删除失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
         }
     }
 
@@ -325,10 +326,10 @@ const BusinessDatasetManagement: React.FC = () => {
             const categoryName = values.category
             const categoryItem = categoryList.find(item => item.categoryName === categoryName)
             if (!categoryItem) {
-                message.error('请选择有效的分类')
+                uiMessage.handleSystemError('请选择有效的分类', true)
                 return
             }
-            const categoryId = Number(categoryItem.id)
+            const categoryId = categoryItem.id
 
             // 处理数据源：如果是数组，转换为逗号分隔的字符串
             const dataSource = Array.isArray(values.dataSource)
@@ -376,7 +377,7 @@ const BusinessDatasetManagement: React.FC = () => {
                 console.error('表单验证失败:', error)
             } else {
                 const errMsg = error instanceof Error ? error.message : '操作失败'
-                message.error(errMsg)
+                uiMessage.handleSystemError(errMsg)
             }
         }
     }
@@ -420,10 +421,7 @@ const BusinessDatasetManagement: React.FC = () => {
                 pageSize: pagination.pageSize,
             })
         } catch (error) {
-            message.error({
-                content: error instanceof Error ? error.message : '自动映射失败',
-                key: 'automaticMapping',
-            })
+            uiMessage.handleSystemError(error instanceof Error ? error.message : '自动映射失败')
         }
     }
 

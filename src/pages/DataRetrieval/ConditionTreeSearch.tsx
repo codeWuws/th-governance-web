@@ -22,6 +22,7 @@ import {
     Tooltip,
     Popconfirm,
 } from 'antd'
+import { uiMessage } from '@/utils/uiMessage'
 import {
     PlusOutlined,
     DeleteOutlined,
@@ -441,7 +442,7 @@ const ConditionTreeSearch: React.FC = () => {
             }
         } catch (err) {
             logger.error('条件树搜索失败:', err instanceof Error ? err : undefined)
-            message.error('搜索失败，请稍后重试')
+            uiMessage.handleSystemError('搜索失败，请稍后重试')
         } finally {
             setLoading(false)
         }

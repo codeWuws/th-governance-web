@@ -1,6 +1,7 @@
 import React from 'react'
 import { Form, Input, Select, Switch, InputNumber, Button, Space, message } from 'antd'
 import { Role, RoleFormData } from '@/types/rbac'
+import { uiMessage } from '@/utils/uiMessage'
 
 const { TextArea } = Input
 const { Option } = Select
@@ -25,7 +26,7 @@ const RoleForm: React.FC<RoleFormProps> = ({ initialValues, onSubmit, onCancel, 
             await onSubmit(values)
             form.resetFields()
         } catch (error) {
-            message.error('操作失败，请重试')
+            uiMessage.handleSystemError('操作失败，请重试')
         }
     }
 

@@ -4,6 +4,7 @@ import React, { useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { loginUser, selectIsAuthenticated } from '@/store/slices/userSlice'
+import { uiMessage } from '@/utils/uiMessage'
 import styles from './index.module.scss'
 
 const { Title, Text } = Typography
@@ -47,7 +48,7 @@ const Login: React.FC = () => {
             }, 300)
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : '登录失败，请重试'
-            message.error(errorMessage)
+            uiMessage.handleSystemError(errorMessage)
         } finally {
             setLoading(false)
         }

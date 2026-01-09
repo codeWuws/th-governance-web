@@ -24,6 +24,7 @@ import {
     Checkbox,
     Drawer,
 } from 'antd'
+import { uiMessage } from '@/utils/uiMessage'
 import {
     EyeOutlined,
     ReloadOutlined,
@@ -140,7 +141,7 @@ const VisualizationView: React.FC = () => {
         } catch (err) {
             // 统一的错误处理：避免控制台噪音，向用户反馈
             console.error('加载患者数据失败:', err)
-            message.error('加载患者数据失败，请稍后重试')
+            uiMessage.handleSystemError('加载患者数据失败，请稍后重试')
         } finally {
             setLoading(false)
         }
@@ -163,7 +164,7 @@ const VisualizationView: React.FC = () => {
             }
         } catch (err) {
             console.error('加载时序数据失败:', err)
-            message.error('加载时序数据失败')
+            uiMessage.handleSystemError('加载时序数据失败')
         }
     }, [execTimeSeries, id, timeRange, selectedEventTypes])
 

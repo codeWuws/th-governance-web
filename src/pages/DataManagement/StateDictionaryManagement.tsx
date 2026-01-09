@@ -32,6 +32,7 @@ import type { UploadProps } from 'antd'
 import { Upload } from 'antd'
 import { dataManagementService } from '@/services/dataManagementService'
 import type { CategoryItem, StatusDictPageParams, StatusDictRecord } from '@/types'
+import { uiMessage } from '@/utils/uiMessage'
 
 const { Search } = Input
 const { Option } = Select
@@ -253,7 +254,7 @@ const StateDictionaryManagement: React.FC = () => {
             })
         } catch (error) {
             const errMsg = error instanceof Error ? error.message : '获取状态字典列表失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
         } finally {
             setLoading(false)
         }
@@ -267,7 +268,7 @@ const StateDictionaryManagement: React.FC = () => {
             setCategoryList(response.data || [])
         } catch (error) {
             console.error('获取分类列表失败:', error)
-            message.error('获取分类列表失败')
+            uiMessage.handleSystemError('获取分类列表失败')
         } finally {
             setCategoryListLoading(false)
         }
@@ -348,7 +349,7 @@ const StateDictionaryManagement: React.FC = () => {
         } catch (error) {
             // 错误信息已在服务层处理，这里只做兜底提示
             const errMsg = error instanceof Error ? error.message : '删除失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
         }
     }
 
@@ -360,10 +361,10 @@ const StateDictionaryManagement: React.FC = () => {
             const categoryName = values.category
             const categoryItem = categoryList.find(item => item.categoryName === categoryName)
             if (!categoryItem) {
-                message.error('请选择有效的分类')
+                uiMessage.handleSystemError('请选择有效的分类', true)
                 return
             }
-            const categoryId = Number(categoryItem.id)
+            const categoryId = categoryItem.id
 
             // 将表单数据转换为接口需要的格式
             const requestData = {
@@ -441,7 +442,7 @@ const StateDictionaryManagement: React.FC = () => {
             message.success('导出成功')
         } catch (error) {
             const errMsg = error instanceof Error ? error.message : '导出失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
             console.error('导出失败:', error)
         }
     }
@@ -507,7 +508,7 @@ const StateDictionaryManagement: React.FC = () => {
             return false // 阻止自动上传
         } catch (error) {
             console.error('导入失败:', error)
-            message.error('导入失败，请检查文件格式')
+            uiMessage.handleSystemError('导入失败，请检查文件格式', true)
             return false
         }
     }
@@ -537,12 +538,12 @@ const StateDictionaryManagement: React.FC = () => {
                 file.name.endsWith('.xlsx') ||
                 file.name.endsWith('.xls')
             if (!isExcel) {
-                message.error('只支持 Excel 格式的文件！')
+                uiMessage.handleSystemError('只支持 Excel 格式的文件！', true)
                 return false
             }
             const isLt5M = file.size / 1024 / 1024 < 5
             if (!isLt5M) {
-                message.error('文件大小不能超过 5MB！')
+                uiMessage.handleSystemError('文件大小不能超过 5MB！', true)
                 return false
             }
             handleImport(file)

@@ -123,7 +123,7 @@ class WorkflowExecutionService {
                     this.sseStatus = SSEStatus.ERROR
 
                     const errorMsg = `工作流${actionName}连接失败`
-                    uiMessage.error(errorMsg)
+                    uiMessage.handleSystemError(errorMsg)
 
                     // 基于 manager->taskId 映射标记错误并通知订阅者
                     const taskId = this.managerToTaskId.get(manager)
@@ -160,7 +160,7 @@ class WorkflowExecutionService {
                     this.sseStatus = SSEStatus.MAX_RECONNECT_REACHED
 
                     const errorMsg = `工作流${actionName}连接失败，请检查网络连接`
-                    uiMessage.error(errorMsg)
+                    uiMessage.handleSystemError(errorMsg)
 
                     // 基于 manager->taskId 映射标记错误并通知订阅者
                     const taskId = this.managerToTaskId.get(manager)
@@ -193,7 +193,7 @@ class WorkflowExecutionService {
             const errorMsg = `${actionName}工作流失败: ${error instanceof Error ? error.message : '未知错误'}`
             // 工作流异常处理
 
-            uiMessage.error(errorMsg)
+            uiMessage.handleSystemError(errorMsg)
 
             config.onError?.(errorMsg)
 

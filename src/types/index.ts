@@ -1504,7 +1504,7 @@ export interface AddBusinessDatasetRequest {
     /** 数据集编码 */
     dataSetCode: string
     /** 分类ID */
-    categoryId: number
+    categoryId: string
     /** 数据源（多个用逗号分隔） */
     dataSource: string
     /** 状态：0-禁用，1-启用 */
@@ -1522,7 +1522,7 @@ export interface UpdateBusinessDatasetRequest {
     /** 数据集编码 */
     dataSetCode: string
     /** 分类ID */
-    categoryId: number
+    categoryId: string
     /** 数据源（多个用逗号分隔） */
     dataSource: string
     /** 状态：0-禁用，1-启用 */
@@ -1591,7 +1591,7 @@ export interface AddMedicalDictRequest {
     /** 字典编码 */
     dictCode: string
     /** 分类ID */
-    categoryId: number
+    categoryId: string
     /** 版本 */
     version: string
     /** 来源 */
@@ -1611,7 +1611,7 @@ export interface UpdateMedicalDictRequest {
     /** 字典编码 */
     dictCode: string
     /** 分类ID */
-    categoryId: number
+    categoryId: string
     /** 版本 */
     version: string
     /** 来源 */
@@ -1801,7 +1801,7 @@ export interface AddStatusDictRequest {
     /** 字典编码 */
     dictCode: string
     /** 分类ID */
-    categoryId: number
+    categoryId: string
     /** 状态：0-禁用，1-启用 */
     status: number
     /** 版本 */
@@ -1819,7 +1819,7 @@ export interface UpdateStatusDictRequest {
     /** 字典编码 */
     dictCode: string
     /** 分类ID */
-    categoryId: number
+    categoryId: string
     /** 状态：0-禁用，1-启用 */
     status: number
     /** 版本 */

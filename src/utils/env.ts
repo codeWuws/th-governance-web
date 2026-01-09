@@ -3,6 +3,8 @@
  * 提供统一的环境变量读取和配置管理
  */
 
+import { getRuntimeConfig } from './configLoader'
+
 /**
  * 获取环境变量
  * @param key 环境变量键名（必须以 VITE_ 开头）
@@ -39,10 +41,13 @@ export const isTest = (): boolean => {
 
 /**
  * 获取应用配置
- * 从环境变量中读取所有应用配置信息
+ * 优先从运行时配置（public/config.json）读取，如果不存在则从环境变量读取
  * @returns 应用配置对象
  */
 export const getAppConfig = () => {
+    // 获取运行时配置
+    const runtimeConfig = getRuntimeConfig()
+    
     return {
         // 应用标题
         title: getEnv('VITE_APP_TITLE', 'React App'),
@@ -50,10 +55,10 @@ export const getAppConfig = () => {
         version: getEnv('VITE_APP_VERSION', '1.0.0'),
         // 应用环境
         env: getEnv('VITE_APP_ENV', 'development'),
-        // API 基础地址
-        apiBaseUrl: getEnv('VITE_APP_API_BASE_URL', 'http://localhost:8080/api'),
-        // API 请求超时时间（毫秒）
-        apiTimeout: Number(getEnv('VITE_APP_API_TIMEOUT', '10000')),
+        // API 基础地址（优先使用运行时配置）
+        apiBaseUrl: runtimeConfig.apiBaseUrl || getEnv('VITE_APP_API_BASE_URL', '/api'),
+        // API 请求超时时间（毫秒）（优先使用运行时配置）
+        apiTimeout: runtimeConfig.apiTimeout || Number(getEnv('VITE_APP_API_TIMEOUT', '10000')),
         // 是否启用开发工具
         enableDevtools: getEnv('VITE_APP_ENABLE_DEVTOOLS', 'false') === 'true',
         // 是否启用分析统计

@@ -28,6 +28,7 @@ import {
     ReloadOutlined,
     DownloadOutlined,
 } from '@ant-design/icons'
+import { uiMessage } from '@/utils/uiMessage'
 import type { ColumnsType } from 'antd/es/table'
 import { exportToExcel, importFromExcel, downloadExcelTemplate } from '../../utils/excel'
 import type { UploadProps } from 'antd'
@@ -226,7 +227,7 @@ const StandardDictionaryMapping: React.FC = () => {
             }
         } catch (error) {
             console.error('获取数据集选项失败:', error)
-            message.error('获取数据集选项失败')
+            uiMessage.handleSystemError('获取数据集选项失败')
         } finally {
             setDatasetLoading(false)
         }
@@ -268,7 +269,7 @@ const StandardDictionaryMapping: React.FC = () => {
             setTargetFieldOptions(sortedTargetFieldOptions)
         } catch (error) {
             console.error('获取选项列表失败:', error)
-            message.error('获取选项列表失败')
+            uiMessage.handleSystemError('获取选项列表失败')
         } finally {
             setOptionsLoading(false)
         }
@@ -340,7 +341,7 @@ const StandardDictionaryMapping: React.FC = () => {
             })
         } catch (error) {
             const errMsg = error instanceof Error ? error.message : '获取标准字典对照列表失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
         } finally {
             setLoading(false)
         }
@@ -428,7 +429,7 @@ const StandardDictionaryMapping: React.FC = () => {
             })
         } catch (error) {
             const errMsg = error instanceof Error ? error.message : '删除失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
         }
     }
 
@@ -445,7 +446,7 @@ const StandardDictionaryMapping: React.FC = () => {
             const originDataSourceLabel = values.originalDataSource
             const originSourceOption = originSourceOptions.find(option => option.label === originDataSourceLabel)
             if (!originSourceOption) {
-                message.error('请选择有效的原始数据源')
+                uiMessage.handleSystemError('请选择有效的原始数据源', true)
                 return
             }
             const originSource = Number(originSourceOption.value)
@@ -593,7 +594,7 @@ const StandardDictionaryMapping: React.FC = () => {
             message.success('导出成功')
         } catch (error) {
             const errMsg = error instanceof Error ? error.message : '导出失败'
-            message.error(errMsg)
+            uiMessage.handleSystemError(errMsg)
             console.error('导出失败:', error)
         }
     }
@@ -677,7 +678,7 @@ const StandardDictionaryMapping: React.FC = () => {
             return false // 阻止自动上传
         } catch (error) {
             console.error('导入失败:', error)
-            message.error('导入失败，请检查文件格式')
+            uiMessage.handleSystemError('导入失败，请检查文件格式', true)
             return false
         }
     }
@@ -713,12 +714,12 @@ const StandardDictionaryMapping: React.FC = () => {
                 file.name.endsWith('.xlsx') ||
                 file.name.endsWith('.xls')
             if (!isExcel) {
-                message.error('只支持 Excel 格式的文件！')
+                uiMessage.handleSystemError('只支持 Excel 格式的文件！', true)
                 return false
             }
             const isLt5M = file.size / 1024 / 1024 < 5
             if (!isLt5M) {
-                message.error('文件大小不能超过 5MB！')
+                uiMessage.handleSystemError('文件大小不能超过 5MB！', true)
                 return false
             }
             handleImport(file)
