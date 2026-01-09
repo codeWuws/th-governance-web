@@ -24,6 +24,7 @@ import {
     ExportOutlined,
     EyeOutlined,
     DownloadOutlined,
+    ReloadOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import moment from 'moment'
@@ -34,7 +35,6 @@ import { dataManagementService } from '@/services/dataManagementService'
 import type { CategoryItem, StatusDictPageParams, StatusDictRecord } from '@/types'
 import { uiMessage } from '@/utils/uiMessage'
 
-const { Search } = Input
 const { Option } = Select
 
 interface StateDictionary {
@@ -56,9 +56,7 @@ const StateDictionaryManagement: React.FC = () => {
     const [modalVisible, setModalVisible] = useState(false)
     const [editingRecord, setEditingRecord] = useState<StateDictionary | null>(null)
     const [form] = Form.useForm()
-    const [searchText, setSearchText] = useState('')
-    const [categoryFilter, setCategoryFilter] = useState('')
-    const [statusFilter, setStatusFilter] = useState('')
+    const [filterForm] = Form.useForm()
     const [categoryList, setCategoryList] = useState<CategoryItem[]>([])
     const [categoryListLoading, setCategoryListLoading] = useState(false)
     
@@ -191,9 +189,8 @@ const StateDictionaryManagement: React.FC = () => {
     const fetchData = async (options?: {
         pageNum?: number
         pageSize?: number
-        condition?: string
         keyword?: string | null
-        categoryId?: number | null
+        categoryId?: string | null
         status?: number | null
     }) => {
         const pageNum = options?.pageNum ?? pagination.current
@@ -201,47 +198,14 @@ const StateDictionaryManagement: React.FC = () => {
 
         setLoading(true)
         try {
-            // 如果 options 中明确传入了值（包括 null），使用传入的值；否则使用状态变量
-            let keywordValue: string | undefined
-            if (options?.keyword !== undefined) {
-                // 如果传入的是 null，表示清空，使用 undefined
-                // 如果传入的是字符串，使用该字符串
-                keywordValue = options.keyword === null ? undefined : (options.keyword.trim() || undefined)
-            } else {
-                // 如果没有传入，使用状态变量
-                keywordValue = searchText ? searchText.trim() : undefined
-            }
-
-            let categoryIdValue: number | undefined
-            if (options?.categoryId !== undefined) {
-                // 如果传入的是 null，表示清空，使用 undefined
-                categoryIdValue = options.categoryId === null ? undefined : options.categoryId
-            } else {
-                // 如果没有传入，使用状态变量
-                const categoryItem = categoryFilter
-                    ? categoryList.find(item => item.categoryName === categoryFilter)
-                    : null
-                categoryIdValue = categoryItem ? Number(categoryItem.id) : undefined
-            }
-
-            let statusValue: number | undefined
-            if (options?.status !== undefined) {
-                // 如果传入的是 null，表示清空，使用 undefined
-                statusValue = options.status === null ? undefined : options.status
-            } else {
-                // 如果没有传入，使用状态变量
-                statusValue = statusFilter === 'active' ? 1 : statusFilter === 'inactive' ? 0 : undefined
-            }
-
             const params: StatusDictPageParams = {
                 pageNum,
                 pageSize,
-                condition: options?.condition ? options.condition.trim() : undefined, // 保留 condition 用于关键字段模糊查询
                 sortField: 'create_time',
                 sortOrder: 'desc',
-                keyword: keywordValue, // keyword 字段
-                categoryId: categoryIdValue,
-                status: statusValue,
+                keyword: options?.keyword && options.keyword.trim() ? options.keyword.trim() : undefined,
+                categoryId: options?.categoryId && options.categoryId.trim() ? options.categoryId.trim() : undefined,
+                status: options?.status !== null && options?.status !== undefined ? options.status : undefined,
             }
 
             const response = await dataManagementService.getStatusDictPage(params)
@@ -264,7 +228,7 @@ const StateDictionaryManagement: React.FC = () => {
     const fetchCategoryList = async () => {
         setCategoryListLoading(true)
         try {
-            const response = await dataManagementService.getCategoryList()
+            const response = await dataManagementService.getCategoryListByDictionaryType('STATUS')
             setCategoryList(response.data || [])
         } catch (error) {
             console.error('获取分类列表失败:', error)
@@ -274,29 +238,33 @@ const StateDictionaryManagement: React.FC = () => {
         }
     }
 
-    const handleSearch = () => {
-        // 重置到第一页并重新查询
-        setPagination(prev => ({ ...prev, current: 1 }))
-        // 如果 searchText 为空，明确传入 null 表示清空；否则传入实际值
-        const keywordValue = searchText && searchText.trim() ? searchText.trim() : null
-        void fetchData({
-            pageNum: 1,
-            pageSize: pagination.pageSize,
-            keyword: keywordValue,
-        })
-    }
-
     /**
      * 处理筛选条件变化
      */
     const handleFilterChange = () => {
         setPagination(prev => ({ ...prev, current: 1 }))
+        const filterValues = filterForm.getFieldsValue()
         void fetchData({
             pageNum: 1,
             pageSize: pagination.pageSize,
-            keyword: searchText || null, // 空字符串时传入 null
-            categoryId: categoryFilter ? (categoryList.find(item => item.categoryName === categoryFilter)?.id ? Number(categoryList.find(item => item.categoryName === categoryFilter)!.id) : null) : null,
-            status: statusFilter === 'active' ? 1 : statusFilter === 'inactive' ? 0 : null,
+            keyword: filterValues.keyword || null,
+            categoryId: filterValues.categoryId ?? null,
+            status: filterValues.status ?? null,
+        })
+    }
+
+    /**
+     * 重置筛选条件
+     */
+    const handleResetFilter = () => {
+        filterForm.resetFields()
+        setPagination(prev => ({ ...prev, current: 1 }))
+        void fetchData({
+            pageNum: 1,
+            pageSize: pagination.pageSize,
+            keyword: null,
+            categoryId: null,
+            status: null,
         })
     }
 
@@ -305,7 +273,15 @@ const StateDictionaryManagement: React.FC = () => {
      */
     const handleTableChange = (page: number, pageSize: number) => {
         setPagination(prev => ({ ...prev, current: page, pageSize }))
-        void fetchData({ pageNum: page, pageSize })
+        // 获取当前筛选条件
+        const filterValues = filterForm.getFieldsValue()
+        void fetchData({
+            pageNum: page,
+            pageSize,
+            keyword: filterValues.keyword || null,
+            categoryId: filterValues.categoryId ?? null,
+            status: filterValues.status ?? null,
+        })
     }
 
     const handleAdd = async () => {
@@ -342,9 +318,14 @@ const StateDictionaryManagement: React.FC = () => {
                     ? pagination.current - 1
                     : pagination.current
             setPagination(prev => ({ ...prev, current: nextPageNum }))
+            // 获取当前筛选条件
+            const filterValues = filterForm.getFieldsValue()
             void fetchData({
                 pageNum: nextPageNum,
                 pageSize: pagination.pageSize,
+                keyword: filterValues.keyword || null,
+                categoryId: filterValues.categoryId ?? null,
+                status: filterValues.status ?? null,
             })
         } catch (error) {
             // 错误信息已在服务层处理，这里只做兜底提示
@@ -395,9 +376,14 @@ const StateDictionaryManagement: React.FC = () => {
 
             // 刷新列表（回到第一页，显示最新数据）
             setPagination(prev => ({ ...prev, current: 1 }))
+            // 获取当前筛选条件
+            const filterValues = filterForm.getFieldsValue()
             void fetchData({
                 pageNum: 1,
                 pageSize: pagination.pageSize,
+                keyword: filterValues.keyword || null,
+                categoryId: filterValues.categoryId ?? null,
+                status: filterValues.status ?? null,
             })
         } catch (error) {
             // 错误信息已在服务层处理，这里只做兜底提示
@@ -415,27 +401,17 @@ const StateDictionaryManagement: React.FC = () => {
     // Excel导出功能
     const handleExport = async () => {
         try {
-            // 构建导出参数，使用当前的查询条件
-            let keywordValue: string | undefined
-            keywordValue = searchText ? searchText.trim() : undefined
-
-            let categoryIdValue: number | undefined
-            const categoryItem = categoryFilter
-                ? categoryList.find(item => item.categoryName === categoryFilter)
-                : null
-            categoryIdValue = categoryItem ? Number(categoryItem.id) : undefined
-
-            let statusValue: number | undefined
-            statusValue = statusFilter === 'active' ? 1 : statusFilter === 'inactive' ? 0 : undefined
+            // 获取当前筛选条件
+            const filterValues = filterForm.getFieldsValue()
 
             const exportParams: StatusDictPageParams = {
                 pageNum: 1,
                 pageSize: 10000, // 导出时使用较大的pageSize以获取所有数据
                 sortField: 'create_time',
                 sortOrder: 'desc',
-                keyword: keywordValue,
-                categoryId: categoryIdValue,
-                status: statusValue,
+                keyword: filterValues.keyword && filterValues.keyword.trim() ? filterValues.keyword.trim() : undefined,
+                categoryId: filterValues.categoryId && filterValues.categoryId.trim() ? filterValues.categoryId.trim() : undefined,
+                status: filterValues.status ?? undefined,
             }
 
             await dataManagementService.exportStatusDict(exportParams)
@@ -698,81 +674,73 @@ const StateDictionaryManagement: React.FC = () => {
                 style={{ marginBottom: 24 }}
             />
             <Card>
-                <div style={{ marginBottom: 24 }}>
-                    <Space style={{ marginBottom: 16 }}></Space>
-
-                    <Space style={{ marginBottom: 16 }}>
-                        <Search
-                            placeholder='搜索状态名称、编码或描述'
+                {/* 筛选表单 */}
+                <Form
+                    form={filterForm}
+                    layout='inline'
+                    style={{ marginBottom: 16 }}
+                    onValuesChange={(changedValues, allValues) => {
+                        // 当字段被清空时，确保传入 null 而不是 undefined
+                        const values = {
+                            keyword: allValues.keyword || null,
+                            categoryId: allValues.categoryId ?? null,
+                            status: allValues.status ?? null,
+                        }
+                        setPagination(prev => ({ ...prev, current: 1 }))
+                        void fetchData({
+                            pageNum: 1,
+                            pageSize: pagination.pageSize,
+                            keyword: values.keyword,
+                            categoryId: values.categoryId,
+                            status: values.status,
+                        })
+                    }}
+                >
+                    <Form.Item name='keyword' label='关键字'>
+                        <Input
+                            placeholder='请输入状态名称、编码等关键字'
                             allowClear
-                            style={{ width: 300 }}
-                            value={searchText}
-                            onChange={e => setSearchText(e.target.value)}
-                            onSearch={handleSearch}
-                            onClear={() => {
-                                setSearchText('')
-                                // 清空搜索框时，立即重新查询
-                                setPagination(prev => ({ ...prev, current: 1 }))
-                                void fetchData({
-                                    pageNum: 1,
-                                    pageSize: pagination.pageSize,
-                                    keyword: null,
-                                })
-                            }}
+                            style={{ width: 200 }}
+                            onPressEnter={handleFilterChange}
                         />
+                    </Form.Item>
+                    <Form.Item name='categoryId' label='分类'>
                         <Select
-                            placeholder='选择分类'
-                            style={{ width: 150 }}
-                            value={categoryFilter}
-                            onChange={(value) => {
-                                setCategoryFilter(value || '')
-                                // 当清空时，value 为 undefined，需要明确传入 null
-                                setPagination(prev => ({ ...prev, current: 1 }))
-                                void fetchData({
-                                    pageNum: 1,
-                                    pageSize: pagination.pageSize,
-                                    keyword: searchText || null,
-                                    categoryId: value ? (categoryList.find(item => item.categoryName === value)?.id ? Number(categoryList.find(item => item.categoryName === value)!.id) : null) : null,
-                                    status: statusFilter === 'active' ? 1 : statusFilter === 'inactive' ? 0 : null,
-                                })
-                            }}
+                            placeholder='请选择分类'
                             allowClear
                             showSearch
                             optionFilterProp='children'
                             loading={categoryListLoading}
+                            style={{ width: 200 }}
                         >
                             {categoryList.map(category => (
-                                <Option key={category.id} value={category.categoryName}>
+                                <Option key={category.id} value={category.id}>
                                     {category.categoryName}
                                 </Option>
                             ))}
                         </Select>
+                    </Form.Item>
+                    <Form.Item name='status' label='状态'>
                         <Select
-                            placeholder='选择状态'
-                            style={{ width: 150 }}
-                            value={statusFilter}
-                            onChange={(value) => {
-                                setStatusFilter(value || '')
-                                // 当清空时，value 为 undefined，需要明确传入 null
-                                setPagination(prev => ({ ...prev, current: 1 }))
-                                void fetchData({
-                                    pageNum: 1,
-                                    pageSize: pagination.pageSize,
-                                    keyword: searchText || null,
-                                    categoryId: categoryFilter ? (categoryList.find(item => item.categoryName === categoryFilter)?.id ? Number(categoryList.find(item => item.categoryName === categoryFilter)!.id) : null) : null,
-                                    status: value === 'active' ? 1 : value === 'inactive' ? 0 : null,
-                                })
-                            }}
+                            placeholder='请选择状态'
                             allowClear
+                            style={{ width: 150 }}
                         >
-                            <Option value='active'>启用</Option>
-                            <Option value='inactive'>禁用</Option>
+                            <Option value={1}>启用</Option>
+                            <Option value={0}>禁用</Option>
                         </Select>
-                        <Button type='primary' icon={<SearchOutlined />} onClick={handleSearch}>
-                            查询
-                        </Button>
-                    </Space>
-                </div>
+                    </Form.Item>
+                    <Form.Item>
+                        <Space>
+                            <Button icon={<SearchOutlined />} type='primary' onClick={handleFilterChange} loading={loading}>
+                                查询
+                            </Button>
+                            <Button icon={<ReloadOutlined />} onClick={handleResetFilter}>
+                                重置
+                            </Button>
+                        </Space>
+                    </Form.Item>
+                </Form>
 
                 <Table
                     columns={columns}

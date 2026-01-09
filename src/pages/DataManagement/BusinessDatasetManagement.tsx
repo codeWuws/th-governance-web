@@ -48,7 +48,7 @@ interface BusinessDataset {
     name: string
     code: string
     category: string // 分类名称
-    categoryId: number // 分类ID
+    categoryId: string // 分类ID
     description: string
     diseaseType: string
     dataSource: string
@@ -99,7 +99,7 @@ const BusinessDatasetManagement: React.FC = () => {
     // 筛选条件
     const [dataSetName, setDataSetName] = useState<string>('')
     const [dataSetCode, setDataSetCode] = useState<string>('')
-    const [categoryId, setCategoryId] = useState<number | undefined>(undefined)
+    const [categoryId, setCategoryId] = useState<string | undefined>(undefined)
     const [status, setStatus] = useState<number | undefined>(undefined)
     
     // 分页状态
@@ -120,7 +120,7 @@ const BusinessDatasetManagement: React.FC = () => {
     const fetchCategoryList = async () => {
         setCategoryListLoading(true)
         try {
-            const response = await dataManagementService.getCategoryList()
+            const response = await dataManagementService.getCategoryListByDictionaryType('BUSINESS')
             setCategoryList(response.data || [])
         } catch (error) {
             console.error('获取分类列表失败:', error)
@@ -156,7 +156,7 @@ const BusinessDatasetManagement: React.FC = () => {
         condition?: string
         dataSetName?: string | null
         dataSetCode?: string | null
-        categoryId?: number | null
+        categoryId?: string | null
         status?: number | null
     }) => {
         const pageNum = options?.pageNum ?? pagination.current
@@ -177,8 +177,8 @@ const BusinessDatasetManagement: React.FC = () => {
             : (dataSetCode ? dataSetCode.trim() : undefined)
         
         const filterCategoryId = options?.categoryId !== undefined 
-            ? (options.categoryId === null ? undefined : options.categoryId)
-            : categoryId
+            ? (options.categoryId === null ? undefined : (options.categoryId.trim() || undefined))
+            : (categoryId ? categoryId.trim() : undefined)
         
         const filterStatus = options?.status !== undefined 
             ? (options.status === null ? undefined : options.status)
@@ -661,7 +661,7 @@ const BusinessDatasetManagement: React.FC = () => {
                             style={{ width: 200 }}
                         >
                             {categoryList.map(category => (
-                                <Option key={category.id} value={Number(category.id)}>
+                                <Option key={category.id} value={category.id}>
                                     {category.categoryName}
                                 </Option>
                             ))}

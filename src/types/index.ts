@@ -1404,7 +1404,7 @@ export interface BusinessDatasetPageParams {
     /** 数据集编码 */
     dataSetCode?: string
     /** 分类ID */
-    categoryId?: number
+    categoryId?: string
     /** 数据源 */
     dataSource?: string
     /** 状态：0-禁用，1-启用 */
@@ -1565,6 +1565,47 @@ export interface AutomaticMappingResponse {
 }
 
 /** 分类项 */
+/** 字典类型枚举 */
+export type DictionaryType = 'STATUS' | 'BUSINESS' | 'MEDICAL'
+
+/** 类别管理返回 VO */
+export interface StandardCategoryVO {
+    /** 类别编码 */
+    categoryCode?: string
+    /** 类别名称 */
+    categoryName?: string
+    /** 类别状态：1=启用, 0=禁用 */
+    categoryStatus?: number
+    /** 创建人 */
+    createBy?: string
+    /** 创建时间 */
+    createTime?: string
+    /** 删除标志：0=未删除, 1=已删除 */
+    delFlag?: number
+    /** 字典类型：STATUS=状态字典, BUSINESS=业务字典, MEDICAL=医疗字典 */
+    dictionaryType?: string
+    /** 类别ID */
+    id?: number
+    /** 备注 */
+    remark?: string
+    /** 更新人 */
+    updateBy?: string
+    /** 更新时间 */
+    updateTime?: string
+    [property: string]: any
+}
+
+/** 根据字典类型获取分类列表响应 */
+export interface DictionaryTypeCategoryListResponse {
+    /** 响应状态码 */
+    code?: number
+    /** 分类列表 */
+    data?: StandardCategoryVO[]
+    /** 响应消息 */
+    msg?: string
+    [property: string]: any
+}
+
 export interface CategoryItem {
     /** 分类ID */
     id: string
@@ -1644,28 +1685,26 @@ export interface MedicalDictDeleteResponse {
 
 /** 医疗字典分页查询参数 */
 export interface MedicalDictPageParams {
-    /** 关键字段模糊查询 */
-    condition?: string
-    /** 页码，从1开始 */
-    pageNum: number
-    /** 每页大小 */
-    pageSize: number
-    /** 排序字段 */
-    sortField?: string
-    /** 排序顺序：asc | desc */
-    sortOrder?: 'asc' | 'desc'
-    /** 字典名称 */
-    dictName?: string
-    /** 字典编码 */
+    /** 分类ID筛选 */
+    categoryId?: string
+    /** 字典编码关键字 */
     dictCode?: string
-    /** 分类ID */
-    categoryId?: number
-    /** 版本 */
-    version?: string
-    /** 来源 */
+    /** 字典名称关键字 */
+    dictName?: string
+    /** 当前页码 */
+    pageNum?: number
+    /** 每页数量 */
+    pageSize?: number
+    /** 排序字段（可选） */
+    sortField?: string
+    /** 排序方向（asc/desc） */
+    sortOrder?: string
+    /** 来源关键字 */
     source?: string
-    /** 状态：0-禁用，1-启用 */
+    /** 状态筛选：1=启用, 0=禁用 */
     status?: number
+    /** 版本关键字 */
+    version?: string
 }
 
 /** 医疗字典记录 */
@@ -1735,7 +1774,7 @@ export interface StatusDictPageParams {
     /** 关键字 */
     keyword?: string
     /** 分类ID */
-    categoryId?: number
+    categoryId?: string
     /** 状态：0-禁用，1-启用 */
     status?: number
 }

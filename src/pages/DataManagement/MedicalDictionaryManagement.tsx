@@ -21,6 +21,7 @@ import {
     DeleteOutlined,
     SearchOutlined,
     SyncOutlined,
+    ReloadOutlined,
 } from '@ant-design/icons'
 import { dataManagementService } from '@/services/dataManagementService'
 import type { CategoryItem, MedicalDictPageParams, MedicalDictRecord } from '@/types'
@@ -49,6 +50,7 @@ const MedicalDictionaryManagement: React.FC = () => {
     const [modalVisible, setModalVisible] = useState(false)
     const [editingRecord, setEditingRecord] = useState<MedicalDictionary | null>(null)
     const [form] = Form.useForm()
+    const [filterForm] = Form.useForm()
     const [categoryList, setCategoryList] = useState<CategoryItem[]>([])
     const [categoryListLoading, setCategoryListLoading] = useState(false)
     
@@ -165,13 +167,12 @@ const MedicalDictionaryManagement: React.FC = () => {
     const fetchData = async (options?: {
         pageNum?: number
         pageSize?: number
-        condition?: string
-        dictName?: string
-        dictCode?: string
-        categoryId?: number
-        version?: string
-        source?: string
-        status?: number
+        dictName?: string | null
+        dictCode?: string | null
+        categoryId?: string | null
+        version?: string | null
+        source?: string | null
+        status?: number | null
     }) => {
         const pageNum = options?.pageNum ?? pagination.current
         const pageSize = options?.pageSize ?? pagination.pageSize
@@ -181,15 +182,14 @@ const MedicalDictionaryManagement: React.FC = () => {
             const params: MedicalDictPageParams = {
                 pageNum,
                 pageSize,
-                condition: options?.condition ? options.condition.trim() : undefined,
                 sortField: 'create_time',
                 sortOrder: 'desc',
-                dictName: options?.dictName ? options.dictName.trim() : undefined,
-                dictCode: options?.dictCode ? options.dictCode.trim() : undefined,
-                categoryId: options?.categoryId,
-                version: options?.version ? options.version.trim() : undefined,
-                source: options?.source ? options.source.trim() : undefined,
-                status: typeof options?.status === 'number' ? options.status : undefined,
+                dictName: options?.dictName && options.dictName.trim() ? options.dictName.trim() : undefined,
+                dictCode: options?.dictCode && options.dictCode.trim() ? options.dictCode.trim() : undefined,
+                categoryId: options?.categoryId && options.categoryId.trim() ? options.categoryId.trim() : undefined,
+                version: options?.version && options.version.trim() ? options.version.trim() : undefined,
+                source: options?.source && options.source.trim() ? options.source.trim() : undefined,
+                status: options?.status !== null && options?.status !== undefined ? options.status : undefined,
             }
 
             const response = await dataManagementService.getMedicalDictPage(params)
@@ -212,7 +212,7 @@ const MedicalDictionaryManagement: React.FC = () => {
     const fetchCategoryList = async () => {
         setCategoryListLoading(true)
         try {
-            const response = await dataManagementService.getCategoryList()
+            const response = await dataManagementService.getCategoryListByDictionaryType('MEDICAL')
             setCategoryList(response.data || [])
         } catch (error) {
             console.error('获取分类列表失败:', error)
@@ -256,9 +256,17 @@ const MedicalDictionaryManagement: React.FC = () => {
                     ? pagination.current - 1
                     : pagination.current
             setPagination(prev => ({ ...prev, current: nextPageNum }))
+            // 获取当前筛选条件
+            const filterValues = filterForm.getFieldsValue()
             void fetchData({
                 pageNum: nextPageNum,
                 pageSize: pagination.pageSize,
+                dictName: filterValues.dictName || null,
+                dictCode: filterValues.dictCode || null,
+                categoryId: filterValues.categoryId ?? null,
+                version: filterValues.version || null,
+                source: filterValues.source || null,
+                status: filterValues.status ?? null,
             })
         } catch (error) {
             // 错误信息已在服务层处理，这里只做兜底提示
@@ -272,7 +280,54 @@ const MedicalDictionaryManagement: React.FC = () => {
      */
     const handleTableChange = (page: number, pageSize: number) => {
         setPagination(prev => ({ ...prev, current: page, pageSize }))
-        void fetchData({ pageNum: page, pageSize })
+        // 获取当前筛选条件
+        const filterValues = filterForm.getFieldsValue()
+        void fetchData({
+            pageNum: page,
+            pageSize,
+            dictName: filterValues.dictName || null,
+            dictCode: filterValues.dictCode || null,
+            categoryId: filterValues.categoryId ?? null,
+            version: filterValues.version || null,
+            source: filterValues.source || null,
+            status: filterValues.status ?? null,
+        })
+    }
+
+    /**
+     * 处理筛选条件变化
+     */
+    const handleFilterChange = () => {
+        setPagination(prev => ({ ...prev, current: 1 }))
+        const filterValues = filterForm.getFieldsValue()
+        void fetchData({
+            pageNum: 1,
+            pageSize: pagination.pageSize,
+            dictName: filterValues.dictName || null,
+            dictCode: filterValues.dictCode || null,
+            categoryId: filterValues.categoryId ?? null,
+            version: filterValues.version || null,
+            source: filterValues.source || null,
+            status: filterValues.status ?? null,
+        })
+    }
+
+    /**
+     * 重置筛选条件
+     */
+    const handleResetFilter = () => {
+        filterForm.resetFields()
+        setPagination(prev => ({ ...prev, current: 1 }))
+        void fetchData({
+            pageNum: 1,
+            pageSize: pagination.pageSize,
+            dictName: null,
+            dictCode: null,
+            categoryId: null,
+            version: null,
+            source: null,
+            status: null,
+        })
     }
 
     const handleAutoMapping = () => {
@@ -325,9 +380,17 @@ const MedicalDictionaryManagement: React.FC = () => {
 
             // 刷新列表（回到第一页，显示最新数据）
             setPagination(prev => ({ ...prev, current: 1 }))
+            // 获取当前筛选条件
+            const filterValues = filterForm.getFieldsValue()
             void fetchData({
                 pageNum: 1,
                 pageSize: pagination.pageSize,
+                dictName: filterValues.dictName || null,
+                dictCode: filterValues.dictCode || null,
+                categoryId: filterValues.categoryId ?? null,
+                version: filterValues.version || null,
+                source: filterValues.source || null,
+                status: filterValues.status ?? null,
             })
         } catch (error) {
             // 错误信息已在服务层处理，这里只做兜底提示
@@ -461,6 +524,103 @@ const MedicalDictionaryManagement: React.FC = () => {
                 style={{ marginBottom: 24 }}
             />
             <Card>
+                {/* 筛选表单 */}
+                <Form
+                    form={filterForm}
+                    layout='inline'
+                    style={{ marginBottom: 16 }}
+                    onValuesChange={(changedValues, allValues) => {
+                        // 当字段被清空时，确保传入 null 而不是 undefined
+                        const values = {
+                            dictName: allValues.dictName || null,
+                            dictCode: allValues.dictCode || null,
+                            categoryId: allValues.categoryId ?? null,
+                            version: allValues.version || null,
+                            source: allValues.source || null,
+                            status: allValues.status ?? null,
+                        }
+                        setPagination(prev => ({ ...prev, current: 1 }))
+                        void fetchData({
+                            pageNum: 1,
+                            pageSize: pagination.pageSize,
+                            dictName: values.dictName,
+                            dictCode: values.dictCode,
+                            categoryId: values.categoryId,
+                            version: values.version,
+                            source: values.source,
+                            status: values.status,
+                        })
+                    }}
+                >
+                    <Form.Item name='dictName' label='字典名称'>
+                        <Input
+                            placeholder='请输入字典名称关键字'
+                            allowClear
+                            style={{ width: 200 }}
+                            onPressEnter={handleFilterChange}
+                        />
+                    </Form.Item>
+                    <Form.Item name='dictCode' label='字典编码'>
+                        <Input
+                            placeholder='请输入字典编码关键字'
+                            allowClear
+                            style={{ width: 200 }}
+                            onPressEnter={handleFilterChange}
+                        />
+                    </Form.Item>
+                    <Form.Item name='categoryId' label='分类'>
+                        <Select
+                            placeholder='请选择分类'
+                            allowClear
+                            showSearch
+                            optionFilterProp='children'
+                            loading={categoryListLoading}
+                            style={{ width: 200 }}
+                        >
+                            {categoryList.map(category => (
+                                <Option key={category.id} value={category.id}>
+                                    {category.categoryName}
+                                </Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+                    <Form.Item name='version' label='版本'>
+                        <Input
+                            placeholder='请输入版本关键字'
+                            allowClear
+                            style={{ width: 150 }}
+                            onPressEnter={handleFilterChange}
+                        />
+                    </Form.Item>
+                    <Form.Item name='source' label='来源'>
+                        <Input
+                            placeholder='请输入来源关键字'
+                            allowClear
+                            style={{ width: 200 }}
+                            onPressEnter={handleFilterChange}
+                        />
+                    </Form.Item>
+                    <Form.Item name='status' label='状态'>
+                        <Select
+                            placeholder='请选择状态'
+                            allowClear
+                            style={{ width: 150 }}
+                        >
+                            <Option value={1}>启用</Option>
+                            <Option value={0}>禁用</Option>
+                        </Select>
+                    </Form.Item>
+                    <Form.Item>
+                        <Space>
+                            <Button icon={<SearchOutlined />} type='primary' onClick={handleFilterChange} loading={loading}>
+                                查询
+                            </Button>
+                            <Button icon={<ReloadOutlined />} onClick={handleResetFilter}>
+                                重置
+                            </Button>
+                        </Space>
+                    </Form.Item>
+                </Form>
                 <Table
                     columns={columns}
                     dataSource={data}

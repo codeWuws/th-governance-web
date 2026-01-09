@@ -28,6 +28,8 @@ import type {
     AutomaticMappingRequest,
     AutomaticMappingResponse,
     CategoryListResponse,
+    DictionaryType,
+    DictionaryTypeCategoryListResponse,
     AddMedicalDictRequest,
     UpdateMedicalDictRequest,
     MedicalDictSaveResponse,
@@ -584,6 +586,50 @@ export class DataManagementService {
         } catch (error) {
             logger.error(
                 '获取分类列表API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取分类列表失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 根据字典类型获取分类列表
+     * @description 根据字典类型获取对应的分类列表，用于各个字典管理页面的分类筛选下拉框
+     * @param dictionaryType 字典类型：STATUS=状态字典, BUSINESS=业务字典, MEDICAL=医疗字典
+     * @returns Promise<CategoryListResponse> 返回格式化的分类列表，兼容现有的 CategoryItem 格式
+     */
+    static async getCategoryListByDictionaryType(
+        dictionaryType: DictionaryType
+    ): Promise<CategoryListResponse> {
+        try {
+            logger.debug(
+                `发送根据字典类型获取分类列表请求到: /data/standard/category/dictionary-type/${dictionaryType}`,
+                { dictionaryType }
+            )
+            const response = await api.get<DictionaryTypeCategoryListResponse>(
+                `/data/standard/category/dictionary-type/${dictionaryType}`
+            )
+            logger.debug('根据字典类型获取分类列表API响应:', response)
+
+            // 将 StandardCategoryVO 转换为 CategoryItem 格式，兼容现有页面使用
+            const categoryList = (response.data || [])
+                .filter(item => item.categoryStatus === 1 && item.delFlag === 0) // 只返回启用且未删除的分类
+                .map(item => ({
+                    id: String(item.id || ''),
+                    categoryName: item.categoryName || '',
+                    categoryCode: item.categoryCode || '',
+                }))
+
+            return {
+                code: response.code || 200,
+                msg: response.msg || '成功',
+                data: categoryList,
+            }
+        } catch (error) {
+            logger.error(
+                '根据字典类型获取分类列表API调用失败:',
                 error instanceof Error ? error : new Error(String(error))
             )
             throw new Error(
@@ -1419,6 +1465,7 @@ export const dataManagementService = {
     updateBusinessDataset: DataManagementService.updateBusinessDataset,
     automaticMapping: DataManagementService.automaticMapping,
     getCategoryList: DataManagementService.getCategoryList,
+    getCategoryListByDictionaryType: DataManagementService.getCategoryListByDictionaryType,
     addMedicalDict: DataManagementService.addMedicalDict,
     updateMedicalDict: DataManagementService.updateMedicalDict,
     deleteMedicalDict: DataManagementService.deleteMedicalDict,
