@@ -208,8 +208,12 @@ request.interceptors.response.use(
         if (responseData?.code !== undefined && responseData.code !== 200 && responseData.code !== 0) {
             // 优先返回后端提供的msg，最后使用默认值
             const errorMessage = responseData.msg || `请求失败 (业务状态码: ${responseData.code})`
+            // 创建一个包含更多信息的错误对象
+            const error = new Error(errorMessage)
+            // 在错误对象上添加业务状态码，方便后续处理
+            ;(error as Error & { code?: number }).code = responseData.code
             // 直接抛出错误，让错误拦截器统一处理错误提示
-            throw new Error(errorMessage)
+            throw error
         }
 
         // 默认返回完整响应对象（包含code、msg、data），保持向后兼容
@@ -273,7 +277,37 @@ request.interceptors.response.use(
         // 如果未配置跳过错误处理，则自动显示错误提示
         // 使用 setTimeout 确保在下一个事件循环中执行，避免在错误拦截器中直接调用导致的问题
         if (!requestConfig.skipErrorHandler && typeof window !== 'undefined') {
-            const errorMessage = error.message || '请求失败'
+            // 优先使用错误消息，如果没有则使用默认提示
+            let errorMessage = error.message || '请求失败，请稍后重试'
+            
+            // 如果是网络错误，使用更友好的提示
+            if (!response) {
+                if (error.code === 'ECONNABORTED') {
+                    errorMessage = '请求超时，请稍后重试'
+                } else if (error.code === 'ERR_NETWORK') {
+                    errorMessage = '网络连接失败，请检查网络'
+                } else {
+                    errorMessage = '网络错误，请稍后重试'
+                }
+            } else {
+                // 尝试从响应数据中提取错误信息
+                const errorData = response.data as { msg?: string; message?: string } | undefined
+                if (errorData?.msg) {
+                    errorMessage = errorData.msg
+                } else if (errorData?.message) {
+                    errorMessage = errorData.message
+                } else if (response.status >= 500) {
+                    // 服务器错误
+                    errorMessage = errorMessage || '服务器错误，请稍后重试'
+                } else if (response.status === 403) {
+                    // 权限错误
+                    errorMessage = errorMessage || '没有权限执行此操作'
+                } else if (response.status >= 400 && response.status < 500) {
+                    // 客户端错误，使用后端返回的错误信息
+                    errorMessage = errorMessage || '请求参数错误，请检查后重试'
+                }
+            }
+            
             setTimeout(() => {
                 try {
                     uiMessage.handleSystemError(errorMessage)

@@ -1,0 +1,67 @@
+.userProfileDialog {
+    padding: 8px 0;
+}
+
+.loadingContainer,
+.errorContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px;
+    padding: 40px;
+}
+
+.userHeader {
+    display: flex;
+    align-items: center;
+    padding: 20px 0;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.userHeaderInfo {
+    margin-left: 20px;
+    flex: 1;
+
+    h3 {
+        margin: 0 0 8px 0;
+        font-size: 20px;
+        font-weight: 500;
+        color: #262626;
+    }
+
+    p {
+        margin: 0;
+        font-size: 14px;
+        color: #8c8c8c;
+    }
+}
+
+.descriptions {
+    :global(.ant-descriptions-item-label) {
+        width: 120px;
+        font-weight: 500;
+        background-color: #fafafa;
+    }
+
+    :global(.ant-descriptions-item-content) {
+        word-break: break-word;
+    }
+}
+
+.permissionsList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.permissionTag {
+    display: inline-block;
+    padding: 2px 8px;
+    background-color: #e6f7ff;
+    border: 1px solid #91d5ff;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #1890ff;
+}
+

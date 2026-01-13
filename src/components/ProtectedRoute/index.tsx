@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
-import { fetchUserInfo, selectIsAuthenticated, selectUserLoading } from '@/store/slices/userSlice'
+import { refreshUserInfo, selectIsAuthenticated, selectUserLoading } from '@/store/slices/userSlice'
 
 interface ProtectedRouteProps {
     children: React.ReactElement
@@ -29,41 +29,21 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
                 return
             }
 
-            // 如果已经认证，标记检查完成
-            if (isAuthenticated) {
+            // 如果有token，尝试通过 /auth/info 接口重新获取用户信息
+            try {
+                await dispatch(refreshUserInfo()).unwrap()
+            } catch (error) {
+                // 获取用户信息失败，清除token并跳转到登录页
+                console.warn('刷新用户信息失败:', error)
+                localStorage.removeItem('access_token')
+                localStorage.removeItem('refresh_token')
+                localStorage.removeItem('token_type')
+                localStorage.removeItem('mqtt_key')
+                localStorage.removeItem('user_id')
+                localStorage.removeItem('token_expires_at')
+            } finally {
                 setHasChecked(true)
-                return
             }
-
-            // 如果有token但未认证，尝试恢复用户状态
-            if (token && !isAuthenticated) {
-                const tokenMatch = token.match(/mock_jwt_token_(\w+)_/)
-                if (tokenMatch) {
-                    const username = tokenMatch[1]
-                    const userIdMap: Record<string, number> = {
-                        admin: 1,
-                        doctor: 2,
-                        researcher: 3,
-                    }
-                    const userId = userIdMap[username]
-                    if (userId) {
-                        try {
-                            await dispatch(fetchUserInfo(userId)).unwrap()
-                        } catch (error) {
-                            // 恢复失败，清除token
-                            localStorage.removeItem('access_token')
-                        }
-                    } else {
-                        // 用户名无效，清除token
-                        localStorage.removeItem('access_token')
-                    }
-                } else {
-                    // token格式无效，清除token
-                    localStorage.removeItem('access_token')
-                }
-            }
-            
-            setHasChecked(true)
         }
 
         checkAuth()

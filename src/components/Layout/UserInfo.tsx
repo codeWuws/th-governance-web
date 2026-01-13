@@ -3,7 +3,9 @@ import { Avatar, Dropdown, Space, Typography } from 'antd'
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
-import { logout, selectCurrentUser } from '@/store/slices/userSlice'
+import { logoutUser, selectCurrentUser } from '@/store/slices/userSlice'
+import { showDialog } from '@/utils/showDialog'
+import UserProfileDialog from '@/components/UserProfileDialog'
 import styles from './UserInfo.module.scss'
 
 const { Text } = Typography
@@ -20,9 +22,39 @@ const UserInfo: React.FC = () => {
     /**
      * 处理登出
      */
-    const handleLogout = () => {
-        dispatch(logout())
-        navigate('/login', { replace: true })
+    const handleLogout = async () => {
+        try {
+            // 调用登出接口
+            await dispatch(logoutUser()).unwrap()
+            // 登出成功后跳转到登录页
+            navigate('/login', { replace: true })
+        } catch (error) {
+            // 即使登出接口失败，也跳转到登录页（本地状态已清除）
+            navigate('/login', { replace: true })
+        }
+    }
+
+    /**
+     * 处理查看个人信息
+     */
+    const handleViewProfile = () => {
+        showDialog(UserProfileDialog, {
+            title: '个人信息',
+        })
+    }
+
+    /**
+     * 获取角色显示文本
+     */
+    const getRoleText = () => {
+        if (!currentUser?.roles || currentUser.roles.length === 0) {
+            return currentUser?.role === 'admin' ? '管理员' : currentUser?.role === 'user' ? '普通用户' : '访客'
+        }
+        // 根据角色列表显示，优先显示 admin
+        if (currentUser.roles.includes('admin')) {
+            return '管理员'
+        }
+        return currentUser.roles.join('、') || '普通用户'
     }
 
     /**
@@ -34,10 +66,26 @@ const UserInfo: React.FC = () => {
             type: 'group' as const,
             label: (
                 <div style={{ padding: '4px 0' }}>
-                    <div style={{ fontWeight: 500, marginBottom: 4 }}>{currentUser?.username}</div>
-                    <div style={{ fontSize: 12, color: '#8c8c8c' }}>{currentUser?.email}</div>
+                    <div style={{ fontWeight: 500, marginBottom: 4 }}>
+                        {currentUser?.nickName || currentUser?.username}
+                    </div>
+                    {currentUser?.nickName && (
+                        <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 2 }}>
+                            {currentUser.username}
+                        </div>
+                    )}
+                    {currentUser?.email && (
+                        <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 2 }}>
+                            {currentUser.email}
+                        </div>
+                    )}
+                    {currentUser?.phoneNumber && (
+                        <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 2 }}>
+                            {currentUser.phoneNumber}
+                        </div>
+                    )}
                     <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 2 }}>
-                        {currentUser?.role === 'admin' ? '管理员' : currentUser?.role === 'user' ? '普通用户' : '访客'}
+                        {getRoleText()}
                     </div>
                 </div>
             ),
@@ -54,7 +102,7 @@ const UserInfo: React.FC = () => {
                     <span>个人信息</span>
                 </Space>
             ),
-            disabled: true, // 暂时禁用，后续可扩展
+            onClick: handleViewProfile,
         },
         {
             type: 'divider' as const,
@@ -91,10 +139,10 @@ const UserInfo: React.FC = () => {
                 />
                 <div className={styles.userText}>
                     <Text strong className={styles.username}>
-                        {currentUser.username}
+                        {currentUser.nickName || currentUser.username}
                     </Text>
                     <Text type="secondary" className={styles.userRole}>
-                        {currentUser.role === 'admin' ? '管理员' : currentUser.role === 'user' ? '普通用户' : '访客'}
+                        {getRoleText()}
                     </Text>
                 </div>
             </Space>

@@ -769,57 +769,43 @@ const authMockProvider = {
     getMockData: async (config: AxiosRequestConfig): Promise<AxiosResponse> => {
         const url = config.url || ''
         
-        // 登录接口
-        if (url.includes('/api/auth/login') && config.method?.toUpperCase() === 'POST') {
+        // 登录接口 /auth/login
+        if ((url.includes('/auth/login') || url.includes('/api/auth/login')) && config.method?.toUpperCase() === 'POST') {
             const data = config.data as { username?: string; password?: string } || {}
             const username = data.username || ''
             const password = data.password || ''
             
             // 模拟账号验证
-            const mockAccounts: Record<string, { password: string; user: any }> = {
+            const mockAccounts: Record<string, { password: string; userId: number }> = {
                 admin: {
                     password: '123456',
-                    user: {
-                        id: 1,
-                        username: 'admin',
-                        email: 'admin@example.com',
-                        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
-                        role: 'admin',
-                        createdAt: new Date().toISOString(),
-                    },
+                    userId: 1,
                 },
                 doctor: {
                     password: '123456',
-                    user: {
-                        id: 2,
-                        username: 'doctor',
-                        email: 'doctor@example.com',
-                        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=doctor',
-                        role: 'user',
-                        createdAt: new Date().toISOString(),
-                    },
+                    userId: 2,
                 },
                 researcher: {
                     password: '123456',
-                    user: {
-                        id: 3,
-                        username: 'researcher',
-                        email: 'researcher@example.com',
-                        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=researcher',
-                        role: 'user',
-                        createdAt: new Date().toISOString(),
-                    },
+                    userId: 3,
                 },
             }
             
             const account = mockAccounts[username]
             
             if (account && account.password === password) {
-                const token = `mock_jwt_token_${username}_${Date.now()}`
+                const timestamp = Date.now()
+                const accessToken = `mock_jwt_token_${username}_${timestamp}`
+                const refreshToken = `mock_refresh_token_${username}_${timestamp}`
+                const mqttKey = `mock_mqtt_key_${username}_${timestamp}`
+                
                 return createMockResponse({
-                    token,
-                    refreshToken: `mock_refresh_token_${username}_${Date.now()}`,
-                    user: account.user,
+                    accessToken,
+                    refreshToken,
+                    expiresIn: 7200, // 2小时，单位：秒
+                    tokenType: 'Bearer',
+                    mqttKey,
+                    userId: account.userId,
                 })
             } else {
                 return createMockResponse(
@@ -834,8 +820,121 @@ const authMockProvider = {
             }
         }
         
-        // 获取当前用户信息
-        if (url.includes('/api/auth/me') && config.method?.toUpperCase() === 'GET') {
+        // 获取用户详细信息接口 /auth/info
+        if ((url.includes('/auth/info') || url.includes('/api/auth/info')) && config.method?.toUpperCase() === 'GET') {
+            // 从token中解析用户名（简化处理）
+            const token = config.headers?.Authorization?.toString().replace('Bearer ', '') || localStorage.getItem('access_token') || ''
+            const usernameMatch = token.match(/mock_jwt_token_(\w+)_/)
+            const username = usernameMatch ? usernameMatch[1] : 'admin'
+            
+            // 用户信息映射
+            const userInfoMap: Record<string, any> = {
+                admin: {
+                    userId: 1,
+                    deptId: 1,
+                    token: token || `mock_jwt_token_${username}_${Date.now()}`,
+                    loginTime: Date.now(),
+                    expireTime: Date.now() + 7200 * 1000, // 2小时后过期
+                    ipaddr: '127.0.0.1',
+                    loginLocation: '本地',
+                    browser: 'Chrome',
+                    os: 'Windows',
+                    permissions: ['*:*:*'],
+                    roles: ['admin'],
+                    user: {
+                        id: 1,
+                        createBy: 'system',
+                        createTime: new Date().toISOString(),
+                        updateBy: null,
+                        updateTime: null,
+                        remark: null,
+                        delFlag: 0,
+                        username: 'admin',
+                        nickName: '管理员',
+                        email: 'admin@example.com',
+                        phoneNumber: '13800000001',
+                        sex: '0',
+                        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
+                        password: '',
+                        status: '0',
+                        deptId: 1,
+                        postId: 0,
+                    },
+                    mqttKey: localStorage.getItem('mqtt_key') || `mock_mqtt_key_${username}_${Date.now()}`,
+                },
+                doctor: {
+                    userId: 2,
+                    deptId: 2,
+                    token: token || `mock_jwt_token_${username}_${Date.now()}`,
+                    loginTime: Date.now(),
+                    expireTime: Date.now() + 7200 * 1000,
+                    ipaddr: '127.0.0.1',
+                    loginLocation: '本地',
+                    browser: 'Chrome',
+                    os: 'Windows',
+                    permissions: ['user:view', 'data:view'],
+                    roles: ['user'],
+                    user: {
+                        id: 2,
+                        createBy: 'admin',
+                        createTime: new Date().toISOString(),
+                        updateBy: null,
+                        updateTime: null,
+                        remark: null,
+                        delFlag: 0,
+                        username: 'doctor',
+                        nickName: '医生',
+                        email: 'doctor@example.com',
+                        phoneNumber: '13800000002',
+                        sex: '1',
+                        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=doctor',
+                        password: '',
+                        status: '0',
+                        deptId: 2,
+                        postId: 0,
+                    },
+                    mqttKey: localStorage.getItem('mqtt_key') || `mock_mqtt_key_${username}_${Date.now()}`,
+                },
+                researcher: {
+                    userId: 3,
+                    deptId: 3,
+                    token: token || `mock_jwt_token_${username}_${Date.now()}`,
+                    loginTime: Date.now(),
+                    expireTime: Date.now() + 7200 * 1000,
+                    ipaddr: '127.0.0.1',
+                    loginLocation: '本地',
+                    browser: 'Chrome',
+                    os: 'Windows',
+                    permissions: ['user:view', 'data:view', 'research:view'],
+                    roles: ['user', 'researcher'],
+                    user: {
+                        id: 3,
+                        createBy: 'admin',
+                        createTime: new Date().toISOString(),
+                        updateBy: null,
+                        updateTime: null,
+                        remark: null,
+                        delFlag: 0,
+                        username: 'researcher',
+                        nickName: '研究员',
+                        email: 'researcher@example.com',
+                        phoneNumber: '13800000003',
+                        sex: '0',
+                        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=researcher',
+                        password: '',
+                        status: '0',
+                        deptId: 3,
+                        postId: 0,
+                    },
+                    mqttKey: localStorage.getItem('mqtt_key') || `mock_mqtt_key_${username}_${Date.now()}`,
+                },
+            }
+            
+            return createMockResponse(userInfoMap[username] || userInfoMap.admin)
+        }
+        
+        // 获取当前用户信息（兼容旧接口）
+        if ((url.includes('/auth/me') || url.includes('/api/auth/me')) && config.method?.toUpperCase() === 'GET') {
             // 从token中解析用户名（简化处理）
             const token = config.headers?.Authorization?.toString().replace('Bearer ', '') || ''
             const usernameMatch = token.match(/mock_jwt_token_(\w+)_/)
@@ -872,7 +971,7 @@ const authMockProvider = {
         }
         
         // 登出接口
-        if (url.includes('/api/auth/logout') && config.method?.toUpperCase() === 'POST') {
+        if ((url.includes('/auth/logout') || url.includes('/api/auth/logout')) && config.method?.toUpperCase() === 'POST') {
             return createMockResponse(null)
         }
         
@@ -884,7 +983,8 @@ const authMockProvider = {
  * 注册所有模拟数据提供者
  */
 export const registerAllMockProviders = (): void => {
-    // 注册认证模块
+    // 注册认证模块（支持 /auth 和 /api/auth 两种路径）
+    registerMockData('/auth', authMockProvider)
     registerMockData('/api/auth', authMockProvider)
     
     // 注册仪表盘模块

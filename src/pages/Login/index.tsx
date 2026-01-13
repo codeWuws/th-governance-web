@@ -26,6 +26,7 @@ const Login: React.FC = () => {
             const from = (location.state as { from?: Location })?.from
             const targetPath = from?.pathname || '/'
             // 延迟一下确保状态更新完成
+            . 
             setTimeout(() => {
                 navigate(targetPath, { replace: true })
             }, 100)
@@ -47,7 +48,17 @@ const Login: React.FC = () => {
                 navigate(targetPath, { replace: true })
             }, 300)
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : '登录失败，请重试'
+            // 提取错误信息，优先使用接口返回的具体错误信息
+            // Redux Toolkit 的 unwrap() 会抛出 rejectWithValue 返回的值
+            let errorMessage = '登录失败，请重试'
+            if (typeof error === 'string') {
+                errorMessage = error
+            } else if (error instanceof Error) {
+                errorMessage = error.message || errorMessage
+            } else if (error && typeof error === 'object' && 'message' in error) {
+                errorMessage = String((error as { message: string }).message) || errorMessage
+            }
+            // 显示错误提示（由于设置了 skipErrorHandler，这里需要手动显示）
             uiMessage.handleSystemError(errorMessage)
         } finally {
             setLoading(false)

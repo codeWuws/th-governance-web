@@ -1,12 +1,18 @@
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit'
+import { AuthService, type UserInfoDetail } from '@/services/authService'
 
 // 用户信息接口
 export interface User {
     id: number
     username: string
+    nickName?: string // 昵称
     email: string
+    phoneNumber?: string // 手机号
     avatar?: string
     role: 'admin' | 'user' | 'guest'
+    roles?: string[] // 角色列表
+    deptId?: number // 部门ID
+    permissions?: string[] // 权限列表
     createdAt: string
 }
 
@@ -28,7 +34,37 @@ const initialState: UserState = {
     isAuthenticated: false,
 }
 
-// 异步 thunk - 获取用户信息
+// 异步 thunk - 获取用户信息（通过 /auth/info 接口）
+export const refreshUserInfo = createAsyncThunk(
+    'user/refreshUserInfo',
+    async (_, { rejectWithValue }) => {
+        try {
+            // 通过 /auth/info 接口获取用户详细信息
+            const userInfo = await AuthService.getUserInfo()
+            
+            // 将 UserInfoDetail 转换为 User 类型
+            const user: User = {
+                id: userInfo.user.id,
+                username: userInfo.user.username,
+                nickName: userInfo.user.nickName || undefined,
+                email: userInfo.user.email || '',
+                phoneNumber: userInfo.user.phoneNumber || undefined,
+                avatar: userInfo.user.avatar || undefined,
+                role: userInfo.roles.includes('admin') ? 'admin' : 'user',
+                roles: userInfo.roles,
+                deptId: userInfo.deptId,
+                permissions: userInfo.permissions,
+                createdAt: userInfo.user.createTime || new Date().toISOString(),
+            }
+            
+            return user
+        } catch (error) {
+            return rejectWithValue(error instanceof Error ? error.message : '获取用户信息失败')
+        }
+    }
+)
+
+// 异步 thunk - 获取用户信息（兼容旧接口，通过 userId）
 export const fetchUserInfo = createAsyncThunk(
     'user/fetchUserInfo',
     async (userId: number, { rejectWithValue }) => {
@@ -112,28 +148,53 @@ export const loginUser = createAsyncThunk(
     'user/login',
     async (credentials: { username: string; password: string }, { rejectWithValue }) => {
         try {
-            // 模拟登录 API 调用延迟
-            await new Promise(resolve => setTimeout(resolve, 1000))
-
-            const account = MOCK_ACCOUNTS[credentials.username]
+            // 调用登录接口获取 token（token 已在 login 方法中持久化存储）
+            await AuthService.login(credentials)
             
-            // 验证用户名和密码
-            if (account && account.password === credentials.password) {
-                const user: User = {
-                    id: credentials.username === 'admin' ? 1 : credentials.username === 'doctor' ? 2 : 3,
-                    ...account.user,
-                    createdAt: new Date().toISOString(),
-                }
-
-                // 模拟保存 token
-                localStorage.setItem('access_token', `mock_jwt_token_${credentials.username}_${Date.now()}`)
-
-                return user
-            } else {
-                throw new Error('用户名或密码错误')
+            // 通过 /auth/info 接口获取用户详细信息
+            const userInfo = await AuthService.getUserInfo()
+            
+            // 将 UserInfoDetail 转换为 User 类型
+            const user: User = {
+                id: userInfo.user.id,
+                username: userInfo.user.username,
+                nickName: userInfo.user.nickName || undefined,
+                email: userInfo.user.email || '',
+                phoneNumber: userInfo.user.phoneNumber || undefined,
+                avatar: userInfo.user.avatar || undefined,
+                role: userInfo.roles.includes('admin') ? 'admin' : 'user',
+                roles: userInfo.roles,
+                deptId: userInfo.deptId,
+                permissions: userInfo.permissions,
+                createdAt: userInfo.user.createTime || new Date().toISOString(),
             }
+            
+            return user
         } catch (error) {
             return rejectWithValue(error instanceof Error ? error.message : '登录失败')
+        }
+    }
+)
+
+// 异步 thunk - 用户登出
+export const logoutUser = createAsyncThunk(
+    'user/logout',
+    async (_, { rejectWithValue }) => {
+        try {
+            // 调用登出接口清除服务端状态
+            await AuthService.logout()
+            // AuthService.logout() 内部已经清除了本地存储的 token
+        } catch (error) {
+            // 即使登出接口失败，也清除本地状态
+            console.warn('登出接口调用失败，但已清除本地凭证', error)
+            // 确保清除本地存储
+            localStorage.removeItem('access_token')
+            localStorage.removeItem('refresh_token')
+            localStorage.removeItem('token_type')
+            localStorage.removeItem('mqtt_key')
+            localStorage.removeItem('user_id')
+            localStorage.removeItem('token_expires_at')
+            return rejectWithValue(error instanceof Error ? error.message : '登出失败')
         }
     }
 )
@@ -149,12 +210,11 @@ export const userSlice = createSlice({
             state.isAuthenticated = true
             state.error = null
         },
-        // 用户登出
+        // 用户登出（同步 reducer，用于立即清除状态）
         logout: state => {
             state.currentUser = null
             state.isAuthenticated = false
             state.error = null
-            localStorage.removeItem('access_token')
         },
         // 更新用户信息
         updateUserInfo: (state, action: PayloadAction<Partial<User>>) => {
@@ -176,6 +236,25 @@ export const userSlice = createSlice({
         },
     },
     extraReducers: builder => {
+        // 处理 refreshUserInfo 异步操作
+        builder
+            .addCase(refreshUserInfo.pending, state => {
+                state.loading = true
+                state.error = null
+            })
+            .addCase(refreshUserInfo.fulfilled, (state, action) => {
+                state.loading = false
+                state.currentUser = action.payload
+                state.isAuthenticated = true
+            })
+            .addCase(refreshUserInfo.rejected, (state, action) => {
+                state.loading = false
+                state.error = action.payload as string
+                // 如果获取用户信息失败，清除认证状态
+                state.isAuthenticated = false
+                state.currentUser = null
+            })
+
         // 处理 fetchUserInfo 异步操作
         builder
             .addCase(fetchUserInfo.pending, state => {
@@ -205,6 +284,25 @@ export const userSlice = createSlice({
             })
             .addCase(loginUser.rejected, (state, action) => {
                 state.loading = false
+                state.error = action.payload as string
+            })
+
+        // 处理 logoutUser 异步操作
+        builder
+            .addCase(logoutUser.pending, state => {
+                state.loading = true
+                state.error = null
+            })
+            .addCase(logoutUser.fulfilled, state => {
+                state.loading = false
+                state.currentUser = null
+                state.isAuthenticated = false
+            })
+            .addCase(logoutUser.rejected, (state, action) => {
+                state.loading = false
+                // 即使登出接口失败，也清除状态
+                state.currentUser = null
+                state.isAuthenticated = false
                 state.error = action.payload as string
             })
     },
