@@ -113,6 +113,555 @@ const dataManagementMockProvider = {
             })
         }
         
+        // 获取表列表
+        if (url.includes('/data/standard/tables') && config.method?.toUpperCase() === 'GET' && !url.includes('/columns')) {
+            return createMockResponse([
+                {
+                    tableName: 'data_asset',
+                    tableType: 'BASE TABLE',
+                    engine: 'InnoDB',
+                    tableComment: '数据资产统一表',
+                    createTime: '2026-01-08 03:13:23.0',
+                    dataLength: '16384',
+                    indexLength: '0',
+                    tableSize: '0.02',
+                },
+                {
+                    tableName: 'data_relation_qc_record',
+                    tableType: 'BASE TABLE',
+                    engine: 'InnoDB',
+                    tableComment: '医学数据关联质控记录表',
+                    createTime: '2026-01-08 03:13:24.0',
+                    dataLength: '16384',
+                    indexLength: '0',
+                    tableSize: '0.02',
+                },
+                {
+                    tableName: 't_patient_info',
+                    tableType: 'BASE TABLE',
+                    engine: 'InnoDB',
+                    tableComment: '患者基本信息表',
+                    createTime: '2026-01-08 03:13:25.0',
+                    dataLength: '32768',
+                    indexLength: '16384',
+                    tableSize: '0.05',
+                },
+                {
+                    tableName: 't_visit_record',
+                    tableType: 'BASE TABLE',
+                    engine: 'InnoDB',
+                    tableComment: '就诊记录表',
+                    createTime: '2026-01-08 03:13:26.0',
+                    dataLength: '65536',
+                    indexLength: '32768',
+                    tableSize: '0.10',
+                },
+                {
+                    tableName: 't_diagnosis',
+                    tableType: 'BASE TABLE',
+                    engine: 'InnoDB',
+                    tableComment: '诊断信息表',
+                    createTime: '2026-01-08 03:13:27.0',
+                    dataLength: '49152',
+                    indexLength: '16384',
+                    tableSize: '0.08',
+                },
+            ])
+        }
+
+        // 获取字段值列表 /data/standard/tables/field-values
+        if (url.includes('/data/standard/tables/field-values') && config.method?.toUpperCase() === 'POST') {
+            const data = config.data as {
+                tableName?: string
+                fieldName?: string
+            } || {}
+
+            const tableName = data.tableName || ''
+            const fieldName = data.fieldName || ''
+
+            if (!tableName || !fieldName) {
+                return createMockResponse({
+                    code: 400,
+                    msg: '表名和字段名不能为空',
+                    data: [],
+                })
+            }
+
+            // 根据不同的表和字段返回不同的模拟数据
+            const mockFieldValues: Record<string, Record<string, any[]>> = {
+                't_patient_info': {
+                    'gender_code': [
+                        { gender_code: 'M' },
+                        { gender_code: 'F' },
+                        { gender_code: 'U' },
+                    ],
+                    'marital_status': [
+                        { marital_status: '1' },
+                        { marital_status: '2' },
+                        { marital_status: '3' },
+                        { marital_status: '9' },
+                    ],
+                    'node_type': [
+                        { node_type: 1 },
+                        { node_type: 2 },
+                        { node_type: 0 },
+                    ],
+                },
+                'data_asset': {
+                    'status': [
+                        { status: 'active' },
+                        { status: 'inactive' },
+                        { status: 'pending' },
+                    ],
+                },
+            }
+
+            const fieldValues = mockFieldValues[tableName]?.[fieldName] || [
+                { [fieldName]: 'value1' },
+                { [fieldName]: 'value2' },
+                { [fieldName]: 'value3' },
+            ]
+
+            return createMockResponse({
+                code: 200,
+                msg: '操作成功',
+                data: fieldValues,
+            })
+        }
+
+        // 获取表字段列表 /data/standard/tables/{tableName}/columns
+        if (url.includes('/data/standard/tables/') && url.includes('/columns') && config.method?.toUpperCase() === 'GET') {
+            // 从 URL 中提取表名
+            const urlParts = url.split('/')
+            const tableNameIndex = urlParts.findIndex(part => part === 'tables')
+            const tableName = tableNameIndex !== -1 && urlParts[tableNameIndex + 1] ? urlParts[tableNameIndex + 1] : ''
+            
+            // 根据表名返回不同的字段数据
+            const mockColumns: Record<string, any[]> = {
+                'data_asset': [
+                    {
+                        columnName: 'id',
+                        columnType: 'bigint',
+                        dataType: 'bigint',
+                        isNullable: 'NO',
+                        columnDefault: null,
+                        columnKey: 'PRI',
+                        extra: 'auto_increment',
+                        columnComment: '主键ID',
+                    },
+                    {
+                        columnName: 'asset_name',
+                        columnType: 'varchar(255)',
+                        dataType: 'varchar',
+                        isNullable: 'YES',
+                        columnDefault: null,
+                        columnKey: '',
+                        extra: '',
+                        columnComment: '资产名称',
+                    },
+                    {
+                        columnName: 'asset_type',
+                        columnType: 'varchar(50)',
+                        dataType: 'varchar',
+                        isNullable: 'YES',
+                        columnDefault: null,
+                        columnKey: '',
+                        extra: '',
+                        columnComment: '资产类型',
+                    },
+                ],
+                'data_relation_qc_record': [
+                    {
+                        columnName: 'id',
+                        columnType: 'bigint',
+                        dataType: 'bigint',
+                        isNullable: 'NO',
+                        columnDefault: null,
+                        columnKey: 'PRI',
+                        extra: 'auto_increment',
+                        columnComment: '主键ID',
+                    },
+                    {
+                        columnName: 'record_id',
+                        columnType: 'varchar(100)',
+                        dataType: 'varchar',
+                        isNullable: 'YES',
+                        columnDefault: null,
+                        columnKey: '',
+                        extra: '',
+                        columnComment: '记录ID',
+                    },
+                    {
+                        columnName: 'qc_result',
+                        columnType: 'int',
+                        dataType: 'int',
+                        isNullable: 'YES',
+                        columnDefault: '0',
+                        columnKey: '',
+                        extra: '',
+                        columnComment: '质控结果',
+                    },
+                ],
+                't_patient_info': [
+                    {
+                        columnName: 'id',
+                        columnType: 'bigint',
+                        dataType: 'bigint',
+                        isNullable: 'NO',
+                        columnDefault: null,
+                        columnKey: 'PRI',
+                        extra: 'auto_increment',
+                        columnComment: '主键ID',
+                    },
+                    {
+                        columnName: 'patient_name',
+                        columnType: 'varchar(100)',
+                        dataType: 'varchar',
+                        isNullable: 'YES',
+                        columnDefault: null,
+                        columnKey: '',
+                        extra: '',
+                        columnComment: '患者姓名',
+                    },
+                    {
+                        columnName: 'gender_code',
+                        columnType: 'varchar(10)',
+                        dataType: 'varchar',
+                        isNullable: 'YES',
+                        columnDefault: null,
+                        columnKey: '',
+                        extra: '',
+                        columnComment: '性别代码',
+                    },
+                    {
+                        columnName: 'birth_date',
+                        columnType: 'date',
+                        dataType: 'date',
+                        isNullable: 'YES',
+                        columnDefault: null,
+                        columnKey: '',
+                        extra: '',
+                        columnComment: '出生日期',
+                    },
+                ],
+                't_visit_record': [
+                    {
+                        columnName: 'id',
+                        columnType: 'bigint',
+                        dataType: 'bigint',
+                        isNullable: 'NO',
+                        columnDefault: null,
+                        columnKey: 'PRI',
+                        extra: 'auto_increment',
+                        columnComment: '主键ID',
+                    },
+                    {
+                        columnName: 'patient_id',
+                        columnType: 'bigint',
+                        dataType: 'bigint',
+                        isNullable: 'YES',
+                        columnDefault: null,
+                        columnKey: 'MUL',
+                        extra: '',
+                        columnComment: '患者ID',
+                    },
+                    {
+                        columnName: 'visit_date',
+                        columnType: 'datetime',
+                        dataType: 'datetime',
+                        isNullable: 'YES',
+                        columnDefault: null,
+                        columnKey: '',
+                        extra: '',
+                        columnComment: '就诊日期',
+                    },
+                ],
+                't_diagnosis': [
+                    {
+                        columnName: 'id',
+                        columnType: 'bigint',
+                        dataType: 'bigint',
+                        isNullable: 'NO',
+                        columnDefault: null,
+                        columnKey: 'PRI',
+                        extra: 'auto_increment',
+                        columnComment: '主键ID',
+                    },
+                    {
+                        columnName: 'diagnosis_code',
+                        columnType: 'varchar(50)',
+                        dataType: 'varchar',
+                        isNullable: 'YES',
+                        columnDefault: null,
+                        columnKey: '',
+                        extra: '',
+                        columnComment: '诊断编码',
+                    },
+                    {
+                        columnName: 'diagnosis_name',
+                        columnType: 'varchar(200)',
+                        dataType: 'varchar',
+                        isNullable: 'YES',
+                        columnDefault: null,
+                        columnKey: '',
+                        extra: '',
+                        columnComment: '诊断名称',
+                    },
+                ],
+            }
+            
+            // 如果表名存在，返回对应的字段数据，否则返回空数组
+            const columns = mockColumns[tableName] || [
+                {
+                    columnName: 'id',
+                    columnType: 'bigint',
+                    dataType: 'bigint',
+                    isNullable: 'NO',
+                    columnDefault: null,
+                    columnKey: 'PRI',
+                    extra: 'auto_increment',
+                    columnComment: '主键ID',
+                },
+            ]
+            
+            return createMockResponse(columns)
+        }
+
+        // 标准字典对照分页查询
+        if (url.includes('/data/standard/page')) {
+            const data = config.data as {
+                pageNum?: number
+                pageSize?: number
+                keyword?: string
+                dataSourceId?: number
+                status?: number
+                sortField?: string
+                sortOrder?: string
+            } || {}
+            const pageNum = data.pageNum || 1
+            const pageSize = data.pageSize || 10
+            const keyword = (data.keyword || '').toString().trim().toLowerCase()
+            const dataSourceId = data.dataSourceId
+            const status = data.status
+
+            // 模拟数据
+            const mockRecords = [
+                {
+                    id: '2010995181401612290',
+                    standardName: '性别标准对照2',
+                    dataSourceId: '1',
+                    dataSourceName: 'MySQL-本地开发库',
+                    dbType: 'MySQL',
+                    dbHost: 'localhost',
+                    dbPort: '3306',
+                    dbName: 'dev_database',
+                    description: '患者性别字段的标准字典对照',
+                    businessTypeId: '2',
+                    businessTypeName: '业务字典',
+                    businessCategoryId: '2009153281484791821',
+                    businessCategoryName: '民族',
+                    originTable: 't_patient_info',
+                    originField: 'gender_code',
+                    status: 1,
+                    remark: '测试备注',
+                    createBy: 'admin',
+                    createTime: '2026-01-13T16:39:48',
+                    valueList: [
+                        {
+                            id: '2010995182160781314',
+                            dataSetId: '1001',
+                            originValue: 'M',
+                        },
+                        {
+                            id: '2010995182580211714',
+                            dataSetId: '1002',
+                            originValue: 'F',
+                        },
+                        {
+                            id: '2010995183024807938',
+                            dataSetId: '1003',
+                            originValue: 'U',
+                        },
+                    ],
+                },
+                {
+                    id: '2010995181401612291',
+                    standardName: '性别标准对照1',
+                    dataSourceId: '1',
+                    dataSourceName: 'MySQL-本地开发库',
+                    dbType: 'MySQL',
+                    dbHost: 'localhost',
+                    dbPort: '3306',
+                    dbName: 'dev_database',
+                    description: '患者性别字段的标准字典对照',
+                    businessTypeId: '1',
+                    businessTypeName: '状态字典',
+                    businessCategoryId: '2009153281484791811',
+                    businessCategoryName: '婚姻状况代码',
+                    originTable: 't_patient_info',
+                    originField: 'gender_code',
+                    status: 1,
+                    remark: '测试备注',
+                    createBy: 'admin',
+                    createTime: '2026-01-13T16:39:48',
+                    valueList: null,
+                },
+                {
+                    id: '2010995181401612292',
+                    standardName: '性别标准对照3',
+                    dataSourceId: '1',
+                    dataSourceName: 'MySQL-本地开发库',
+                    dbType: 'MySQL',
+                    dbHost: 'localhost',
+                    dbPort: '3306',
+                    dbName: 'dev_database',
+                    description: '患者性别字段的标准字典对照',
+                    businessTypeId: '3',
+                    businessTypeName: '医疗字典',
+                    businessCategoryId: '2009153281484791864',
+                    businessCategoryName: '中医临床诊疗术语治法部分',
+                    originTable: 't_patient_info',
+                    originField: 'gender_code',
+                    status: 1,
+                    remark: '测试备注',
+                    createBy: 'admin',
+                    createTime: '2026-01-13T16:39:48',
+                    valueList: null,
+                },
+                {
+                    id: '2010995181401612293',
+                    standardName: '年龄标准对照',
+                    dataSourceId: '2',
+                    dataSourceName: 'PostgreSQL-测试库',
+                    dbType: 'PostgreSQL',
+                    dbHost: '192.168.1.100',
+                    dbPort: '5432',
+                    dbName: 'test_database',
+                    description: '患者年龄字段的标准字典对照',
+                    businessTypeId: '2',
+                    businessTypeName: '业务字典',
+                    businessCategoryId: '2009153281484791822',
+                    businessCategoryName: '年龄分组',
+                    originTable: 't_patient_info',
+                    originField: 'age_group',
+                    status: 0,
+                    remark: null,
+                    createBy: 'admin',
+                    createTime: '2026-01-14T10:20:30',
+                    valueList: [
+                        {
+                            id: '2010995182160781315',
+                            dataSetId: '2001',
+                            originValue: '0-18',
+                        },
+                        {
+                            id: '2010995182580211715',
+                            dataSetId: '2002',
+                            originValue: '19-35',
+                        },
+                    ],
+                },
+            ]
+
+            // 按条件筛选
+            const filtered = mockRecords.filter(item => {
+                // 关键字筛选（支持名称、编码、描述模糊搜索）
+                const matchKeyword =
+                    !keyword ||
+                    item.standardName.toLowerCase().includes(keyword) ||
+                    item.businessCategoryName.toLowerCase().includes(keyword) ||
+                    (item.description || '').toLowerCase().includes(keyword) ||
+                    (item.remark || '').toLowerCase().includes(keyword)
+
+                // 数据源ID筛选
+                const matchDataSourceId =
+                    typeof dataSourceId !== 'number' || item.dataSourceId === String(dataSourceId)
+
+                // 状态筛选
+                const matchStatus =
+                    typeof status !== 'number' || item.status === status
+
+                return matchKeyword && matchDataSourceId && matchStatus
+            })
+
+            // 分页
+            const start = (pageNum - 1) * pageSize
+            const paged = filtered.slice(start, start + pageSize)
+
+            return createMockResponse({
+                code: 200,
+                msg: '操作成功',
+                data: {
+                    records: paged,
+                    total: String(filtered.length),
+                    size: String(pageSize),
+                    current: String(pageNum),
+                    pages: String(Math.max(1, Math.ceil(filtered.length / pageSize))),
+                },
+            })
+        }
+
+        // 标准字典对照详情查询 GET /data/standard/{id}
+        if (url.includes('/data/standard/') && config.method?.toUpperCase() === 'GET' && !url.includes('/page')) {
+            // 从 URL 中提取 id
+            const urlParts = url.split('/')
+            const id = urlParts[urlParts.length - 1]
+
+            if (!id) {
+                return createMockResponse({
+                    code: 400,
+                    msg: 'ID参数不能为空',
+                    data: null,
+                })
+            }
+
+            // 模拟数据（使用分页查询中的第一条数据作为示例）
+            const mockDetail = {
+                id: Number(id) || 2010995181401612290,
+                standardName: '性别标准对照2',
+                dataSourceId: 1,
+                dataSourceName: 'MySQL-本地开发库',
+                dbType: 'MySQL',
+                dbHost: 'localhost',
+                dbPort: '3306',
+                dbName: 'dev_database',
+                description: '患者性别字段的标准字典对照',
+                businessTypeId: 2,
+                businessTypeName: '业务字典',
+                businessCategoryId: 2009153281484791821,
+                businessCategoryName: '民族',
+                originTable: 't_patient_info',
+                originField: 'gender_code',
+                status: 1,
+                remark: '测试备注',
+                createBy: 'admin',
+                createTime: '2026-01-13T16:39:48',
+                valueList: [
+                    {
+                        id: 2010995182160781314,
+                        dataSetId: 1001,
+                        originValue: 'M',
+                    },
+                    {
+                        id: 2010995182580211714,
+                        dataSetId: 1002,
+                        originValue: 'F',
+                    },
+                    {
+                        id: 2010995183024807938,
+                        dataSetId: 1003,
+                        originValue: 'U',
+                    },
+                ],
+            }
+
+            return createMockResponse({
+                code: 200,
+                msg: '操作成功',
+                data: mockDetail,
+            })
+        }
+        
         throw new Error(`未实现的模拟数据: ${url}`)
     },
 }
@@ -212,6 +761,55 @@ let mockCategoryStandardRecords: Array<{
 const categoryStandardMockProvider = {
     getMockData: async (config: AxiosRequestConfig): Promise<AxiosResponse> => {
         const url = config.url || ''
+
+        // 获取字典类型列表接口 /data/standard/category/dictionary-type/list
+        if (url.includes('/data/standard/category/dictionary-type/list') && config.method?.toUpperCase() === 'GET') {
+            return createMockResponse({
+                code: 200,
+                msg: '操作成功',
+                data: [
+                    {
+                        id: '1',
+                        createBy: 'system',
+                        createTime: '2026-01-09 06:08:00',
+                        updateBy: null,
+                        updateTime: null,
+                        remark: '状态字典类型',
+                        delFlag: 0,
+                        typeCode: 'STATUS',
+                        typeName: '状态字典',
+                        typeStatus: 1,
+                        sortOrder: 1,
+                    },
+                    {
+                        id: '2',
+                        createBy: 'system',
+                        createTime: '2026-01-09 06:08:00',
+                        updateBy: null,
+                        updateTime: null,
+                        remark: '业务字典类型',
+                        delFlag: 0,
+                        typeCode: 'BUSINESS',
+                        typeName: '业务字典',
+                        typeStatus: 1,
+                        sortOrder: 2,
+                    },
+                    {
+                        id: '3',
+                        createBy: 'system',
+                        createTime: '2026-01-09 06:08:00',
+                        updateBy: null,
+                        updateTime: null,
+                        remark: '医疗字典类型',
+                        delFlag: 0,
+                        typeCode: 'MEDICAL',
+                        typeName: '医疗字典',
+                        typeStatus: 1,
+                        sortOrder: 3,
+                    },
+                ],
+            })
+        }
 
         // 分页查询接口
         if (url.includes('/data/standard/category/page')) {
@@ -994,6 +1592,8 @@ export const registerAllMockProviders = (): void => {
     // 注册数据管理模块
     registerMockData('/data/primary-index', dataManagementMockProvider)
     registerMockData('/patient/empi', dataManagementMockProvider)
+    // 注册标准字典对照接口（需要在categoryStandardMockProvider之前注册，因为URL更具体）
+    registerMockData('/data/standard/page', dataManagementMockProvider)
 
     // 注册类别标准管理模块
     registerMockData('/data/standard', categoryStandardMockProvider)

@@ -1568,6 +1568,42 @@ export interface AutomaticMappingResponse {
 /** 字典类型枚举 */
 export type DictionaryType = 'STATUS' | 'BUSINESS' | 'MEDICAL'
 
+/** 字典类型项 */
+export interface DictionaryTypeItem {
+    /** 主键ID */
+    id: string
+    /** 创建人 */
+    createBy?: string
+    /** 创建时间 */
+    createTime?: string
+    /** 更新人 */
+    updateBy?: string | null
+    /** 更新时间 */
+    updateTime?: string | null
+    /** 备注 */
+    remark?: string
+    /** 删除标志 */
+    delFlag?: number
+    /** 类型编码 */
+    typeCode: string
+    /** 类型名称 */
+    typeName: string
+    /** 类型状态 */
+    typeStatus?: number
+    /** 排序 */
+    sortOrder?: number
+}
+
+/** 字典类型列表响应 */
+export interface DictionaryTypeListResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 字典类型列表 */
+    data: DictionaryTypeItem[]
+}
+
 /** 类别管理返回 VO */
 export interface StandardCategoryVO {
     /** 类别编码 */
@@ -1891,22 +1927,30 @@ export interface StatusDictDeleteResponse {
 
 /** 标准字典对照分页查询参数 */
 export interface StandardDictPageParams {
-    /** 关键字段模糊查询 */
-    condition?: string
-    /** 页码，从1开始 */
-    pageNum: number
-    /** 每页大小 */
-    pageSize: number
-    /** 排序字段 */
-    sortField?: string
-    /** 排序顺序：asc | desc */
-    sortOrder?: 'asc' | 'desc'
-    /** 关键字 */
+    /** 数据源ID */
+    dataSourceId?: number
+    /** 关键字（支持名称、编码、描述模糊搜索） */
     keyword?: string
-    /** 原始数据源：0-全部，1-HIS系统，2-EMR系统，3-LIS系统等 */
-    originSource?: number
-    /** 状态：0-禁用，1-启用 */
+    /** 页码，从1开始 */
+    pageNum?: number
+    /** 每页大小 */
+    pageSize?: number
+    /** 排序字段（可选） */
+    sortField?: string
+    /** 排序方向（asc/desc） */
+    sortOrder?: string
+    /** 状态筛选（启用/禁用） */
     status?: number
+}
+
+/** 标准字典对照值列表项 */
+export interface StandardDictValueItem {
+    /** 主键ID */
+    id: string
+    /** 数据集ID */
+    dataSetId: string
+    /** 原始值 */
+    originValue: string
 }
 
 /** 标准字典对照记录 */
@@ -1915,34 +1959,42 @@ export interface StandardDictRecord {
     id: string
     /** 标准名称 */
     standardName: string
-    /** 标准数据集名称 */
-    standardDataSetName: string
-    /** 标准数据集内容 */
-    standardDataSetContent: string
-    /** 原始数据源：1-HIS系统，2-EMR系统，3-LIS系统等 */
-    originSource: number
-    /** 原始数据源名称 */
-    originSourceName: string
+    /** 数据源ID */
+    dataSourceId: string
+    /** 数据源名称 */
+    dataSourceName: string
+    /** 数据库类型 */
+    dbType: string
+    /** 数据库主机 */
+    dbHost: string
+    /** 数据库端口 */
+    dbPort: string
+    /** 数据库名称 */
+    dbName: string
+    /** 描述 */
+    description: string
+    /** 业务类型ID */
+    businessTypeId: string
+    /** 业务类型名称 */
+    businessTypeName: string
+    /** 业务分类ID */
+    businessCategoryId: string
+    /** 业务分类名称 */
+    businessCategoryName: string
     /** 原始表 */
     originTable: string
     /** 原始字段 */
     originField: string
-    /** 原始数据集 */
-    originDataSet: string
-    /** 目标源 */
-    targetSource: string
-    /** 目标表 */
-    targetTable: string
-    /** 目标字段 */
-    targetField: string
     /** 状态：0-禁用，1-启用 */
     status: number
-    /** 状态名称 */
-    statusName?: string | null
+    /** 备注 */
+    remark?: string | null
     /** 创建人 */
     createBy?: string
     /** 创建时间 */
     createTime: string
+    /** 值列表 */
+    valueList?: StandardDictValueItem[] | null
 }
 
 /** 标准字典对照分页数据 */
@@ -2019,6 +2071,36 @@ export interface OriginTableOption {
     sort: number
 }
 
+/** 表信息 */
+export interface TableInfo {
+    /** 表名 */
+    tableName: string
+    /** 表类型 */
+    tableType: string
+    /** 存储引擎 */
+    engine: string
+    /** 表注释 */
+    tableComment: string
+    /** 创建时间 */
+    createTime: string
+    /** 数据长度 */
+    dataLength: string
+    /** 索引长度 */
+    indexLength: string
+    /** 表大小 */
+    tableSize: string
+}
+
+/** 表列表响应 */
+export interface TableListResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 表列表 */
+    data: TableInfo[]
+}
+
 /** 原始表选项列表响应 */
 export interface OriginTableOptionsResponse {
     /** 响应状态码 */
@@ -2059,6 +2141,54 @@ export interface OriginFieldOption {
     sort: number
 }
 
+/** 字段信息 */
+export interface ColumnInfo {
+    /** 字段名 */
+    columnName: string
+    /** 字段类型 */
+    columnType: string
+    /** 数据类型 */
+    dataType: string
+    /** 是否可空 */
+    isNullable: string
+    /** 默认值 */
+    columnDefault: string | null
+    /** 键类型 */
+    columnKey: string
+    /** 额外信息 */
+    extra: string
+    /** 字段注释 */
+    columnComment: string
+}
+
+/** 字段列表响应 */
+export interface ColumnListResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 字段列表 */
+    data: ColumnInfo[]
+}
+
+/** 获取字段值请求参数 */
+export interface FieldValuesRequest {
+    /** 表名 */
+    tableName: string
+    /** 字段名 */
+    fieldName: string
+}
+
+/** 字段值响应 */
+export interface FieldValuesResponse {
+    /** 响应状态码 */
+    code: number
+    /** 响应消息 */
+    msg: string
+    /** 字段值列表（数组中的对象的key就是字段名） */
+    data: Array<Record<string, any>>
+}
+
 /** 原始字段选项列表响应 */
 export interface OriginFieldOptionsResponse {
     /** 响应状态码 */
@@ -2089,7 +2219,101 @@ export interface TargetFieldOptionsResponse {
     data: TargetFieldOption[]
 }
 
-/** 新增标准字典对照请求参数 */
+/** 数据标准字典对照值DTO（子表） */
+export interface DataStandardValueDTO {
+    /** 数据集ID */
+    dataSetId?: string | number
+    /** 主键ID，新增可为空，修改必填 */
+    id?: string | number
+    /** 原始值 */
+    originValue?: string
+    [property: string]: any
+}
+
+/** 数据标准详情VO */
+export interface DataStandardVO {
+    /** 业务分类ID */
+    businessCategoryId?: number
+    /** 业务分类名称 */
+    businessCategoryName?: string
+    /** 业务类型ID */
+    businessTypeId?: number
+    /** 业务类型名称 */
+    businessTypeName?: string
+    /** 创建人 */
+    createBy?: string
+    /** 创建时间 */
+    createTime?: string
+    /** 数据源ID */
+    dataSourceId?: number
+    /** 数据源连接名称 */
+    dataSourceName?: string
+    /** 数据库主机地址 */
+    dbHost?: string
+    /** 数据库名称 */
+    dbName?: string
+    /** 数据库端口号 */
+    dbPort?: string
+    /** 数据库类型 */
+    dbType?: string
+    /** 描述 */
+    description?: string
+    /** 标准ID */
+    id?: number
+    /** 原始字段 */
+    originField?: string
+    /** 原始表 */
+    originTable?: string
+    /** 备注 */
+    remark?: string
+    /** 标准名称 */
+    standardName?: string
+    /** 状态（启用/禁用） */
+    status?: number
+    /** 子表数据列表（一对多） */
+    valueList?: DataStandardValueDTO[]
+    [property: string]: any
+}
+
+/** 数据标准详情响应 */
+export interface DataStandardDetailResponse {
+    /** 响应状态码 */
+    code?: number
+    /** 响应数据 */
+    data?: DataStandardVO
+    /** 响应消息 */
+    msg?: string
+    [property: string]: any
+}
+
+/** 新增/修改标准字典对照请求参数 */
+export interface StandardDictRequest {
+    /** 业务分类ID */
+    businessCategoryId?: string
+    /** 业务类型ID */
+    businessTypeId?: string
+    /** 数据源ID */
+    dataSourceId?: string
+    /** 描述 */
+    description?: string
+    /** 主键ID，新增可为空，修改必填 */
+    id?: string
+    /** 原始字段 */
+    originField?: string
+    /** 原始表 */
+    originTable?: string
+    /** 备注 */
+    remark?: string
+    /** 标准名称 */
+    standardName?: string
+    /** 状态：1=启用，0=禁用 */
+    status?: number
+    /** 子表数据列表（一对多） */
+    valueList?: DataStandardValueDTO[]
+    [property: string]: any
+}
+
+/** 新增标准字典对照请求参数（兼容旧接口） */
 export interface AddStandardDictRequest {
     /** 标准名称 */
     standardName: string
@@ -2107,6 +2331,8 @@ export interface AddStandardDictRequest {
     originField: string
     /** 原始数据集 */
     originDataSet: string
+    /** 分类ID */
+    categoryId?: string
     /** 目标源 */
     targetSource: string
     /** 目标表 */
@@ -2119,7 +2345,7 @@ export interface AddStandardDictRequest {
     remark?: string
 }
 
-/** 修改标准字典对照请求参数 */
+/** 修改标准字典对照请求参数（兼容旧接口） */
 export interface UpdateStandardDictRequest {
     /** 主键ID */
     id: string
@@ -2139,6 +2365,8 @@ export interface UpdateStandardDictRequest {
     originField: string
     /** 原始数据集 */
     originDataSet: string
+    /** 分类ID */
+    categoryId?: string
     /** 目标源 */
     targetSource: string
     /** 目标表 */

@@ -1,0 +1,12 @@
+.dialogForm {
+    padding: 8px 0;
+
+    :global(.ant-form-item) {
+        margin-bottom: 24px;
+    }
+
+    :global(.ant-form-item-label) {
+        font-weight: 500;
+    }
+}
+

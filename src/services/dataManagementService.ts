@@ -30,6 +30,8 @@ import type {
     CategoryListResponse,
     DictionaryType,
     DictionaryTypeCategoryListResponse,
+    DictionaryTypeListResponse,
+    DictionaryTypeItem,
     AddMedicalDictRequest,
     UpdateMedicalDictRequest,
     MedicalDictSaveResponse,
@@ -48,12 +50,20 @@ import type {
     TargetSourceOptionsResponse,
     OriginTableOptionsResponse,
     TargetTableOptionsResponse,
+    TableListResponse,
     OriginFieldOptionsResponse,
     TargetFieldOptionsResponse,
+    ColumnListResponse,
+    FieldValuesRequest,
+    FieldValuesResponse,
+    FieldValuesRequest,
+    FieldValuesResponse,
+    TableListResponse,
     AddStandardDictRequest,
     UpdateStandardDictRequest,
     StandardDictSaveResponse,
     StandardDictDeleteResponse,
+    DataStandardDetailResponse,
     PrimaryIndexRulePageParams,
     PrimaryIndexRulePageResponse,
     BaseTableOptionsResponse,
@@ -595,6 +605,30 @@ export class DataManagementService {
     }
 
     /**
+     * 获取字典类型列表
+     * @description 获取所有可用的字典类型列表
+     * @returns Promise<DictionaryTypeListResponse>
+     */
+    static async getDictionaryTypeList(): Promise<DictionaryTypeListResponse> {
+        try {
+            logger.debug('发送获取字典类型列表请求到: /data/standard/category/dictionary-type/list')
+            const response = await api.get<DictionaryTypeListResponse>(
+                '/data/standard/category/dictionary-type/list'
+            )
+            logger.debug('获取字典类型列表API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取字典类型列表API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取字典类型列表失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
      * 根据字典类型获取分类列表
      * @description 根据字典类型获取对应的分类列表，用于各个字典管理页面的分类筛选下拉框
      * @param dictionaryType 字典类型：STATUS=状态字典, BUSINESS=业务字典, MEDICAL=医疗字典
@@ -1049,6 +1083,30 @@ export class DataManagementService {
     }
 
     /**
+     * 获取表列表
+     * @description 获取标准字典对照新增和编辑时使用的原始表列表
+     * @returns Promise<TableListResponse>
+     */
+    static async getTableList(): Promise<TableListResponse> {
+        try {
+            logger.debug('发送获取表列表请求到: /data/standard/tables')
+            const response = await api.get<TableListResponse>(
+                '/data/standard/tables'
+            )
+            logger.debug('获取表列表API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取表列表API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取表列表失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
      * 获取目标表选项列表
      * @description 获取标准字典对照新增和编辑时使用的目标表下拉选项
      * @returns Promise<TargetTableOptionsResponse>
@@ -1097,6 +1155,57 @@ export class DataManagementService {
     }
 
     /**
+     * 获取表字段列表
+     * @description 根据表名获取该表的所有字段信息
+     * @param tableName 表名
+     * @returns Promise<ColumnListResponse>
+     */
+    static async getTableColumns(tableName: string): Promise<ColumnListResponse> {
+        try {
+            logger.debug(`发送获取表字段列表请求到: /data/standard/tables/${tableName}/columns`)
+            const response = await api.get<ColumnListResponse>(
+                `/data/standard/tables/${tableName}/columns`
+            )
+            logger.debug('获取表字段列表API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取表字段列表API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取表字段列表失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 获取字段值列表
+     * @description 根据表名和字段名获取该字段的所有可能值
+     * @param params 请求参数（表名和字段名）
+     * @returns Promise<FieldValuesResponse>
+     */
+    static async getFieldValues(params: FieldValuesRequest): Promise<FieldValuesResponse> {
+        try {
+            logger.debug('发送获取字段值列表请求到: /data/standard/tables/field-values', params)
+            const response = await api.post<FieldValuesResponse>(
+                '/data/standard/tables/field-values',
+                params
+            )
+            logger.debug('获取字段值列表API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取字段值列表API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取字段值列表失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
      * 获取目标字段选项列表
      * @description 获取标准字典对照新增和编辑时使用的目标字段下拉选项
      * @returns Promise<TargetFieldOptionsResponse>
@@ -1126,7 +1235,7 @@ export class DataManagementService {
      * @param params 新增标准字典对照请求参数
      * @returns Promise<StandardDictSaveResponse>
      */
-    static async addStandardDict(params: AddStandardDictRequest): Promise<StandardDictSaveResponse> {
+    static async addStandardDict(params: StandardDictRequest): Promise<StandardDictSaveResponse> {
         try {
             logger.debug('发送新增标准字典对照请求到: /data/standard/add', params)
             const response = await api.post<StandardDictSaveResponse>(
@@ -1153,7 +1262,7 @@ export class DataManagementService {
      * @returns Promise<StandardDictSaveResponse>
      */
     static async updateStandardDict(
-        params: UpdateStandardDictRequest
+        params: StandardDictRequest
     ): Promise<StandardDictSaveResponse> {
         try {
             logger.debug('发送更新标准字典对照请求到: /data/standard/update', params)
@@ -1170,6 +1279,31 @@ export class DataManagementService {
             )
             throw new Error(
                 `更新标准字典对照失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
+
+    /**
+     * 获取标准字典对照详情
+     * @description 根据ID获取标准字典对照详情
+     * @param id 标准字典对照ID
+     * @returns Promise<DataStandardDetailResponse>
+     */
+    static async getStandardDictDetail(id: string): Promise<DataStandardDetailResponse> {
+        try {
+            logger.debug('发送获取标准字典对照详情请求到: /data/standard/' + id)
+            const response = await api.get<DataStandardDetailResponse>(
+                `/data/standard/${id}`
+            )
+            logger.debug('获取标准字典对照详情API响应:', response)
+            return response
+        } catch (error) {
+            logger.error(
+                '获取标准字典对照详情API调用失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `获取标准字典对照详情失败: ${error instanceof Error ? error.message : '未知错误'}`
             )
         }
     }
@@ -1466,6 +1600,7 @@ export const dataManagementService = {
     automaticMapping: DataManagementService.automaticMapping,
     getCategoryList: DataManagementService.getCategoryList,
     getCategoryListByDictionaryType: DataManagementService.getCategoryListByDictionaryType,
+    getDictionaryTypeList: DataManagementService.getDictionaryTypeList,
     addMedicalDict: DataManagementService.addMedicalDict,
     updateMedicalDict: DataManagementService.updateMedicalDict,
     deleteMedicalDict: DataManagementService.deleteMedicalDict,
@@ -1476,9 +1611,13 @@ export const dataManagementService = {
     deleteStatusDict: DataManagementService.deleteStatusDict,
     exportStatusDict: DataManagementService.exportStatusDict,
     getStandardDictPage: DataManagementService.getStandardDictPage,
+    getStandardDictDetail: DataManagementService.getStandardDictDetail,
     getOriginSourceOptions: DataManagementService.getOriginSourceOptions,
     getTargetSourceOptions: DataManagementService.getTargetSourceOptions,
     getOriginTableOptions: DataManagementService.getOriginTableOptions,
+    getTableList: DataManagementService.getTableList,
+    getTableColumns: DataManagementService.getTableColumns,
+    getFieldValues: DataManagementService.getFieldValues,
     getTargetTableOptions: DataManagementService.getTargetTableOptions,
     getOriginFieldOptions: DataManagementService.getOriginFieldOptions,
     getTargetFieldOptions: DataManagementService.getTargetFieldOptions,

@@ -26,7 +26,6 @@ const Login: React.FC = () => {
             const from = (location.state as { from?: Location })?.from
             const targetPath = from?.pathname || '/'
             // 延迟一下确保状态更新完成
-            . 
             setTimeout(() => {
                 navigate(targetPath, { replace: true })
             }, 100)

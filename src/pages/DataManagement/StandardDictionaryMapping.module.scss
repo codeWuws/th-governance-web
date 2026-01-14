@@ -1,0 +1,270 @@
+.dialogModal {
+    :global {
+        .ant-modal {
+            max-width: calc(100vw - 32px);
+        }
+
+        .ant-modal-content {
+            overflow: hidden;
+        }
+
+        .ant-modal-body {
+            max-height: calc(100vh - 200px);
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 24px;
+        }
+    }
+}
+
+.dialogForm {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+
+    // 统一所有Form.Item的间距
+    :global {
+        .ant-form-item {
+            margin-bottom: 24px;
+        }
+
+        .ant-form-item-label {
+            font-weight: 500;
+        }
+
+        // 确保Row和Col对齐和间距一致
+        .ant-row {
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            margin-bottom: 0 !important;
+        }
+
+        .ant-col {
+            padding-left: 8px !important;
+            padding-right: 8px !important;
+        }
+
+        // 确保Row内的Form.Item间距一致
+        .ant-row .ant-form-item {
+            margin-bottom: 24px;
+        }
+
+        // 确保第一个和最后一个Col的padding正确
+        .ant-row > .ant-col:first-child {
+            padding-left: 0 !important;
+        }
+
+        .ant-row > .ant-col:last-child {
+            padding-right: 0 !important;
+        }
+    }
+}
+
+// 页面容器 - 左右分栏布局
+.pageContainer {
+    display: flex;
+    background: #fff;
+    height: calc(100vh - 280px); // 固定高度，减去顶部标题、按钮、Alert等的高度
+}
+
+// 左侧数据源列表容器样式
+.dataSourceSidebar {
+    width: 300px;
+    background: #fff;
+    border-right: 1px solid #f0f0f0;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    height: 100%; // 继承父容器高度
+
+    .dataSourceTitle {
+        flex-shrink: 0;
+        margin-bottom: 16px;
+    }
+
+    .dataSourceContent {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden; // 防止内容溢出
+
+        :global {
+            .ant-spin-nested-loading {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+                overflow: hidden;
+
+                .ant-spin-container {
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                    min-height: 0;
+                    overflow: hidden;
+                }
+            }
+        }
+    }
+}
+
+// 数据源列表样式
+.dataSourceList {
+    flex: 1;
+    padding: 0;
+    margin: 0;
+    overflow-y: auto; // 超出高度时显示滚动条
+    overflow-x: hidden;
+    height: 100%; // 确保占据可用高度
+
+    :global {
+        .ant-list-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            transition: all 0.3s;
+            word-break: break-word;
+            
+            &:hover {
+                background-color: #f5f5f5;
+            }
+
+            .ant-list-item-meta {
+                width: 100%;
+
+                .ant-list-item-meta-title {
+                    margin-bottom: 0;
+                    word-break: break-word;
+                }
+
+                .ant-list-item-meta-description {
+                    word-break: break-word;
+                }
+            }
+        }
+    }
+}
+
+.dataSourceItem {
+    // 确保内容不被截断
+    overflow: visible !important;
+}
+
+// 右侧内容区域
+.contentArea {
+    flex: 1;
+    padding: 24px;
+    background: #fff;
+    overflow-x: auto;
+}
+
+// 弹窗内数据映射组件紧凑样式
+.compactMappingItem {
+    margin-bottom: 24px !important;
+
+    :global {
+        // 覆盖CategoryFieldMapping组件的样式，使其更紧凑
+        .mappingContainer {
+            padding: 8px !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+            border-radius: 6px !important;
+            max-height: 280px; // 限制最大高度
+            overflow-y: auto; // 超出时显示滚动条
+            overflow-x: hidden;
+        }
+
+        .mappingHeader {
+            margin-bottom: 8px !important;
+            padding-bottom: 8px !important;
+            flex-wrap: wrap; // 允许换行
+            gap: 6px !important;
+        }
+
+        .headerLeft {
+            gap: 6px !important;
+        }
+
+        .headerIcon {
+            font-size: 13px !important;
+        }
+
+        .mappingTitle {
+            font-size: 13px !important;
+            font-weight: 500 !important;
+        }
+
+        .countTag {
+            padding: 0 6px !important;
+            font-size: 11px !important;
+            border-radius: 8px !important;
+        }
+
+        .addButton {
+            height: 28px !important;
+            font-size: 12px !important;
+            padding: 0 10px !important;
+            border-radius: 4px !important;
+        }
+
+        .mappingList {
+            gap: 4px !important;
+            max-height: 240px; // 列表区域最大高度
+            overflow-y: auto; // 超出时显示滚动条
+        }
+
+        .mappingItem {
+            padding: 6px 10px !important;
+            gap: 6px !important;
+            flex-shrink: 0; // 防止压缩
+            border-radius: 4px !important;
+        }
+
+        .itemIndex {
+            font-size: 10px !important;
+            padding: 0 5px !important;
+            min-width: 28px !important;
+            border-radius: 3px !important;
+        }
+
+        .mappingContent {
+            gap: 6px !important;
+        }
+
+        .categorySelect,
+        .originFieldSelect {
+            :global(.ant-select-selector) {
+                padding: 1px 6px !important;
+                min-height: 26px !important;
+                height: 26px !important;
+                border-radius: 4px !important;
+            }
+
+            :global(.ant-select-selection-item) {
+                line-height: 22px !important;
+                font-size: 12px !important;
+            }
+
+            :global(.ant-select-selection-placeholder) {
+                line-height: 24px !important;
+                font-size: 12px !important;
+            }
+        }
+
+        .mappingArrow {
+            font-size: 12px !important;
+        }
+
+        .deleteButton {
+            padding: 2px 4px !important;
+            font-size: 12px !important;
+        }
+
+        .emptyState {
+            padding: 16px 8px !important;
+            margin: 0 !important;
+            border-radius: 4px !important;
+        }
+    }
+}
+
