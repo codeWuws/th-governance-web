@@ -33,19 +33,25 @@ const UserForm: React.FC<UserFormProps> = ({ initialValues, roles, onSubmit, onC
             form.setFieldsValue({
                 username: initialValues.username,
                 email: initialValues.email,
-                phone: initialValues.phone,
+                phoneNumber: initialValues.phone,
+                nickName: initialValues.realName,
                 realName: initialValues.realName,
                 avatar: initialValues.avatar,
-                status: initialValues.status,
-                roleIds: initialValues.roles?.map(role => role.id) || [],
-                department: initialValues.department,
-                position: initialValues.position,
+                status: initialValues.status === UserStatus.ACTIVE ? '0' : '1',
+                roleIds: initialValues.roles?.map(role => {
+                    const roleId = Number(role.id)
+                    return isNaN(roleId) ? role.id : roleId
+                }) || [],
+                deptName: initialValues.department,
+                postName: initialValues.position,
+                sex: (initialValues as any).sex || '1', // 支持性别字段
             })
         } else {
             form.resetFields()
             form.setFieldsValue({
-                status: UserStatus.ACTIVE,
+                status: '0',
                 roleIds: [],
+                sex: '1',
             })
         }
     }, [initialValues, form])
@@ -95,8 +101,9 @@ const UserForm: React.FC<UserFormProps> = ({ initialValues, roles, onSubmit, onC
             form={form}
             layout='vertical'
             initialValues={{
-                status: UserStatus.ACTIVE,
+                status: '0',
                 roleIds: [],
+                sex: '1',
             }}
         >
             <Row gutter={16}>
@@ -141,11 +148,24 @@ const UserForm: React.FC<UserFormProps> = ({ initialValues, roles, onSubmit, onC
 
                 <Col span={12}>
                     <Form.Item
-                        label='真实姓名'
-                        name='realName'
-                        rules={[{ required: true, message: '请输入真实姓名' }]}
+                        label='昵称'
+                        name='nickName'
+                        rules={[{ required: true, message: '请输入昵称' }]}
                     >
-                        <Input placeholder='请输入真实姓名' />
+                        <Input placeholder='请输入昵称' />
+                    </Form.Item>
+                </Col>
+
+                <Col span={12}>
+                    <Form.Item
+                        label='性别'
+                        name='sex'
+                        rules={[{ required: true, message: '请选择性别' }]}
+                    >
+                        <Select placeholder='请选择性别'>
+                            <Option value='1'>男</Option>
+                            <Option value='2'>女</Option>
+                        </Select>
                     </Form.Item>
                 </Col>
 
@@ -165,7 +185,7 @@ const UserForm: React.FC<UserFormProps> = ({ initialValues, roles, onSubmit, onC
                 <Col span={12}>
                     <Form.Item
                         label='手机号'
-                        name='phone'
+                        name='phoneNumber'
                         rules={[{ pattern: /^1[3-9]\d{9}$/, message: '请输入有效的手机号' }]}
                     >
                         <Input placeholder='请输入手机号' />
@@ -174,14 +194,14 @@ const UserForm: React.FC<UserFormProps> = ({ initialValues, roles, onSubmit, onC
 
                 {/* 部门和职位 */}
                 <Col span={12}>
-                    <Form.Item label='部门' name='department'>
-                        <Input placeholder='请输入部门' />
+                    <Form.Item label='部门名称' name='deptName'>
+                        <Input placeholder='请输入部门名称' />
                     </Form.Item>
                 </Col>
 
                 <Col span={12}>
-                    <Form.Item label='职位' name='position'>
-                        <Input placeholder='请输入职位' />
+                    <Form.Item label='职位名称' name='postName'>
+                        <Input placeholder='请输入职位名称' />
                     </Form.Item>
                 </Col>
 
@@ -203,11 +223,21 @@ const UserForm: React.FC<UserFormProps> = ({ initialValues, roles, onSubmit, onC
                                     .includes(input.toLowerCase()) || false
                             }
                         >
-                            {roles.map(role => (
-                                <Option key={role.id} value={role.id}>
-                                    {role.name}
+                            {roles && roles.length > 0 ? (
+                                roles.map(role => {
+                                    const roleId = Number(role.id)
+                                    const value = isNaN(roleId) ? role.id : roleId
+                                    return (
+                                        <Option key={role.id} value={value}>
+                                            {role.name} ({role.code})
+                                        </Option>
+                                    )
+                                })
+                            ) : (
+                                <Option disabled value="">
+                                    暂无角色数据，请先创建角色
                                 </Option>
-                            ))}
+                            )}
                         </Select>
                     </Form.Item>
                 </Col>
@@ -217,11 +247,12 @@ const UserForm: React.FC<UserFormProps> = ({ initialValues, roles, onSubmit, onC
                     <Form.Item
                         label='状态'
                         name='status'
-                        valuePropName='checked'
-                        getValueFromEvent={checked => (checked ? 'active' : 'disabled')}
-                        getValueProps={value => ({ checked: value === 'active' })}
+                        rules={[{ required: true, message: '请选择状态' }]}
                     >
-                        <Switch checkedChildren='启用' unCheckedChildren='禁用' />
+                        <Select placeholder='请选择状态'>
+                            <Option value='0'>启用</Option>
+                            <Option value='1'>禁用</Option>
+                        </Select>
                     </Form.Item>
                 </Col>
 

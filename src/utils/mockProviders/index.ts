@@ -1578,6 +1578,206 @@ const authMockProvider = {
 }
 
 /**
+ * 系统用户管理模块模拟数据
+ */
+const systemUserMockProvider = {
+    getMockData: async (config: AxiosRequestConfig): Promise<AxiosResponse> => {
+        const url = config.url || ''
+        const method = config.method?.toUpperCase() || ''
+        
+        // 动态导入mockApi以避免循环依赖
+        const { mockApi } = await import('@/mock/rbac')
+        
+        // 新增用户接口
+        if (url.includes('/system/user/add') && method === 'POST') {
+            const data = config.data as any
+            const response = await mockApi.user.addUser(data)
+            // 返回符合API响应格式的数据
+            return {
+                data: {
+                    code: 200,
+                    msg: response.data.message || 'success',
+                    data: response.data.data,
+                },
+                status: 200,
+                statusText: 'OK',
+                headers: {},
+                config: config as any,
+            } as AxiosResponse
+        }
+        
+        // 编辑用户接口
+        if (url.includes('/system/user/edit') && method === 'PUT') {
+            const data = config.data as any
+            const response = await mockApi.user.editUser(data)
+            // 返回符合API响应格式的数据
+            return {
+                data: {
+                    code: 200,
+                    msg: response.data.message || 'success',
+                    data: response.data.data,
+                },
+                status: 200,
+                statusText: 'OK',
+                headers: {},
+                config: config as any,
+            } as AxiosResponse
+        }
+        
+        // 分页查询用户列表接口
+        if (url.includes('/system/user/page') && method === 'POST') {
+            const data = config.data as any
+            const response = await mockApi.user.getUserPage(data)
+            // 返回符合API响应格式的数据
+            return {
+                data: {
+                    code: 200,
+                    msg: response.data.message || '操作成功',
+                    data: response.data.data,
+                },
+                status: 200,
+                statusText: 'OK',
+                headers: {},
+                config: config as any,
+            } as AxiosResponse
+        }
+        
+        // 删除用户接口
+        if (url.includes('/system/user/delete/') && method === 'DELETE') {
+            // 从URL中提取用户ID
+            const urlParts = url.split('/system/user/delete/')
+            const userId = urlParts[1]
+            if (!userId) {
+                throw new Error('用户ID不能为空')
+            }
+            const response = await mockApi.user.deleteUserById(userId)
+            // 返回符合API响应格式的数据
+            return {
+                data: {
+                    code: 200,
+                    msg: response.data.message || '删除成功',
+                    data: null,
+                },
+                status: 200,
+                statusText: 'OK',
+                headers: {},
+                config: config as any,
+            } as AxiosResponse
+        }
+        
+        // 获取用户详情接口
+        if (url.includes('/system/user/getUserById') && method === 'POST') {
+            const data = config.data as { id: string | number }
+            if (!data || !data.id) {
+                throw new Error('用户ID不能为空')
+            }
+            const response = await mockApi.user.getUserByIdNew(data)
+            // 返回符合API响应格式的数据
+            return {
+                data: {
+                    code: 200,
+                    msg: response.data.message || '操作成功',
+                    data: response.data.data,
+                },
+                status: 200,
+                statusText: 'OK',
+                headers: {},
+                config: config as any,
+            } as AxiosResponse
+        }
+        
+        throw new Error(`未实现的模拟数据: ${url}`)
+    },
+}
+
+/**
+ * 系统角色管理模块模拟数据
+ */
+const systemRoleMockProvider = {
+    getMockData: async (config: AxiosRequestConfig): Promise<AxiosResponse> => {
+        const url = config.url || ''
+        const method = config.method?.toUpperCase() || ''
+        
+        // 动态导入mockApi以避免循环依赖
+        const { mockApi } = await import('@/mock/rbac')
+        
+        // 新增角色接口
+        if (url.includes('/system/role/add') && method === 'POST') {
+            const data = config.data as any
+            const response = await mockApi.role.addRole(data)
+            // 返回符合API响应格式的数据
+            return {
+                data: {
+                    code: 200,
+                    msg: response.data.message || 'success',
+                    data: response.data.data,
+                },
+                status: 200,
+                statusText: 'OK',
+                headers: {},
+                config: config as any,
+            } as AxiosResponse
+        }
+        
+        // 编辑角色接口
+        if (url.includes('/system/role/edit') && method === 'PUT') {
+            const data = config.data as any
+            const response = await mockApi.role.editRole(data)
+            // 返回符合API响应格式的数据
+            return {
+                data: {
+                    code: 200,
+                    msg: response.data.message || 'success',
+                    data: response.data.data,
+                },
+                status: 200,
+                statusText: 'OK',
+                headers: {},
+                config: config as any,
+            } as AxiosResponse
+        }
+        
+        // 分页查询角色列表接口
+        if (url.includes('/system/role/page') && method === 'POST') {
+            const data = config.data as any
+            const response = await mockApi.role.getRolePage(data)
+            // 返回符合API响应格式的数据
+            return {
+                data: {
+                    code: 200,
+                    msg: response.data.message || '操作成功',
+                    data: response.data.data,
+                },
+                status: 200,
+                statusText: 'OK',
+                headers: {},
+                config: config as any,
+            } as AxiosResponse
+        }
+        
+        // 删除角色接口
+        if (url.includes('/system/role/delete') && method === 'DELETE') {
+            const data = config.data as any
+            const response = await mockApi.role.deleteRoleById(data)
+            // 返回符合API响应格式的数据
+            return {
+                data: {
+                    code: 200,
+                    msg: response.data.message || '删除成功',
+                    data: null,
+                },
+                status: 200,
+                statusText: 'OK',
+                headers: {},
+                config: config as any,
+            } as AxiosResponse
+        }
+        
+        throw new Error(`未实现的模拟数据: ${url}`)
+    },
+}
+
+/**
  * 注册所有模拟数据提供者
  */
 export const registerAllMockProviders = (): void => {
@@ -1603,6 +1803,12 @@ export const registerAllMockProviders = (): void => {
     
     // 注册主索引配置模块
     registerMockData('/index/master-index-config', masterIndexConfigMockProvider)
+    
+    // 注册系统用户管理模块
+    registerMockData('/system/user', systemUserMockProvider)
+    
+    // 注册系统角色管理模块
+    registerMockData('/system/role', systemRoleMockProvider)
     
     // 可以继续注册其他模块的模拟数据提供者
 }

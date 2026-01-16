@@ -76,6 +76,55 @@ export interface UserQueryParams {
 }
 
 /**
+ * 用户分页查询请求参数（匹配后端接口格式）
+ */
+export interface UserPageRequest {
+    email?: string // 邮箱
+    nickName?: string // 昵称（模糊）
+    pageNum?: number // 当前页码
+    pageSize?: number // 每页数量
+    phoneNumber?: string // 手机号
+    postId?: number // 岗位ID
+    sortField?: string // 排序字段（可选）
+    sortOrder?: string // 排序方向（asc/desc）
+    status?: string[] // 状态（0正常 1停用）
+    username?: string // 用户名（模糊）
+    [property: string]: any
+}
+
+/**
+ * 用户分页查询响应数据
+ */
+export interface UserPageResponse {
+    records: UserPageRecord[] // 用户列表
+    total: string // 总记录数
+    size: string // 每页数量
+    current: string // 当前页码
+    pages: string // 总页数
+}
+
+/**
+ * 用户分页查询记录
+ */
+export interface UserPageRecord {
+    id: string
+    username: string
+    nickName: string
+    email: string
+    phoneNumber: string
+    sex: string // 0-男，1-女
+    avatar: string | null
+    password: string
+    status: string // 0-正常，1-停用
+    deptId: string | null
+    deptName: string | null
+    postId: string | null
+    postName: string | null
+    roles: string[] // 角色名称列表
+    roleVos: any | null
+}
+
+/**
  * 角色查询参数
  */
 export interface RoleQueryParams {
@@ -83,6 +132,48 @@ export interface RoleQueryParams {
     status?: 'active' | 'disabled'
     page: number
     pageSize: number
+}
+
+/**
+ * 角色分页查询请求参数（匹配后端接口格式）
+ */
+export interface RolePageRequest {
+    pageNum?: number // 当前页码
+    pageSize?: number // 每页数量
+    roleKey?: string // 角色标识（唯一key），模糊匹配
+    roleName?: string // 角色名称，模糊匹配
+    sortField?: string // 排序字段（可选）
+    sortOrder?: string // 排序方向（asc/desc）
+    status?: string[] // 状态（0正常 1停用）
+    [property: string]: any
+}
+
+/**
+ * 角色分页查询响应数据
+ */
+export interface RolePageResponse {
+    records: RolePageRecord[] // 角色列表
+    total: string // 总记录数
+    size: string // 每页数量
+    current: string // 当前页码
+    pages: string // 总页数
+}
+
+/**
+ * 角色分页查询记录
+ */
+export interface RolePageRecord {
+    id: string
+    roleName: string // 角色名称
+    roleKey: string // 角色编码
+    roleSort: number // 排序
+    status: string // 状态：0-正常，1-停用
+    userCount: string // 用户数量
+    createBy: string | null // 创建人
+    createTime: string // 创建时间
+    updateBy: string | null // 更新人
+    updateTime: string | null // 更新时间
+    remark: string | null // 备注
 }
 
 /**
@@ -102,6 +193,26 @@ export interface UserFormData {
 }
 
 /**
+ * 用户新增/编辑请求数据（匹配后端接口格式）
+ */
+export interface UserAddEditRequest {
+    id?: string // 编辑时必传
+    username: string
+    nickName?: string // 昵称
+    email: string
+    phoneNumber?: string // 手机号
+    sex?: string // 性别：1-男，2-女
+    avatar?: string
+    password?: string // 新增时必传
+    status: string // 状态：0-启用，1-禁用
+    deptId?: number // 部门ID
+    deptName?: string // 部门名称
+    postId?: number // 职位ID
+    postName?: string // 职位名称
+    roleIds?: number[] // 角色ID列表
+}
+
+/**
  * 角色表单数据
  */
 export interface RoleFormData {
@@ -110,6 +221,17 @@ export interface RoleFormData {
     description?: string
     status: 'active' | 'disabled'
     sortOrder: number
+}
+
+/**
+ * 角色新增/编辑请求数据（匹配后端接口格式）
+ */
+export interface RoleAddEditRequest {
+    id?: string // 编辑时必传
+    roleName: string // 角色名称
+    roleKey: string // 角色编码
+    roleSort: number // 排序
+    status: string // 状态：0-启用，1-禁用
 }
 
 /**

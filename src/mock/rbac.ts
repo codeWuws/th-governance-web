@@ -238,6 +238,68 @@ export const mockUserApi = {
         }
     },
 
+    // 获取用户详情（新接口格式）
+    getUserByIdNew: async (params: { id: string | number }) => {
+        await delay(200)
+        const userId = String(params.id)
+        const user = users.find(u => u.id === userId)
+        if (!user) {
+            throw new Error('用户不存在')
+        }
+        
+        // 转换为新接口格式
+        return {
+            data: {
+                success: true,
+                data: {
+                    id: user.id,
+                    username: user.username,
+                    nickName: user.realName,
+                    email: user.email,
+                    phoneNumber: user.phone || '',
+                    sex: '1', // 默认值，mock数据中没有性别字段
+                    avatar: user.avatar || '',
+                    password: '', // 不返回密码
+                    status: user.status === UserStatus.ACTIVE ? '0' : '1',
+                    deptId: null,
+                    deptName: user.department || null,
+                    postId: null,
+                    postName: user.position || null,
+                    roles: null,
+                    roleVos: user.roles.map(role => {
+                        // 日期格式化函数：将 ISO 日期转换为 "YYYY-MM-DD HH:mm:ss" 格式
+                        const formatDateTime = (dateStr: string | null | undefined): string | null => {
+                            if (!dateStr) return null
+                            const date = new Date(dateStr)
+                            const year = date.getFullYear()
+                            const month = String(date.getMonth() + 1).padStart(2, '0')
+                            const day = String(date.getDate()).padStart(2, '0')
+                            const hours = String(date.getHours()).padStart(2, '0')
+                            const minutes = String(date.getMinutes()).padStart(2, '0')
+                            const seconds = String(date.getSeconds()).padStart(2, '0')
+                            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+                        }
+                        
+                        return {
+                            id: role.id,
+                            roleName: role.name,
+                            roleKey: role.code,
+                            roleSort: role.sortOrder,
+                            status: role.status === RoleStatus.ACTIVE ? '0' : '1',
+                            userCount: null,
+                            createBy: 'system',
+                            createTime: formatDateTime(role.createdAt),
+                            updateBy: null,
+                            updateTime: formatDateTime(role.updatedAt),
+                            remark: role.description || null,
+                        }
+                    }),
+                },
+                message: '获取用户详情成功',
+            },
+        }
+    },
+
     // 创建用户
     createUser: async (userData: any) => {
         await delay(400)
@@ -296,6 +358,22 @@ export const mockUserApi = {
         }
     },
 
+    // 删除用户（新接口格式）
+    deleteUserById: async (id: string) => {
+        await delay(300)
+        const index = users.findIndex(u => u.id === id)
+        if (index === -1) {
+            throw new Error('用户不存在')
+        }
+        users.splice(index, 1)
+        return {
+            data: {
+                success: true,
+                message: '删除用户成功',
+            },
+        }
+    },
+
     // 批量删除用户
     batchDeleteUsers: async (ids: string[]) => {
         await delay(500)
@@ -329,6 +407,169 @@ export const mockUserApi = {
                 success: true,
                 data: users[userIndex],
                 message: '角色分配成功',
+            },
+        }
+    },
+
+    // 新增用户（新接口格式）
+    addUser: async (userData: any) => {
+        await delay(400)
+        
+        // 字段转换：将新接口格式转换为内部格式
+        const newUser: User = {
+            id: userData.id || generateId('user'),
+            username: userData.username,
+            email: userData.email,
+            phone: userData.phoneNumber,
+            realName: userData.nickName || userData.username,
+            avatar: userData.avatar,
+            status: userData.status === '0' ? UserStatus.ACTIVE : UserStatus.DISABLED,
+            roles: userData.roleIds 
+                ? roles.filter(role => userData.roleIds.includes(Number(role.id)))
+                : [],
+            department: userData.deptName,
+            position: userData.postName,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            lastLoginAt: null,
+        }
+        
+        users.push(newUser)
+        return {
+            data: {
+                success: true,
+                data: newUser,
+                message: '新增用户成功',
+            },
+        }
+    },
+
+    // 编辑用户（新接口格式）
+    editUser: async (userData: any) => {
+        await delay(400)
+        
+        if (!userData.id) {
+            throw new Error('用户ID不能为空')
+        }
+        
+        const index = users.findIndex(u => u.id === userData.id)
+        if (index === -1) {
+            throw new Error('用户不存在')
+        }
+        
+        // 字段转换：将新接口格式转换为内部格式
+        const existingUser = users[index]!
+        const updatedUser: User = {
+            ...existingUser,
+            username: userData.username || existingUser.username,
+            email: userData.email || existingUser.email,
+            phone: userData.phoneNumber || existingUser.phone,
+            realName: userData.nickName || existingUser.realName,
+            avatar: userData.avatar !== undefined ? userData.avatar : existingUser.avatar,
+            status: userData.status !== undefined 
+                ? (userData.status === '0' ? UserStatus.ACTIVE : UserStatus.DISABLED)
+                : existingUser.status,
+            roles: userData.roleIds 
+                ? roles.filter(role => userData.roleIds.includes(Number(role.id)))
+                : existingUser.roles,
+            department: userData.deptName !== undefined ? userData.deptName : existingUser.department,
+            position: userData.postName !== undefined ? userData.postName : existingUser.position,
+            updatedAt: new Date().toISOString(),
+        }
+        
+        users[index] = updatedUser
+        return {
+            data: {
+                success: true,
+                data: updatedUser,
+                message: '编辑用户成功',
+            },
+        }
+    },
+
+    // 分页查询用户列表（新接口格式）
+    getUserPage: async (params: any) => {
+        await delay(300)
+        const {
+            pageNum = 1,
+            pageSize = 10,
+            username,
+            nickName,
+            email,
+            phoneNumber,
+            postId,
+            status,
+        } = params
+
+        // 过滤用户
+        let filteredUsers = users.filter(user => {
+            // 用户名模糊匹配
+            const matchesUsername =
+                !username || user.username.toLowerCase().includes(username.toLowerCase())
+
+            // 昵称模糊匹配
+            const matchesNickName =
+                !nickName || user.realName.toLowerCase().includes(nickName.toLowerCase())
+
+            // 邮箱精确匹配
+            const matchesEmail = !email || user.email === email
+
+            // 手机号匹配
+            const matchesPhone = !phoneNumber || user.phone === phoneNumber
+
+            // 职位ID匹配
+            const matchesPostId = !postId || user.position === String(postId)
+
+            // 状态匹配（支持数组）
+            const userStatus = user.status === UserStatus.ACTIVE ? '0' : '1'
+            const matchesStatus =
+                !status || !status.length || status.includes(userStatus)
+
+            return (
+                matchesUsername &&
+                matchesNickName &&
+                matchesEmail &&
+                matchesPhone &&
+                matchesPostId &&
+                matchesStatus
+            )
+        })
+
+        // 分页
+        const startIndex = (pageNum - 1) * pageSize
+        const endIndex = startIndex + pageSize
+        const records = filteredUsers.slice(startIndex, endIndex)
+
+        // 转换为新接口格式
+        const formattedRecords = records.map(user => ({
+            id: user.id,
+            username: user.username,
+            nickName: user.realName,
+            email: user.email,
+            phoneNumber: user.phone || '',
+            sex: '1', // 默认值，mock数据中没有性别字段
+            avatar: user.avatar || null,
+            password: '', // 不返回密码
+            status: user.status === UserStatus.ACTIVE ? '0' : '1',
+            deptId: null,
+            deptName: user.department || null,
+            postId: null,
+            postName: user.position || null,
+            roles: user.roles.map(role => role.name),
+            roleVos: null,
+        }))
+
+        return {
+            data: {
+                success: true,
+                data: {
+                    records: formattedRecords,
+                    total: String(filteredUsers.length),
+                    size: String(pageSize),
+                    current: String(pageNum),
+                    pages: String(Math.ceil(filteredUsers.length / pageSize)),
+                },
+                message: '获取用户列表成功',
             },
         }
     },
@@ -480,6 +721,208 @@ export const mockRoleApi = {
                 success: true,
                 data: roles[index]!.permissions,
                 message: '更新角色权限成功',
+            },
+        }
+    },
+
+    // 新增角色（新接口格式）
+    addRole: async (roleData: any) => {
+        await delay(400)
+        
+        // 字段转换：将新接口格式转换为内部格式
+        const newRole: Role = {
+            id: roleData.id || generateId('role'),
+            name: roleData.roleName,
+            code: roleData.roleKey,
+            sortOrder: roleData.roleSort,
+            status: roleData.status === '0' ? RoleStatus.ACTIVE : RoleStatus.DISABLED,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            permissions: [],
+        }
+        
+        roles.push(newRole)
+        return {
+            data: {
+                success: true,
+                data: newRole,
+                message: '新增角色成功',
+            },
+        }
+    },
+
+    // 编辑角色（新接口格式）
+    editRole: async (roleData: any) => {
+        await delay(400)
+        
+        if (!roleData.id) {
+            throw new Error('角色ID不能为空')
+        }
+        
+        const index = roles.findIndex(r => r.id === roleData.id)
+        if (index === -1) {
+            throw new Error('角色不存在')
+        }
+        
+        // 字段转换：将新接口格式转换为内部格式
+        const existingRole = roles[index]!
+        const updatedRole: Role = {
+            ...existingRole,
+            name: roleData.roleName || existingRole.name,
+            code: roleData.roleKey || existingRole.code,
+            sortOrder: roleData.roleSort !== undefined ? roleData.roleSort : existingRole.sortOrder,
+            status: roleData.status !== undefined 
+                ? (roleData.status === '0' ? RoleStatus.ACTIVE : RoleStatus.DISABLED)
+                : existingRole.status,
+            updatedAt: new Date().toISOString(),
+        }
+        
+        roles[index] = updatedRole
+        return {
+            data: {
+                success: true,
+                data: updatedRole,
+                message: '编辑角色成功',
+            },
+        }
+    },
+
+    // 分页查询角色列表（新接口格式）
+    getRolePage: async (params: any) => {
+        await delay(300)
+        const {
+            pageNum = 1,
+            pageSize = 10,
+            roleKey,
+            roleName,
+            sortField,
+            sortOrder,
+            status,
+        } = params
+
+        // 过滤角色
+        let filteredRoles = roles.filter(role => {
+            // 角色编码模糊匹配
+            const matchesRoleKey =
+                !roleKey || role.code.toLowerCase().includes(roleKey.toLowerCase())
+
+            // 角色名称模糊匹配
+            const matchesRoleName =
+                !roleName || role.name.toLowerCase().includes(roleName.toLowerCase())
+
+            // 状态匹配（支持数组）
+            const roleStatus = role.status === RoleStatus.ACTIVE ? '0' : '1'
+            const matchesStatus =
+                !status || !status.length || status.includes(roleStatus)
+
+            return matchesRoleKey && matchesRoleName && matchesStatus
+        })
+
+        // 排序处理
+        if (sortField) {
+            filteredRoles.sort((a, b) => {
+                let aValue: any
+                let bValue: any
+
+                switch (sortField) {
+                    case 'roleName':
+                        aValue = a.name
+                        bValue = b.name
+                        break
+                    case 'roleKey':
+                        aValue = a.code
+                        bValue = b.code
+                        break
+                    case 'roleSort':
+                        aValue = a.sortOrder
+                        bValue = b.sortOrder
+                        break
+                    case 'status':
+                        aValue = a.status === RoleStatus.ACTIVE ? '0' : '1'
+                        bValue = b.status === RoleStatus.ACTIVE ? '0' : '1'
+                        break
+                    default:
+                        aValue = a.sortOrder
+                        bValue = b.sortOrder
+                }
+
+                if (typeof aValue === 'string' && typeof bValue === 'string') {
+                    return sortOrder === 'desc'
+                        ? bValue.localeCompare(aValue)
+                        : aValue.localeCompare(bValue)
+                } else {
+                    return sortOrder === 'desc' ? bValue - aValue : aValue - bValue
+                }
+            })
+        } else {
+            // 默认按排序字段排序
+            filteredRoles.sort((a, b) => a.sortOrder - b.sortOrder)
+        }
+
+        // 分页
+        const startIndex = (pageNum - 1) * pageSize
+        const endIndex = startIndex + pageSize
+        const records = filteredRoles.slice(startIndex, endIndex)
+
+        // 日期格式化函数：将 ISO 日期转换为 "YYYY-MM-DD HH:mm:ss" 格式
+        const formatDateTime = (dateStr: string | null | undefined): string | null => {
+            if (!dateStr) return null
+            const date = new Date(dateStr)
+            const year = date.getFullYear()
+            const month = String(date.getMonth() + 1).padStart(2, '0')
+            const day = String(date.getDate()).padStart(2, '0')
+            const hours = String(date.getHours()).padStart(2, '0')
+            const minutes = String(date.getMinutes()).padStart(2, '0')
+            const seconds = String(date.getSeconds()).padStart(2, '0')
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+        }
+
+        // 转换为新接口格式
+        const formattedRecords = records.map(role => ({
+            id: role.id,
+            roleName: role.name,
+            roleKey: role.code,
+            roleSort: role.sortOrder,
+            status: role.status === RoleStatus.ACTIVE ? '0' : '1',
+            userCount: String(role.userCount || 0),
+            createBy: 'system',
+            createTime: formatDateTime(role.createdAt) || formatDateTime(new Date().toISOString())!,
+            updateBy: null,
+            updateTime: formatDateTime(role.updatedAt),
+            remark: role.description || null,
+        }))
+
+        return {
+            data: {
+                success: true,
+                data: {
+                    records: formattedRecords,
+                    total: String(filteredRoles.length),
+                    size: String(pageSize),
+                    current: String(pageNum),
+                    pages: String(Math.ceil(filteredRoles.length / pageSize)),
+                },
+                message: '获取角色列表成功',
+            },
+        }
+    },
+
+    // 删除角色（新接口格式）
+    deleteRoleById: async (data: any) => {
+        await delay(300)
+        
+        // 支持两种格式：{ id: 1 } 或直接传入 id 字符串
+        const roleId = typeof data === 'object' && data.id ? String(data.id) : String(data)
+        
+        const index = roles.findIndex(r => r.id === roleId)
+        if (index === -1) {
+            throw new Error('角色不存在')
+        }
+        roles.splice(index, 1)
+        return {
+            data: {
+                success: true,
+                message: '删除角色成功',
             },
         }
     },

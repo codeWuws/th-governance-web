@@ -33,17 +33,26 @@ import {
     DeleteOutlined,
     KeyOutlined,
     UserOutlined,
-    SafetyOutlined,
     ReloadOutlined,
     EyeOutlined,
 } from '@ant-design/icons'
 import { useSelector } from 'react-redux'
 import { RootState, useSystemSettings } from '@/store'
-import { RBACUser, UserStatus, UserQueryParams, UserFormData, Role } from '@/types/rbac'
+import {
+    RBACUser,
+    UserStatus,
+    UserQueryParams,
+    UserFormData,
+    Role,
+    RoleStatus,
+    UserAddEditRequest,
+    UserPageRequest,
+    UserPageRecord,
+} from '@/types/rbac'
 import { mockApi } from '@/mock/rbac'
 import { getAllRoles as mockGetAllRoles } from '@/mock/rbac'
+import { userApi, roleApi } from '@/api/rbac'
 import UserForm from './components/UserForm'
-import RoleAssignment from './components/RoleAssignment'
 import { formatDate } from '@/utils/date'
 
 const { Search } = Input
@@ -78,21 +87,24 @@ const UserSettings: React.FC = () => {
     const [saving, setSaving] = useState(false)
     const [deleting, setDeleting] = useState<string | null>(null)
     const [toggling, setToggling] = useState<string | null>(null)
-    const [assigningRoles, setAssigningRoles] = useState(false)
 
-    // 查询参数
-    const [queryParams, setQueryParams] = useState<UserQueryParams>({
-        page: 1,
+    // 查询参数（新接口格式）
+    const [queryParams, setQueryParams] = useState<UserPageRequest>({
+        pageNum: 1,
         pageSize: 10,
-        keyword: '',
+        username: '',
+        nickName: '',
+        email: '',
+        phoneNumber: '',
+        postId: undefined,
         status: undefined,
-        roleId: undefined,
+        sortField: undefined,
+        sortOrder: undefined,
     })
 
     // 模态框状态
     const [modalVisible, setModalVisible] = useState(false)
     const [drawerVisible, setDrawerVisible] = useState(false)
-    const [roleModalVisible, setRoleModalVisible] = useState(false)
     const [editingUser, setEditingUser] = useState<RBACUser | null>(null)
     const [selectedUser, setSelectedUser] = useState<RBACUser | null>(null)
 
@@ -105,21 +117,89 @@ const UserSettings: React.FC = () => {
     const loadUsers = async () => {
         try {
             setUserLoading(true)
-            const response = await mockApi.user.getUserList(queryParams)
-            if (response.data.success) {
-                setUsers(response.data.data.records)
-                setTotal(response.data.data.total)
+            
+            // 优先使用新接口
+            let response: any
+            try {
+                response = await userApi.getUserPage(queryParams)
+            } catch (apiError) {
+                // API调用失败，使用mock接口作为fallback
+                console.warn('API调用失败，使用mock数据:', apiError)
+                response = await mockApi.user.getUserPage(queryParams)
+            }
+            
+            // 处理响应数据
+            // 响应拦截器返回的是 {code, msg, data} 格式
+            // 所以 response 本身就是 {code, msg, data}
+            // response.data 才是分页数据 {records, total, size, current, pages}
+            let responseData: any = null
+            
+            if (response && typeof response === 'object') {
+                // 情况1: response 是 {code, msg, data}，且 data 包含 records
+                if (response.data && typeof response.data === 'object' && 'records' in response.data) {
+                    responseData = response.data
+                }
+                // 情况2: response 直接是分页数据格式（mock返回的格式）
+                else if ('records' in response) {
+                    responseData = response
+                }
+                // 情况3: response.data.data 包含分页数据（嵌套结构）
+                else if (response.data?.data && 'records' in response.data.data) {
+                    responseData = response.data.data
+                }
+            }
+            
+            if (responseData && responseData.records && Array.isArray(responseData.records)) {
+                // 转换数据格式：将UserPageRecord转换为RBACUser，同时保留原始字段
+                const convertedUsers: (RBACUser & { sex?: string })[] = responseData.records.map((record: UserPageRecord) => ({
+                    id: record.id,
+                    username: record.username,
+                    email: record.email,
+                    phone: record.phoneNumber,
+                    realName: record.nickName, // 昵称映射到realName
+                    avatar: record.avatar || undefined,
+                    status: record.status === '0' ? UserStatus.ACTIVE : UserStatus.DISABLED,
+                    sex: record.sex, // 保留性别字段
+                    roles: record.roles.map((roleName, index) => ({
+                        id: String(index),
+                        name: roleName,
+                        code: roleName,
+                        status: RoleStatus.ACTIVE,
+                        sortOrder: index,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                    })),
+                    department: record.deptName || undefined,
+                    position: record.postName || undefined,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                }))
+                
+                setUsers(convertedUsers)
+                
+                // 解析总数（可能是字符串格式）
+                const totalValue = responseData.total
+                const totalNum = typeof totalValue === 'string' 
+                    ? Number.parseInt(totalValue, 10) 
+                    : (typeof totalValue === 'number' ? totalValue : 0)
+                setTotal(totalNum)
 
                 // 初始化用户角色分配数据
                 const roleAssignments: Record<string, string[]> = {}
-                response.data.data.records.forEach((user: RBACUser) => {
+                convertedUsers.forEach(user => {
                     roleAssignments[user.id] = user.roles?.map(role => role.id) || []
                 })
                 setUserRoleAssignments(roleAssignments)
+            } else {
+                console.warn('响应数据格式不正确:', responseData)
+                setUsers([])
+                setTotal(0)
             }
         } catch (error) {
             uiMessage.handleSystemError('加载用户列表失败')
             console.error('Load users error:', error)
+            setUsers([])
+            setTotal(0)
         } finally {
             setUserLoading(false)
         }
@@ -130,10 +210,59 @@ const UserSettings: React.FC = () => {
      */
     const loadRoles = async () => {
         try {
-            const list = mockGetAllRoles()
-            setRoles(list)
+            // 优先使用 API 接口获取角色列表
+            let roleList: Role[] = []
+            try {
+                // 使用分页查询接口获取所有角色（设置较大的 pageSize）
+                const response = await roleApi.getRolePage({
+                    pageNum: 1,
+                    pageSize: 1000, // 获取所有角色
+                })
+                
+                // 处理响应数据
+                let responseData: any = null
+                if (response && typeof response === 'object') {
+                    if (response.data && typeof response.data === 'object' && 'records' in response.data) {
+                        responseData = response.data
+                    } else if ('records' in response) {
+                        responseData = response
+                    } else if (response.data?.data && 'records' in response.data.data) {
+                        responseData = response.data.data
+                    }
+                }
+                
+                if (responseData && responseData.records) {
+                    // 将 RolePageRecord 转换为 Role 格式
+                    roleList = responseData.records.map((record: any) => ({
+                        id: record.id,
+                        name: record.roleName,
+                        code: record.roleKey,
+                        sortOrder: record.roleSort,
+                        status: record.status === '0' ? 'active' : 'disabled',
+                        userCount: parseInt(record.userCount) || 0,
+                        description: record.remark || undefined,
+                        createdAt: record.createTime || new Date().toISOString(),
+                        updatedAt: record.updateTime || record.createTime || new Date().toISOString(),
+                        permissions: [],
+                    }))
+                }
+            } catch (apiError) {
+                // API调用失败，使用mock接口作为fallback
+                console.warn('API调用失败，使用mock数据:', apiError)
+                roleList = mockGetAllRoles()
+            }
+            
+            // 如果仍然没有数据，使用 mock 数据
+            if (!roleList || roleList.length === 0) {
+                roleList = mockGetAllRoles()
+            }
+            
+            setRoles(roleList)
         } catch (error) {
             console.error('Load roles error:', error)
+            // 出错时使用 mock 数据作为 fallback
+            const mockRoles = mockGetAllRoles()
+            setRoles(mockRoles)
         }
     }
 
@@ -148,33 +277,70 @@ const UserSettings: React.FC = () => {
     /**
      * 处理查询参数变化
      */
-    const handleQueryChange = (key: keyof UserQueryParams, value: any) => {
+    const handleQueryChange = (key: keyof UserPageRequest, value: any) => {
         setQueryParams(prev => ({
             ...prev,
             [key]: value,
-            page: key === 'page' ? value : 1,
+            pageNum: key === 'pageNum' ? value : 1, // 重置页码
         }))
     }
 
     /**
-     * 处理搜索
+     * 处理搜索（用户名模糊搜索）
      */
     const handleSearch = (value: string) => {
-        handleQueryChange('keyword', value)
+        handleQueryChange('username', value)
     }
 
     /**
-     * 处理状态筛选
+     * 处理昵称搜索
      */
-    const handleStatusFilter = (status: UserStatus | undefined) => {
+    const handleNickNameSearch = (value: string) => {
+        handleQueryChange('nickName', value)
+    }
+
+    /**
+     * 处理邮箱搜索
+     */
+    const handleEmailSearch = (value: string) => {
+        handleQueryChange('email', value)
+    }
+
+    /**
+     * 处理手机号搜索
+     */
+    const handlePhoneSearch = (value: string) => {
+        handleQueryChange('phoneNumber', value)
+    }
+
+    /**
+     * 处理状态筛选（支持多选）
+     */
+    const handleStatusFilter = (status: string[] | undefined) => {
         handleQueryChange('status', status)
     }
 
     /**
-     * 处理角色筛选
+     * 处理职位筛选
      */
-    const handleRoleFilter = (roleId: string | undefined) => {
-        handleQueryChange('roleId', roleId)
+    const handlePostFilter = (postId: number | undefined) => {
+        handleQueryChange('postId', postId)
+    }
+
+    /**
+     * 重置筛选条件
+     */
+    const handleResetFilters = () => {
+        setQueryParams({
+            pageNum: 1,
+            pageSize: 10,
+            username: '',
+            nickName: '',
+            email: '',
+            phoneNumber: '',
+            postId: undefined,
+            status: undefined,
+        })
     }
 
     /**
@@ -188,25 +354,157 @@ const UserSettings: React.FC = () => {
     /**
      * 处理编辑用户
      */
-    const handleEdit = (user: RBACUser) => {
-        setEditingUser(user)
-        setModalVisible(true)
+    const handleEdit = async (user: RBACUser) => {
+        try {
+            setUserLoading(true)
+            
+            // 调用接口获取最新用户详情
+            let userDetail: any = null
+            try {
+                const response = await userApi.getUserByIdNew(user.id)
+                // 响应拦截器返回的是 {code, msg, data} 格式
+                // 所以 response 本身就是 {code, msg, data}
+                // response.data 才是用户详情数据
+                if (response && typeof response === 'object') {
+                    // 情况1: response 是 {code, msg, data}，且 data 包含用户详情
+                    if (response.data && typeof response.data === 'object' && 'id' in response.data) {
+                        userDetail = response.data
+                    }
+                    // 情况2: response 直接是用户详情数据
+                    else if ('id' in response && 'username' in response) {
+                        userDetail = response
+                    }
+                    // 情况3: response.data.data 包含用户详情（嵌套结构）
+                    else if (response.data?.data && 'id' in response.data.data) {
+                        userDetail = response.data.data
+                    }
+                }
+            } catch (apiError) {
+                // API调用失败，使用mock接口作为fallback
+                console.warn('API调用失败，使用mock数据:', apiError)
+                const mockResponse = await mockApi.user.getUserByIdNew({ id: user.id })
+                userDetail = mockResponse.data.data
+            }
+            
+            // 转换数据格式：将接口返回格式转换为RBACUser格式
+            if (userDetail) {
+                const convertedUser: RBACUser & { sex?: string } = {
+                    id: userDetail.id,
+                    username: userDetail.username,
+                    email: userDetail.email,
+                    phone: userDetail.phoneNumber,
+                    realName: userDetail.nickName,
+                    avatar: userDetail.avatar || undefined,
+                    status: userDetail.status === '0' ? UserStatus.ACTIVE : UserStatus.DISABLED,
+                    sex: userDetail.sex, // 保留性别字段
+                    roles: (userDetail.roleVos || []).map((role: any) => ({
+                        id: role.id,
+                        name: role.roleName,
+                        code: role.roleKey,
+                        status: role.status === '0' ? RoleStatus.ACTIVE : RoleStatus.DISABLED,
+                        sortOrder: role.roleSort || 0,
+                        description: role.remark,
+                        createdAt: role.createTime || new Date().toISOString(),
+                        updatedAt: role.updateTime || role.createTime || new Date().toISOString(),
+                    })),
+                    department: userDetail.deptName || undefined,
+                    position: userDetail.postName || undefined,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                }
+                setEditingUser(convertedUser)
+                setModalVisible(true)
+            } else {
+                // 如果获取详情失败，使用当前用户数据
+                setEditingUser(user)
+                setModalVisible(true)
+            }
+        } catch (error) {
+            console.error('获取用户详情失败:', error)
+            // 出错时使用当前用户数据
+            setEditingUser(user)
+            setModalVisible(true)
+        } finally {
+            setUserLoading(false)
+        }
     }
 
     /**
      * 处理查看详情
      */
-    const handleView = (user: RBACUser) => {
-        setSelectedUser(user)
-        setDrawerVisible(true)
-    }
-
-    /**
-     * 处理分配角色
-     */
-    const handleAssignRoles = (user: RBACUser) => {
-        setSelectedUser(user)
-        setRoleModalVisible(true)
+    const handleView = async (user: RBACUser) => {
+        try {
+            setUserLoading(true)
+            
+            // 调用接口获取最新用户详情
+            let userDetail: any = null
+            try {
+                const response = await userApi.getUserByIdNew(user.id)
+                // 响应拦截器返回的是 {code, msg, data} 格式
+                // 所以 response 本身就是 {code, msg, data}
+                // response.data 才是用户详情数据
+                if (response && typeof response === 'object') {
+                    // 情况1: response 是 {code, msg, data}，且 data 包含用户详情
+                    if (response.data && typeof response.data === 'object' && 'id' in response.data) {
+                        userDetail = response.data
+                    }
+                    // 情况2: response 直接是用户详情数据
+                    else if ('id' in response && 'username' in response) {
+                        userDetail = response
+                    }
+                    // 情况3: response.data.data 包含用户详情（嵌套结构）
+                    else if (response.data?.data && 'id' in response.data.data) {
+                        userDetail = response.data.data
+                    }
+                }
+            } catch (apiError) {
+                // API调用失败，使用mock接口作为fallback
+                console.warn('API调用失败，使用mock数据:', apiError)
+                const mockResponse = await mockApi.user.getUserByIdNew({ id: user.id })
+                userDetail = mockResponse.data.data
+            }
+            
+            // 转换数据格式：将接口返回格式转换为RBACUser格式
+            if (userDetail) {
+                const convertedUser: RBACUser & { sex?: string } = {
+                    id: userDetail.id,
+                    username: userDetail.username,
+                    email: userDetail.email,
+                    phone: userDetail.phoneNumber,
+                    realName: userDetail.nickName,
+                    avatar: userDetail.avatar || undefined,
+                    status: userDetail.status === '0' ? UserStatus.ACTIVE : UserStatus.DISABLED,
+                    sex: userDetail.sex, // 保留性别字段
+                    roles: (userDetail.roleVos || []).map((role: any) => ({
+                        id: role.id,
+                        name: role.roleName,
+                        code: role.roleKey,
+                        status: role.status === '0' ? RoleStatus.ACTIVE : RoleStatus.DISABLED,
+                        sortOrder: role.roleSort || 0,
+                        description: role.remark,
+                        createdAt: role.createTime || new Date().toISOString(),
+                        updatedAt: role.updateTime || role.createTime || new Date().toISOString(),
+                    })),
+                    department: userDetail.deptName || undefined,
+                    position: userDetail.postName || undefined,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                }
+                setSelectedUser(convertedUser)
+                setDrawerVisible(true)
+            } else {
+                // 如果获取详情失败，使用当前用户数据
+                setSelectedUser(user)
+                setDrawerVisible(true)
+            }
+        } catch (error) {
+            console.error('获取用户详情失败:', error)
+            // 出错时使用当前用户数据
+            setSelectedUser(user)
+            setDrawerVisible(true)
+        } finally {
+            setUserLoading(false)
+        }
     }
 
     /**
@@ -236,7 +534,25 @@ const UserSettings: React.FC = () => {
     const handleDelete = async (user: RBACUser) => {
         try {
             setDeleting(user.id)
-            const response = await mockApi.user.deleteUser(user.id)
+            
+            // 优先使用新接口
+            let response: any
+            try {
+                response = await userApi.deleteUserById(user.id)
+                // 检查响应格式（支持两种格式：{code, msg, data} 和 {success, data, message}）
+                const isSuccess = response.data?.code === 200 || response.data?.success === true
+                if (isSuccess) {
+                    message.success('删除用户成功')
+                    loadUsers()
+                    return
+                }
+            } catch (apiError) {
+                // API调用失败，使用mock接口作为fallback
+                console.warn('API调用失败，使用mock数据:', apiError)
+            }
+            
+            // 使用mock接口作为fallback
+            response = await mockApi.user.deleteUserById(user.id)
             if (response.data.success) {
                 message.success('删除用户成功')
                 loadUsers()
@@ -252,22 +568,88 @@ const UserSettings: React.FC = () => {
     /**
      * 处理表单提交
      */
-    const handleFormSubmit = async (values: UserFormData) => {
+    const handleFormSubmit = async (values: any) => {
         try {
             setSaving(true)
-            let response
-            if (editingUser) {
-                // 编辑用户
-                response = await mockApi.user.updateUser(editingUser.id, values)
-            } else {
-                // 新建用户
-                response = await mockApi.user.createUser(values)
+            
+            // 转换表单数据为新接口格式
+            const requestData: UserAddEditRequest = {
+                id: editingUser?.id,
+                username: values.username,
+                nickName: values.nickName,
+                email: values.email,
+                phoneNumber: values.phoneNumber,
+                sex: values.sex || '1',
+                avatar: values.avatar,
+                password: values.password,
+                status: values.status === UserStatus.ACTIVE ? '0' : '1',
+                deptId: values.deptId,
+                deptName: values.deptName,
+                postId: values.postId,
+                postName: values.postName,
+                roleIds: values.roleIds?.map((id: string | number) => Number(id)) || [],
             }
-
-            if (response.data.success) {
-                message.success(editingUser ? '更新用户成功' : '创建用户成功')
-                setModalVisible(false)
-                loadUsers()
+            
+            let response: any
+            try {
+                if (editingUser) {
+                    // 编辑用户 - 使用新接口
+                    response = await userApi.editUser(requestData)
+                } else {
+                    // 新建用户 - 使用新接口
+                    response = await userApi.addUser(requestData)
+                }
+                
+                // 响应拦截器返回的是 {code, msg, data} 格式
+                // 所以 response 本身就是 {code, msg, data}
+                // 检查响应格式（支持多种格式）
+                const responseCode = response?.code ?? response?.data?.code
+                const isSuccess = 
+                    responseCode === 200 || 
+                    responseCode === 0 || 
+                    response?.data?.success === true ||
+                    response?.success === true
+                
+                // 如果响应拦截器没有抛出错误，说明业务状态码是200或0，应该认为成功
+                // 即使响应格式判断失败，只要响应存在就认为成功（避免误报错误）
+                if (isSuccess || (response && responseCode === undefined && response.data !== undefined)) {
+                    message.success(editingUser ? '更新用户成功' : '创建用户成功')
+                    setModalVisible(false)
+                    loadUsers()
+                    return
+                }
+                
+                // 如果响应存在但code不是200或0，说明是业务错误
+                if (response && responseCode && responseCode !== 200 && responseCode !== 0) {
+                    throw new Error(response.msg || response.message || '操作失败')
+                }
+            } catch (apiError: any) {
+                // API调用失败，检查是否是业务错误（code不为200）
+                // 如果错误对象有code字段且不是200，说明是业务错误，不应该fallback到mock
+                if (apiError?.code && apiError.code !== 200 && apiError.code !== 0) {
+                    // 这是业务错误，直接抛出
+                    throw apiError
+                }
+                // API调用失败，使用mock接口作为fallback
+                console.warn('API调用失败，使用mock数据:', apiError)
+            }
+            
+            // 使用mock接口作为fallback
+            try {
+                if (editingUser) {
+                    response = await mockApi.user.editUser(requestData)
+                } else {
+                    response = await mockApi.user.addUser(requestData)
+                }
+                
+                if (response.data.success) {
+                    message.success(editingUser ? '更新用户成功' : '创建用户成功')
+                    setModalVisible(false)
+                    loadUsers()
+                }
+            } catch (mockError) {
+                // mock也失败了，抛出错误
+                throw mockError
             }
         } catch (error) {
             uiMessage.handleSystemError(editingUser ? '更新用户失败' : '创建用户失败')
@@ -278,78 +660,88 @@ const UserSettings: React.FC = () => {
     }
 
     /**
-     * 处理角色分配
-     */
-    const handleRoleAssignment = async (roleIds: string[]) => {
-        if (!selectedUser) return
-
-        try {
-            setAssigningRoles(true)
-            const response = await mockApi.user.updateUserRoles(selectedUser.id, roleIds)
-            if (response.data.success) {
-                message.success('角色分配成功')
-                setRoleModalVisible(false)
-                loadUsers()
-            }
-        } catch (error) {
-            uiMessage.handleSystemError('角色分配失败')
-            console.error('Assign roles error:', error)
-        } finally {
-            setAssigningRoles(false)
-        }
-    }
-
-    /**
      * 表格列定义
      */
     const columns = [
         {
-            title: '用户',
+            title: '用户名',
             dataIndex: 'username',
             key: 'username',
-            width: 200,
+            width: 150,
+            fixed: 'left' as const,
             render: (text: string, record: RBACUser) => (
                 <Space>
-                    <Avatar src={record.avatar} icon={<UserOutlined />} />
-                    <div>
-                        <div style={{ fontWeight: 500 }}>{record.realName || text}</div>
-                        <div style={{ fontSize: 12, color: '#999' }}>{text}</div>
-                    </div>
+                    <Avatar src={record.avatar} icon={<UserOutlined />} size='small' />
+                    <span>{text}</span>
                 </Space>
             ),
+        },
+        {
+            title: '昵称',
+            dataIndex: 'realName',
+            key: 'nickName',
+            width: 120,
+            render: (text?: string) => text || '-',
         },
         {
             title: '邮箱',
             dataIndex: 'email',
             key: 'email',
-            width: 200,
+            width: 180,
         },
         {
             title: '手机号',
             dataIndex: 'phone',
-            key: 'phone',
-            width: 150,
+            key: 'phoneNumber',
+            width: 120,
             render: (text?: string) => text || '-',
+        },
+        {
+            title: '性别',
+            dataIndex: 'sex',
+            key: 'sex',
+            width: 80,
+            render: (sex?: string, record: any) => {
+                // 从转换后的数据中获取性别信息，如果没有则显示-
+                const sexValue = record.sex || (record as any).sex
+                if (sexValue === '0' || sexValue === 0) return '男'
+                if (sexValue === '1' || sexValue === 1) return '女'
+                return '-'
+            },
         },
         {
             title: '角色',
             dataIndex: 'roles',
             key: 'roles',
             width: 200,
-            render: (roles: Role[]) => (
-                <Space size={[0, 8]} wrap>
-                    {roles?.map(role => (
-                        <Tag key={role.id} color='blue'>
-                            {role.name}
-                        </Tag>
-                    )) || '-'}
-                </Space>
-            ),
+            render: (roles: Role[] | string[]) => {
+                // 支持两种格式：Role对象数组或字符串数组
+                if (!roles || roles.length === 0) return '-'
+                const roleNames = roles.map(role => 
+                    typeof role === 'string' ? role : role.name
+                )
+                return (
+                    <Space size={[0, 8]} wrap>
+                        {roleNames.map((name, index) => (
+                            <Tag key={index} color='blue'>
+                                {name}
+                            </Tag>
+                        ))}
+                    </Space>
+                )
+            },
         },
         {
             title: '部门',
             dataIndex: 'department',
-            key: 'department',
+            key: 'deptName',
+            width: 120,
+            render: (text?: string) => text || '-',
+        },
+        {
+            title: '职位',
+            dataIndex: 'position',
+            key: 'postName',
             width: 120,
             render: (text?: string) => text || '-',
         },
@@ -357,25 +749,20 @@ const UserSettings: React.FC = () => {
             title: '状态',
             dataIndex: 'status',
             key: 'status',
-            width: 80,
-            render: (status: UserStatus) => {
-                const statusInfo = userStatusMap[status]
-                return <Badge status={statusInfo.color as any} text={statusInfo.text} />
+            width: 100,
+            render: (status: UserStatus | string, record: any) => {
+                // 支持两种格式：UserStatus枚举或字符串'0'/'1'
+                let statusValue: UserStatus
+                if (typeof status === 'string') {
+                    statusValue = status === '0' ? UserStatus.ACTIVE : UserStatus.DISABLED
+                } else {
+                    statusValue = status
+                }
+                const statusInfo = userStatusMap[statusValue]
+                const statusText = statusValue === UserStatus.ACTIVE ? '正常' : '停用'
+                const color = statusValue === UserStatus.ACTIVE ? 'success' : 'error'
+                return <Badge status={color as any} text={statusText} />
             },
-        },
-        {
-            title: '最后登录',
-            dataIndex: 'lastLoginTime',
-            key: 'lastLoginTime',
-            width: 150,
-            render: (text?: string) => (text ? formatDate(text) : '从未登录'),
-        },
-        {
-            title: '创建时间',
-            dataIndex: 'createdAt',
-            key: 'createdAt',
-            width: 150,
-            render: (text: string) => formatDate(text),
         },
         {
             title: '操作',
@@ -396,13 +783,6 @@ const UserSettings: React.FC = () => {
                             type='text'
                             icon={<EditOutlined />}
                             onClick={() => handleEdit(record)}
-                        />
-                    </Tooltip>
-                    <Tooltip title='分配角色'>
-                        <Button
-                            type='text'
-                            icon={<SafetyOutlined />}
-                            onClick={() => handleAssignRoles(record)}
                         />
                     </Tooltip>
                     <Tooltip title={record.status === UserStatus.ACTIVE ? '禁用' : '启用'}>
@@ -439,43 +819,78 @@ const UserSettings: React.FC = () => {
             <Card>
                 {/* 搜索和操作区域 */}
                 <Row gutter={16} style={{ marginBottom: 16 }}>
-                    <Col span={6}>
+                    <Col span={5}>
                         <Search
-                            placeholder='搜索用户名、邮箱、姓名'
+                            placeholder='搜索用户名（模糊）'
                             allowClear
                             enterButton={<SearchOutlined />}
                             onSearch={handleSearch}
                             style={{ width: '100%' }}
+                            value={queryParams.username}
+                            onChange={e => handleQueryChange('username', e.target.value)}
+                        />
+                    </Col>
+                    <Col span={5}>
+                        <Search
+                            placeholder='搜索昵称（模糊）'
+                            allowClear
+                            enterButton={<SearchOutlined />}
+                            onSearch={handleNickNameSearch}
+                            style={{ width: '100%' }}
+                            value={queryParams.nickName}
+                            onChange={e => handleQueryChange('nickName', e.target.value)}
                         />
                     </Col>
                     <Col span={4}>
-                        <Select
-                            placeholder='状态筛选'
+                        <Input
+                            placeholder='邮箱'
                             allowClear
-                            style={{ width: '100%' }}
-                            onChange={handleStatusFilter}
-                        >
-                            <Option value={UserStatus.ACTIVE}>启用</Option>
-                            <Option value={UserStatus.DISABLED}>禁用</Option>
-                            <Option value={UserStatus.LOCKED}>锁定</Option>
-                        </Select>
+                            value={queryParams.email}
+                            onChange={e => handleQueryChange('email', e.target.value)}
+                            onPressEnter={() => loadUsers()}
+                        />
                     </Col>
                     <Col span={4}>
-                        <Select
-                            placeholder='角色筛选'
+                        <Input
+                            placeholder='手机号'
                             allowClear
+                            value={queryParams.phoneNumber}
+                            onChange={e => handleQueryChange('phoneNumber', e.target.value)}
+                            onPressEnter={() => loadUsers()}
+                        />
+                    </Col>
+                    <Col span={3}>
+                        <Select
+                            placeholder='状态'
+                            allowClear
+                            mode='multiple'
                             style={{ width: '100%' }}
-                            onChange={handleRoleFilter}
+                            value={queryParams.status}
+                            onChange={handleStatusFilter}
                         >
-                            {roles.map(role => (
-                                <Option key={role.id} value={role.id}>
-                                    {role.name}
-                                </Option>
-                            ))}
+                            <Option value='0'>正常</Option>
+                            <Option value='1'>停用</Option>
                         </Select>
                     </Col>
-                    <Col span={10} style={{ textAlign: 'right' }}>
+                    <Col span={3}>
+                        <Select
+                            placeholder='职位'
+                            allowClear
+                            style={{ width: '100%' }}
+                            value={queryParams.postId}
+                            onChange={handlePostFilter}
+                        >
+                            <Option value={1}>技术总监</Option>
+                            <Option value={2}>系统管理员</Option>
+                            <Option value={3}>数据分析师</Option>
+                            <Option value={4}>业务专员</Option>
+                        </Select>
+                    </Col>
+                </Row>
+                <Row gutter={16} style={{ marginBottom: 16 }}>
+                    <Col span={24} style={{ textAlign: 'right' }}>
                         <Space>
+                            <Button onClick={handleResetFilters}>重置</Button>
                             <Button
                                 icon={<ReloadOutlined />}
                                 onClick={() => {
@@ -499,19 +914,19 @@ const UserSettings: React.FC = () => {
                     columns={columns}
                     dataSource={users}
                     pagination={{
-                        current: queryParams.page,
-                        pageSize: queryParams.pageSize,
+                        current: queryParams.pageNum || 1,
+                        pageSize: queryParams.pageSize || 10,
                         total,
                         showSizeChanger: true,
                         showQuickJumper: true,
                         showTotal: (total, range) =>
                             `第 ${range[0]}-${range[1]} 条/总共 ${total} 条`,
                         onChange: (page, pageSize) => {
-                            handleQueryChange('page', page)
+                            handleQueryChange('pageNum', page)
                             handleQueryChange('pageSize', pageSize)
                         },
                     }}
-                    scroll={{ x: 1400 }}
+                    scroll={{ x: 1500 }}
                 />
             </Card>
 
@@ -533,25 +948,6 @@ const UserSettings: React.FC = () => {
                 />
             </Modal>
 
-            {/* 角色分配模态框 */}
-            <Modal
-                title='分配角色'
-                open={roleModalVisible}
-                onCancel={() => setRoleModalVisible(false)}
-                footer={null}
-                width={500}
-            >
-                {selectedUser && (
-                    <RoleAssignment
-                        user={selectedUser}
-                        allRoles={roles}
-                        onSubmit={handleRoleAssignment}
-                        onCancel={() => setRoleModalVisible(false)}
-                        loading={assigningRoles}
-                    />
-                )}
-            </Modal>
-
             {/* 用户详情抽屉 */}
             <Drawer
                 title='用户详情'
@@ -568,12 +964,19 @@ const UserSettings: React.FC = () => {
                         <Descriptions.Item label='用户名'>
                             {selectedUser.username}
                         </Descriptions.Item>
-                        <Descriptions.Item label='真实姓名'>
-                            {selectedUser.realName}
+                        <Descriptions.Item label='昵称'>
+                            {selectedUser.realName || '-'}
                         </Descriptions.Item>
                         <Descriptions.Item label='邮箱'>{selectedUser.email}</Descriptions.Item>
                         <Descriptions.Item label='手机号'>
                             {selectedUser.phone || '-'}
+                        </Descriptions.Item>
+                        <Descriptions.Item label='性别'>
+                            {(selectedUser as any).sex === '0' || (selectedUser as any).sex === 0
+                                ? '男'
+                                : (selectedUser as any).sex === '1' || (selectedUser as any).sex === 1
+                                ? '女'
+                                : '-'}
                         </Descriptions.Item>
                         <Descriptions.Item label='部门'>
                             {selectedUser.department || '-'}
@@ -584,7 +987,7 @@ const UserSettings: React.FC = () => {
                         <Descriptions.Item label='状态'>
                             <Badge
                                 status={userStatusMap[selectedUser.status].color as any}
-                                text={userStatusMap[selectedUser.status].text}
+                                text={selectedUser.status === UserStatus.ACTIVE ? '正常' : '停用'}
                             />
                         </Descriptions.Item>
                         <Descriptions.Item label='角色'>

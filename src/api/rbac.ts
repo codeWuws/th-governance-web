@@ -13,6 +13,12 @@ import {
     RoleFormData,
     BatchOperationParams,
     UserRoleData,
+    UserAddEditRequest,
+    UserPageRequest,
+    UserPageResponse,
+    RoleAddEditRequest,
+    RolePageRequest,
+    RolePageResponse,
 } from '@/types/rbac'
 import { PageResponse, ApiResponse } from '@/types/common'
 
@@ -35,6 +41,13 @@ export const userApi = {
     },
 
     /**
+     * 获取用户详情（新接口）
+     */
+    getUserByIdNew: (id: string | number) => {
+        return request.post<ApiResponse<any>>('/system/user/getUserById', { id })
+    },
+
+    /**
      * 创建用户
      */
     createUser: (data: UserFormData) => {
@@ -49,10 +62,40 @@ export const userApi = {
     },
 
     /**
+     * 新增用户（新接口）
+     */
+    addUser: (data: UserAddEditRequest) => {
+        return request.post<ApiResponse<RBACUser>>('/system/user/add', data)
+    },
+
+    /**
+     * 编辑用户（新接口）
+     */
+    editUser: (data: UserAddEditRequest) => {
+        return request.put<ApiResponse<RBACUser>>('/system/user/edit', data)
+    },
+
+    /**
+     * 分页查询用户列表（新接口）
+     */
+    getUserPage: (params: UserPageRequest) => {
+        return request.post<ApiResponse<UserPageResponse>>('/system/user/page', params, {
+            returnDataOnly: false, // 返回完整响应对象 {code, msg, data}
+        })
+    },
+
+    /**
      * 删除用户
      */
     deleteUser: (id: string) => {
         return request.delete<ApiResponse<void>>(`/api/users/${id}`)
+    },
+
+    /**
+     * 删除用户（新接口）
+     */
+    deleteUserById: (id: string) => {
+        return request.delete<ApiResponse<void>>(`/system/user/delete/${id}`)
     },
 
     /**
@@ -157,6 +200,38 @@ export const roleApi = {
      */
     updateRolePermissions: (id: string, permissions: string[]) => {
         return request.put<ApiResponse<string[]>>(`/api/roles/${id}/permissions`, { permissions })
+    },
+
+    /**
+     * 新增角色（新接口）
+     */
+    addRole: (data: RoleAddEditRequest) => {
+        return request.post<ApiResponse<Role>>('/system/role/add', data)
+    },
+
+    /**
+     * 编辑角色（新接口）
+     */
+    editRole: (data: RoleAddEditRequest) => {
+        return request.put<ApiResponse<Role>>('/system/role/edit', data)
+    },
+
+    /**
+     * 分页查询角色列表（新接口）
+     */
+    getRolePage: (params: RolePageRequest) => {
+        return request.post<ApiResponse<RolePageResponse>>('/system/role/page', params, {
+            returnDataOnly: false, // 返回完整响应对象 {code, msg, data}
+        })
+    },
+
+    /**
+     * 删除角色（新接口）
+     */
+    deleteRoleById: (id: string | number) => {
+        return request.delete<ApiResponse<void>>('/system/role/delete', {
+            data: { id },
+        })
     },
 }
 
