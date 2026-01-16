@@ -19,6 +19,7 @@ import {
     RoleAddEditRequest,
     RolePageRequest,
     RolePageResponse,
+    PermissionTreeResponse,
 } from '@/types/rbac'
 import { PageResponse, ApiResponse } from '@/types/common'
 
@@ -232,6 +233,35 @@ export const roleApi = {
         return request.delete<ApiResponse<void>>('/system/role/delete', {
             data: { id },
         })
+    },
+
+    /**
+     * 获取角色权限树（新接口）
+     */
+    getRolePermissionTree: (id: string | number) => {
+        return request.post<ApiResponse<PermissionTreeResponse>>('/system/role-permission/permission-tree', { id })
+    },
+
+    /**
+     * 保存角色权限（授权接口）
+     */
+    authorizeRolePermissions: (roleId: string, permissionIds: (string | number)[]) => {
+        return request.put<ApiResponse<void>>('/system/role-permission/authorize', {
+            roleId,
+            permissionIds,
+        })
+    },
+}
+
+/**
+ * 权限管理API
+ */
+export const permissionApi = {
+    /**
+     * 获取权限树
+     */
+    getPermissionTree: () => {
+        return request.post<ApiResponse<PermissionTreeResponse>>('/system/permission/tree', {})
     },
 }
 

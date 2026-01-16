@@ -249,3 +249,23 @@ export interface UserRoleData {
     userId: string
     roleIds: string[]
 }
+
+/**
+ * 权限树节点
+ */
+export interface PermissionTreeNode {
+    id: string
+    parentId: string
+    title: string
+    key: string
+    orderNum: number
+    children: PermissionTreeNode[]
+}
+
+/**
+ * 权限树响应数据
+ */
+export interface PermissionTreeResponse {
+    nodes: PermissionTreeNode[]
+    checkedIds: string[]
+}

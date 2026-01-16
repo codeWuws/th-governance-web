@@ -5,7 +5,6 @@ import {
     Select,
     Space,
     Button,
-    message,
     Spin,
     Input,
     Tag,
@@ -15,24 +14,31 @@ import {
 } from 'antd'
 import type { DataNode } from 'antd/es/tree'
 import styles from './index.module.scss'
-import { menuItems } from '@/components/Layout/Sidebar'
-import { mockApi } from '@/mock/rbac'
-import { getAllRoles as mockGetAllRoles } from '@/mock/rbac'
-import { SafetyOutlined, CheckCircleOutlined } from '@ant-design/icons'
+import { SafetyOutlined } from '@ant-design/icons'
 import { uiMessage } from '@/utils/uiMessage'
+import { roleApi, permissionApi } from '@/api/rbac'
+import { Role, RolePageRequest, RolePageRecord, PermissionTreeNode } from '@/types/rbac'
 
-const toTreeData = (items: any[]): DataNode[] => {
-    const mapNode = (node: any): DataNode => {
-        const children = (node.children || []) as any[]
+/**
+ * 将权限树节点转换为 Ant Design Tree 组件需要的格式
+ */
+const convertPermissionTreeToDataNode = (nodes: PermissionTreeNode[]): DataNode[] => {
+    return nodes.map(node => {
+        const children = node.children && node.children.length > 0
+            ? convertPermissionTreeToDataNode(node.children)
+            : undefined
+
         return {
-            title: node.label,
+            title: node.title,
             key: node.key,
-            children: children.length ? children.map(mapNode) : undefined,
+            children,
         }
-    }
-    return items.map(mapNode)
+    })
 }
 
+/**
+ * 收集所有叶子节点的 key（用于全选、反选等功能）
+ */
 const collectLeafKeys = (nodes: DataNode[]): string[] => {
     const result: string[] = []
     const walk = (arr: DataNode[]) => {
@@ -41,8 +47,9 @@ const collectLeafKeys = (nodes: DataNode[]): string[] => {
             if (children && children.length) {
                 walk(children)
             } else {
-                if (typeof n.key === 'string' && (n.key as string).startsWith('/')) {
-                    result.push(n.key as string)
+                // 叶子节点，收集其 key
+                if (typeof n.key === 'string') {
+                    result.push(n.key)
                 }
             }
         })
@@ -51,78 +58,232 @@ const collectLeafKeys = (nodes: DataNode[]): string[] => {
     return result
 }
 
+/**
+ * 根据权限ID列表，从权限树中查找对应的 key 列表
+ */
+const convertIdsToKeys = (ids: (string | number)[], nodes: PermissionTreeNode[]): string[] => {
+    const idToKeyMap = new Map<string, string>()
+    
+    // 递归遍历权限树，建立 id 到 key 的映射
+    const buildIdKeyMap = (nodeList: PermissionTreeNode[]) => {
+        nodeList.forEach(node => {
+            // 将 id 转换为字符串作为 key，支持数字和字符串类型的 ID
+            idToKeyMap.set(String(node.id), node.key)
+            if (node.children && node.children.length > 0) {
+                buildIdKeyMap(node.children)
+            }
+        })
+    }
+    
+    buildIdKeyMap(nodes)
+    
+    // 将 ids 转换为 keys（统一转换为字符串进行比较）
+    return ids
+        .map(id => idToKeyMap.get(String(id)))
+        .filter((key): key is string => key !== undefined)
+}
+
+/**
+ * 根据权限key列表，从权限树中查找对应的 id 列表
+ */
+const convertKeysToIds = (keys: string[], nodes: PermissionTreeNode[]): string[] => {
+    const keyToIdMap = new Map<string, string>()
+    
+    // 递归遍历权限树，建立 key 到 id 的映射
+    const buildKeyIdMap = (nodeList: PermissionTreeNode[]) => {
+        nodeList.forEach(node => {
+            // 将 id 转换为字符串存储，支持数字和字符串类型的 ID
+            keyToIdMap.set(node.key, String(node.id))
+            if (node.children && node.children.length > 0) {
+                buildKeyIdMap(node.children)
+            }
+        })
+    }
+    
+    buildKeyIdMap(nodes)
+    
+    // 将 keys 转换为 ids
+    return keys
+        .map(key => keyToIdMap.get(key))
+        .filter((id): id is string => id !== undefined)
+}
+
 const PermissionSettings: React.FC = () => {
-    const [roles, setRoles] = useState<any[]>([])
+    const [roles, setRoles] = useState<Role[]>([])
     const [roleOptions, setRoleOptions] = useState<{ label: string; value: string }[]>([])
     const [selectedRoleId, setSelectedRoleId] = useState<string>('')
     const [checkedKeys, setCheckedKeys] = useState<string[]>([])
     const [loading, setLoading] = useState<boolean>(false)
     const [saving, setSaving] = useState<boolean>(false)
     const [search, setSearch] = useState<string>('')
+    const [permissionTreeNodes, setPermissionTreeNodes] = useState<PermissionTreeNode[]>([])
+    const [treeLoading, setTreeLoading] = useState<boolean>(false)
 
-    const treeData = useMemo(() => toTreeData(menuItems as any), [])
+    // 将权限树节点转换为 Tree 组件需要的格式
+    const treeData = useMemo(() => {
+        if (permissionTreeNodes.length === 0) {
+            return []
+        }
+        return convertPermissionTreeToDataNode(permissionTreeNodes)
+    }, [permissionTreeNodes])
+
+    // 收集所有叶子节点的 key
     const allLeafKeys = useMemo(() => collectLeafKeys(treeData), [treeData])
 
-    // 根据实际菜单结构定义权限分组
-    // 分组定义与 Sidebar 中的菜单结构保持一致
-    const groupDefs = useMemo(
-        () => [
-            {
-                key: '数据治理',
-                prefixes: ['/dashboard', '/database-connection', '/data-governance'],
-                description: '包含仪表盘、数据源管理、工作流配置和执行历史',
-            },
-            {
-                key: '数据质控',
-                prefixes: ['/data-quality-control'],
-                description: '包含质控流程管理、执行历史和综合质控管理',
-            },
-            {
-                key: '数据管理',
-                prefixes: ['/data-management'],
-                description: '包含数据资产管理、标准数据集管理、主索引管理等',
-            },
-            {
-                key: '系统设置',
-                prefixes: ['/system-settings'],
-                description: '包含用户管理、角色管理和权限管理',
-            },
-        ],
-        []
-    )
+    // 根据权限树节点生成分组统计
+    const groupDefs = useMemo(() => {
+        if (permissionTreeNodes.length === 0) {
+            return []
+        }
+        return permissionTreeNodes.map(node => ({
+            key: node.title,
+            nodeId: node.id,
+        }))
+    }, [permissionTreeNodes])
+
+    // 统计每个分组的权限使用情况
     const groupedAll = useMemo(() => {
         const g: Record<string, string[]> = {}
-        groupDefs.forEach(def => {
-            g[def.key] = []
+        
+        // 递归收集每个分组下的所有叶子节点 key
+        const collectGroupKeys = (nodes: PermissionTreeNode[], groupTitle: string) => {
+            nodes.forEach(node => {
+                if (node.children && node.children.length > 0) {
+                    // 有子节点，继续递归
+                    collectGroupKeys(node.children, groupTitle)
+                } else {
+                    // 叶子节点，添加到对应分组
+                    if (!g[groupTitle]) {
+                        g[groupTitle] = []
+                    }
+                    g[groupTitle].push(node.key)
+                }
+            })
+        }
+
+        permissionTreeNodes.forEach(node => {
+            collectGroupKeys([node], node.title)
         })
-        allLeafKeys.forEach(k => {
-            const hit = groupDefs.find(def => def.prefixes.some(p => String(k).startsWith(p)))
-            if (hit) g[hit.key].push(k)
-        })
+
         return g
-    }, [allLeafKeys, groupDefs])
+    }, [permissionTreeNodes])
+
     const metrics = useMemo(() => {
         return Object.keys(groupedAll).map(name => {
-            const total = groupedAll[name].length
-            const used = groupedAll[name].filter(k => checkedKeys.includes(k)).length
+            const keys = groupedAll[name]
+            if (!keys) {
+                return { name, total: 0, used: 0, percent: 0 }
+            }
+            const total = keys.length
+            const used = keys.filter(k => checkedKeys.includes(k)).length
             const percent = total ? Math.round((used / total) * 100) : 0
             return { name, total, used, percent }
         })
     }, [groupedAll, checkedKeys])
 
+    /**
+     * 加载权限树
+     */
+    useEffect(() => {
+        const loadPermissionTree = async () => {
+            try {
+                setTreeLoading(true)
+                const response = await permissionApi.getPermissionTree()
+                
+                // 处理响应数据
+                // response 格式: {code: 200, msg: "操作成功", data: {nodes: [...], checkedIds: []}}
+                let treeNodes: PermissionTreeNode[] = []
+                if (response) {
+                    // 情况1: response.data 直接包含 nodes
+                    if (response.data && Array.isArray((response.data as any).nodes)) {
+                        treeNodes = (response.data as any).nodes
+                    }
+                    // 情况2: response.data.data 包含 nodes（嵌套结构）
+                    else if (response.data && (response.data as any).data && Array.isArray((response.data as any).data.nodes)) {
+                        treeNodes = (response.data as any).data.nodes
+                    }
+                    // 情况3: response 直接是数据对象
+                    else if (Array.isArray((response as any).nodes)) {
+                        treeNodes = (response as any).nodes
+                    }
+                }
+                
+                setPermissionTreeNodes(treeNodes)
+            } catch (err: any) {
+                uiMessage.handleSystemError(err?.message || '加载权限树失败')
+                console.error('Load permission tree error:', err)
+            } finally {
+                setTreeLoading(false)
+            }
+        }
+        loadPermissionTree()
+    }, [])
+
+    /**
+     * 加载角色列表
+     */
     useEffect(() => {
         const loadRoles = async () => {
             try {
                 setLoading(true)
-                const res = await mockApi.role.getRoleList({ page: 1, pageSize: 100 })
-                let records = res?.data?.data?.records || []
-                if (!records.length) {
-                    records = mockGetAllRoles()
+                
+                // 构建请求参数，获取所有角色
+                const requestParams: RolePageRequest = {
+                    pageNum: 1,
+                    pageSize: 1000, // 获取所有角色
                 }
-                setRoles(records)
-                setRoleOptions(records.map((r: any) => ({ label: r.name, value: r.id })))
+                
+                // 优先使用新接口
+                let response: any
+                try {
+                    response = await roleApi.getRolePage(requestParams)
+                } catch (apiError) {
+                    // API调用失败，不显示错误，因为可能是权限问题
+                    console.warn('API调用失败:', apiError)
+                    return
+                }
+                
+                // 处理响应数据
+                let responseData: any = null
+                
+                if (response && typeof response === 'object') {
+                    // 情况1: response 是 {code, msg, data}，且 data 包含 records
+                    if (response.data && typeof response.data === 'object' && 'records' in response.data) {
+                        responseData = response.data
+                    }
+                    // 情况2: response 直接是分页数据格式（mock返回的格式）
+                    else if ('records' in response) {
+                        responseData = response
+                    }
+                    // 情况3: response.data.data 包含分页数据（嵌套结构）
+                    else if (response.data?.data && 'records' in response.data.data) {
+                        responseData = response.data.data
+                    }
+                }
+                
+                let roleList: Role[] = []
+                
+                if (responseData && responseData.records && responseData.records.length > 0) {
+                    // 将 RolePageRecord 转换为 Role 格式
+                    roleList = responseData.records.map((record: RolePageRecord) => ({
+                        id: record.id,
+                        name: record.roleName,
+                        code: record.roleKey,
+                        sortOrder: record.roleSort,
+                        status: record.status === '0' ? 'active' : 'disabled',
+                        userCount: parseInt(record.userCount) || 0,
+                        description: record.remark || undefined,
+                        createdAt: record.createTime || new Date().toISOString(),
+                        updatedAt: record.updateTime || record.createTime || new Date().toISOString(),
+                        permissions: [],
+                    }))
+                }
+                
+                setRoles(roleList)
+                setRoleOptions(roleList.map((r: Role) => ({ label: r.name, value: r.id })))
             } catch (err: any) {
                 uiMessage.handleSystemError(err?.message || '加载角色列表失败')
+                console.error('Load roles error:', err)
             } finally {
                 setLoading(false)
             }
@@ -138,11 +299,40 @@ const PermissionSettings: React.FC = () => {
         }
         try {
             setLoading(true)
-            const res = await mockApi.role.getRolePermissions(roleId)
-            const perms: string[] = res?.data?.data || []
-            setCheckedKeys(perms)
+            // 调用获取角色权限树的接口
+            const response = await roleApi.getRolePermissionTree(roleId)
+            
+            // 处理响应数据
+            // response 格式: {code: 200, msg: "操作成功", data: {nodes: [...], checkedIds: []}}
+            let checkedIds: (string | number)[] = []
+            if (response) {
+                // 情况1: response.data 直接包含 checkedIds
+                if (response.data && Array.isArray((response.data as any).checkedIds)) {
+                    checkedIds = (response.data as any).checkedIds
+                }
+                // 情况2: response.data.data 包含 checkedIds（嵌套结构）
+                else if (response.data && (response.data as any).data && Array.isArray((response.data as any).data.checkedIds)) {
+                    checkedIds = (response.data as any).data.checkedIds
+                }
+                // 情况3: response 直接是数据对象
+                else if (Array.isArray((response as any).checkedIds)) {
+                    checkedIds = (response as any).checkedIds
+                }
+            }
+            
+            // 将权限ID转换为对应的key
+            // 如果权限树数据还未加载，等待一下再转换
+            if (permissionTreeNodes.length > 0) {
+                const checkedKeys = convertIdsToKeys(checkedIds, permissionTreeNodes)
+                setCheckedKeys(checkedKeys)
+            } else {
+                // 权限树数据未加载，先清空选中状态
+                setCheckedKeys([])
+                console.warn('权限树数据未加载，无法转换权限ID为key')
+            }
         } catch (err: any) {
             uiMessage.handleSystemError(err?.message || '加载角色权限失败')
+            setCheckedKeys([])
         } finally {
             setLoading(false)
         }
@@ -150,15 +340,36 @@ const PermissionSettings: React.FC = () => {
 
     const handleSave = async () => {
         if (!selectedRoleId) {
-            message.warning('请先选择角色')
+            uiMessage.warning('请先选择角色')
             return
         }
         try {
             setSaving(true)
-            await mockApi.role.updateRolePermissions(selectedRoleId, checkedKeys)
-            message.success('权限已保存')
+            
+            // 将选中的 key 数组转换为权限 ID 数组
+            let permissionIds: string[] = []
+            if (permissionTreeNodes.length > 0) {
+                permissionIds = convertKeysToIds(checkedKeys, permissionTreeNodes)
+            } else {
+                uiMessage.warning('权限树数据未加载，无法保存权限')
+                setSaving(false)
+                return
+            }
+            
+            // 调用保存角色权限的接口
+            // 响应拦截器已经处理了错误情况，如果接口调用成功（没有抛出异常），就说明保存成功
+            await roleApi.authorizeRolePermissions(selectedRoleId, permissionIds)
+            
+            // 接口调用成功（没有抛出异常），显示成功提示
+            uiMessage.success('权限已保存')
         } catch (err: any) {
-            uiMessage.handleSystemError(err?.message || '保存权限失败')
+            // 错误已经被全局错误处理器处理，但为了确保用户能看到提示，这里也显示一次
+            console.error('保存权限失败:', err)
+            const errorMsg = err?.message || '保存权限失败，请稍后重试'
+            // 使用 setTimeout 确保错误消息在下一个事件循环中显示，避免与全局错误处理器冲突
+            setTimeout(() => {
+                uiMessage.error(errorMsg)
+            }, 100)
         } finally {
             setSaving(false)
         }
@@ -273,37 +484,46 @@ const PermissionSettings: React.FC = () => {
                         className={styles.treeCard}
                         bodyStyle={{ height: '100%', display: 'flex', flexDirection: 'column' }}
                     >
-                        <Spin spinning={loading}>
+                        <Spin spinning={treeLoading || loading}>
                             <div className={styles.treeWrap}>
-                                <Tree
-                                    checkable
-                                    selectable={false}
-                                    treeData={treeData}
-                                    checkedKeys={checkedKeys}
-                                    onCheck={keys => setCheckedKeys(keys as string[])}
-                                    defaultExpandAll
-                                    showLine
-                                    titleRender={node => (
-                                        <Space size={6}>
-                                            <span>{String(node.title)}</span>
-                                            {typeof node.key === 'string' &&
-                                            String(node.key).startsWith('/') ? (
-                                                <Tag color='processing'>页面</Tag>
-                                            ) : (
-                                                <Tag color='default'>模块</Tag>
-                                            )}
-                                        </Space>
-                                    )}
-                                    filterTreeNode={node => {
-                                        if (!search) return false
-                                        const title = String(node.title || '')
-                                        const key = String(node.key || '')
-                                        return (
-                                            title.toLowerCase().includes(search.toLowerCase()) ||
-                                            key.toLowerCase().includes(search.toLowerCase())
-                                        )
-                                    }}
-                                />
+                                {treeData.length > 0 ? (
+                                    <Tree
+                                        checkable
+                                        selectable={false}
+                                        treeData={treeData}
+                                        checkedKeys={checkedKeys}
+                                        onCheck={keys => setCheckedKeys(keys as string[])}
+                                        defaultExpandAll
+                                        showLine
+                                        titleRender={node => {
+                                            // 判断是否为叶子节点
+                                            const isLeaf = !node.children || node.children.length === 0
+                                            return (
+                                                <Space size={6}>
+                                                    <span>{String(node.title)}</span>
+                                                    {isLeaf ? (
+                                                        <Tag color='processing'>页面</Tag>
+                                                    ) : (
+                                                        <Tag color='default'>模块</Tag>
+                                                    )}
+                                                </Space>
+                                            )
+                                        }}
+                                        filterTreeNode={node => {
+                                            if (!search) return true
+                                            const title = String(node.title || '')
+                                            const key = String(node.key || '')
+                                            return (
+                                                title.toLowerCase().includes(search.toLowerCase()) ||
+                                                key.toLowerCase().includes(search.toLowerCase())
+                                            )
+                                        }}
+                                    />
+                                ) : (
+                                    <div style={{ textAlign: 'center', padding: '40px 0', color: '#999' }}>
+                                        {treeLoading ? '加载中...' : '暂无权限数据'}
+                                    </div>
+                                )}
                             </div>
                         </Spin>
                     </Card>

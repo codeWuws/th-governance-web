@@ -110,16 +110,12 @@ const StandardDictionaryMapping: React.FC = () => {
     const [originFieldValueOptions, setOriginFieldValueOptions] = useState<Array<{ value: string; label: string }>>([])
     const [originFieldValueLoading, setOriginFieldValueLoading] = useState(false)
 
-    // 数据集类型选项列表
-    const [datasetTypeOptions, setDatasetTypeOptions] = useState<Array<{
-        value: string
-        label: string
-        typeCode: string
-    }>>([])
+    // 数据集类型选项列表（直接使用 DictionaryTypeItem 类型）
+    const [datasetTypeOptions, setDatasetTypeOptions] = useState<DictionaryTypeItem[]>([])
     const [datasetTypeLoading, setDatasetTypeLoading] = useState(false)
 
-    // 原始数据集相关状态
-    const [datasetType, setDatasetType] = useState<'business' | 'medical' | 'status' | ''>('')
+    // 原始数据集相关状态（存储选中的数据集类型ID）
+    const [datasetTypeId, setDatasetTypeId] = useState<string>('')
     const [datasetOptions, setDatasetOptions] = useState<Array<{
         value: string
         label: string
@@ -168,19 +164,24 @@ const StandardDictionaryMapping: React.FC = () => {
 
     // 监听防抖后的搜索关键词，触发数据加载
     useEffect(() => {
-        if (datasetType && form.getFieldValue('categoryId')) {
+        if (datasetTypeId && form.getFieldValue('categoryId')) {
             const categoryId = form.getFieldValue('categoryId')
-            setDatasetOptions([])
-            setDatasetPagination({ current: 1, pageSize: 20, total: 0, hasMore: true })
-            fetchDatasetOptions(
-                datasetType as 'business' | 'medical' | 'status',
-                1,
-                categoryId,
-                debouncedDatasetSearchKeyword
-            )
+            // 根据选中的ID找到对应的数据集类型，获取typeCode
+            const selectedType = datasetTypeOptions.find(item => item.id === datasetTypeId)
+            if (selectedType) {
+                const typeCode = selectedType.typeCode.toLowerCase() as 'business' | 'medical' | 'status'
+                setDatasetOptions([])
+                setDatasetPagination({ current: 1, pageSize: 20, total: 0, hasMore: true })
+                fetchDatasetOptions(
+                    typeCode,
+                    1,
+                    categoryId,
+                    debouncedDatasetSearchKeyword
+                )
+            }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [debouncedDatasetSearchKeyword, datasetType])
+    }, [debouncedDatasetSearchKeyword, datasetTypeId, datasetTypeOptions])
 
     /**
      * 获取数据源列表
@@ -206,32 +207,18 @@ const StandardDictionaryMapping: React.FC = () => {
     }
 
     /**
-     * 获取数据集类型列表
+     * 获取数据集类型列表（直接使用接口返回的数据，不进行转换）
      */
     const fetchDatasetTypeList = async () => {
         setDatasetTypeLoading(true)
         try {
-            console.log('开始调用获取数据集类型列表接口...')
             const response = await dataManagementService.getDictionaryTypeList()
-            console.log('获取数据集类型列表接口响应:', response)
             const types = response.data || []
-            console.log('数据集类型数据:', types)
-            // 将字典类型转换为数据集类型选项
-            // typeCode: STATUS -> value: status, BUSINESS -> business, MEDICAL -> medical
-            const typeOptions = types
+            // 直接使用接口返回的数据，只过滤和排序
+            const filteredTypes = types
                 .filter(item => item.typeStatus === 1) // 只显示启用的类型
                 .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)) // 按排序字段排序
-                .map(item => {
-                    // 将 typeCode 转换为小写作为 value
-                    const value = item.typeCode.toLowerCase()
-                    return {
-                        value,
-                        label: item.typeName,
-                        typeCode: item.typeCode,
-                    }
-                })
-            console.log('转换后的数据集类型选项:', typeOptions)
-            setDatasetTypeOptions(typeOptions)
+            setDatasetTypeOptions(filteredTypes)
         } catch (error) {
             console.error('获取数据集类型列表失败:', error)
             uiMessage.handleSystemError('获取数据集类型列表失败')
@@ -242,22 +229,26 @@ const StandardDictionaryMapping: React.FC = () => {
     }
 
     /**
-     * 根据数据集类型获取分类选项
+     * 根据数据集类型ID获取分类选项
      * @returns 返回加载的分类列表
      */
-    const fetchCategoryOptions = async (type: 'business' | 'medical' | 'status'): Promise<CategoryItem[]> => {
-        if (!type) {
+    const fetchCategoryOptions = async (typeId: string): Promise<CategoryItem[]> => {
+        if (!typeId) {
+            setCategoryOptions([])
+            return []
+        }
+
+        // 根据ID找到对应的数据集类型
+        const selectedType = datasetTypeOptions.find(item => item.id === typeId)
+        if (!selectedType) {
             setCategoryOptions([])
             return []
         }
 
         setCategoryLoading(true)
         try {
-            // 将数据集类型转换为字典类型
-            const dictionaryType: DictionaryType = 
-                type === 'business' ? 'BUSINESS' :
-                type === 'medical' ? 'MEDICAL' :
-                'STATUS'
+            // 使用 typeCode 作为字典类型
+            const dictionaryType: DictionaryType = selectedType.typeCode as DictionaryType
             
             const response = await dataManagementService.getCategoryListByDictionaryType(dictionaryType)
             const categories = response.data || []
@@ -649,7 +640,7 @@ const StandardDictionaryMapping: React.FC = () => {
             return
         }
         setEditingRecord(null)
-        setDatasetType('')
+        setDatasetTypeId('')
         setDatasetOptions([])
         setCategoryOptions([])
         setDatasetPagination({ current: 1, pageSize: 20, total: 0, hasMore: true })
@@ -692,7 +683,7 @@ const StandardDictionaryMapping: React.FC = () => {
             setModalDataLoading(true)
             
             // 重置表单和状态
-            setDatasetType('')
+            setDatasetTypeId('')
             setDatasetOptions([])
             setCategoryOptions([])
             setDatasetPagination({ current: 1, pageSize: 20, total: 0, hasMore: true })
@@ -711,33 +702,23 @@ const StandardDictionaryMapping: React.FC = () => {
                 return
             }
 
-            // 确保数据集类型选项已加载（必须在推断类型之前加载，否则下拉框无法显示）
+            // 确保数据集类型选项已加载（必须在设置类型之前加载，否则下拉框无法显示）
             if (datasetTypeOptions.length === 0) {
                 await fetchDatasetTypeList()
             }
 
-            // 根据业务类型ID推断数据集类型（与保存逻辑保持一致：business=1, medical=2, status=3）
-            const businessTypeId = detailData.businessTypeId
-            console.log('编辑时获取的 businessTypeId:', businessTypeId, '类型:', typeof businessTypeId, 'datasetTypeOptions:', datasetTypeOptions)
-            let inferredDatasetType: 'business' | 'medical' | 'status' | '' = ''
-            // 处理 number 和 string 类型
-            const typeId = typeof businessTypeId === 'string' ? Number(businessTypeId) : businessTypeId
-            if (typeId === 1) {
-                inferredDatasetType = 'business'
-            } else if (typeId === 2) {
-                inferredDatasetType = 'medical'
-            } else if (typeId === 3) {
-                inferredDatasetType = 'status'
-            }
-            console.log('推断的数据集类型:', inferredDatasetType)
-
-            // 设置数据集类型
-            if (inferredDatasetType) {
-                setDatasetType(inferredDatasetType)
+            // 直接使用 businessTypeId 作为数据集类型ID
+            const businessTypeId = String(detailData.businessTypeId || '')
+            console.log('编辑时获取的 businessTypeId:', businessTypeId, 'datasetTypeOptions:', datasetTypeOptions)
+            
+            // 检查 businessTypeId 是否在选项列表中
+            const matchedType = datasetTypeOptions.find(item => item.id === businessTypeId)
+            if (matchedType) {
+                setDatasetTypeId(businessTypeId)
                 // 先加载分类选项（必须等待完成，因为表单需要分类选项才能回显）
-                await fetchCategoryOptions(inferredDatasetType)
+                await fetchCategoryOptions(businessTypeId)
             } else {
-                console.warn('无法推断数据集类型，businessTypeId:', businessTypeId)
+                console.warn('无法找到匹配的数据集类型，businessTypeId:', businessTypeId)
             }
             if (originTableOptions.length === 0) {
                 await fetchTableList()
@@ -756,9 +737,11 @@ const StandardDictionaryMapping: React.FC = () => {
             // 加载分类下的数据集选项（用于映射，必须在设置表单值之前加载）
             // 如果 valueList 中有映射数据，需要确保所有相关的数据集选项都已加载
             let allLoadedOptionsForMapping: Array<{ value: string; label: string; id?: string }> = []
-            if (detailData.businessCategoryId && inferredDatasetType) {
+            if (detailData.businessCategoryId && businessTypeId && matchedType) {
+                // 根据选中的数据集类型获取 typeCode，用于调用 fetchDatasetOptions
+                const typeCode = matchedType.typeCode.toLowerCase() as 'business' | 'medical' | 'status'
                 // 先加载第一页
-                const firstPageOptions = await fetchDatasetOptions(inferredDatasetType, 1, String(detailData.businessCategoryId), '')
+                const firstPageOptions = await fetchDatasetOptions(typeCode, 1, String(detailData.businessCategoryId), '')
                 
                 // 使用局部变量跟踪已加载的选项
                 let allLoadedOptions = [...firstPageOptions]
@@ -787,8 +770,9 @@ const StandardDictionaryMapping: React.FC = () => {
                             console.log(`加载第 ${currentPage} 页数据集选项，查找缺失的 id:`, missingIds)
                             
                             // 调用 fetchDatasetOptions 并获取返回的新选项
+                            const typeCode = matchedType.typeCode.toLowerCase() as 'business' | 'medical' | 'status'
                             const newOptions = await fetchDatasetOptions(
-                                inferredDatasetType, 
+                                typeCode, 
                                 currentPage, 
                                 String(detailData.businessCategoryId), 
                                 ''
@@ -830,16 +814,14 @@ const StandardDictionaryMapping: React.FC = () => {
             }
 
             // 所有数据加载完成后再设置表单值
-            // 确保 datasetType 值在 datasetTypeOptions 中存在
-            const validDatasetType = datasetTypeOptions.find(opt => opt.value === inferredDatasetType) 
-                ? inferredDatasetType 
-                : ''
-            console.log('设置表单值，datasetType:', inferredDatasetType, 'validDatasetType:', validDatasetType, 'datasetTypeOptions:', datasetTypeOptions)
+            // 确保 datasetTypeId 值在 datasetTypeOptions 中存在
+            const validDatasetTypeId = matchedType ? businessTypeId : ''
+            console.log('设置表单值，datasetTypeId:', businessTypeId, 'validDatasetTypeId:', validDatasetTypeId, 'datasetTypeOptions:', datasetTypeOptions)
             
             form.setFieldsValue({
                 standardName: detailData.standardName,
                 dataSourceId: String(detailData.dataSourceId || ''),
-                datasetType: validDatasetType,
+                datasetType: validDatasetTypeId,
                 categoryId: String(detailData.businessCategoryId || ''),
                 originalTableName: detailData.originTable,
                 originalDataField: detailData.originField,
@@ -850,7 +832,7 @@ const StandardDictionaryMapping: React.FC = () => {
             // 验证表单值是否设置成功
             setTimeout(() => {
                 const formDatasetType = form.getFieldValue('datasetType')
-                console.log('表单中的 datasetType 值:', formDatasetType, '是否在选项中:', datasetTypeOptions.some(opt => opt.value === formDatasetType))
+                console.log('表单中的 datasetType 值:', formDatasetType, '是否在选项中:', datasetTypeOptions.some(opt => opt.id === formDatasetType))
             }, 100)
 
             // 转换并设置映射数据
@@ -983,11 +965,8 @@ const StandardDictionaryMapping: React.FC = () => {
                 return
             }
 
-            // 根据数据集类型推断业务类型ID（business=1, medical=2, status=3）
-            const businessTypeId = 
-                datasetType === 'business' ? '1' :
-                datasetType === 'medical' ? '2' :
-                datasetType === 'status' ? '3' : undefined
+            // 直接使用选中的数据集类型ID作为业务类型ID
+            const businessTypeId = values.datasetType ? String(values.datasetType) : undefined
 
             // 将映射数据转换为 valueList 格式
             const valueList: DataStandardValueDTO[] = mappings.map(mapping => {
@@ -1032,7 +1011,7 @@ const StandardDictionaryMapping: React.FC = () => {
             setModalVisible(false)
             form.resetFields()
             setEditingRecord(null)
-            setDatasetType('')
+            setDatasetTypeId('')
             setDatasetOptions([])
             setCategoryOptions([])
             setDatasetPagination({ current: 1, pageSize: 20, total: 0, hasMore: true })
@@ -1060,7 +1039,7 @@ const StandardDictionaryMapping: React.FC = () => {
         setModalVisible(false)
         form.resetFields()
         setEditingRecord(null)
-        setDatasetType('')
+        setDatasetTypeId('')
         setDatasetOptions([])
         setCategoryOptions([])
         setDatasetPagination({ current: 1, pageSize: 20, total: 0, hasMore: true })
@@ -1675,7 +1654,7 @@ const StandardDictionaryMapping: React.FC = () => {
                                     }}
                                     notFoundContent={datasetTypeLoading ? <Spin size="small" /> : '暂无数据'}
                                     onChange={async (value) => {
-                                        setDatasetType(value as 'business' | 'medical' | 'status')
+                                        setDatasetTypeId(value || '')
                                         setDatasetOptions([])
                                         setDatasetPagination({ current: 1, pageSize: 20, total: 0, hasMore: true })
                                         setDatasetSearchKeyword('') // 清空搜索关键词
@@ -1688,20 +1667,25 @@ const StandardDictionaryMapping: React.FC = () => {
                                         
                                         if (value) {
                                             // 选择数据集类型时，先加载分类选项
-                                            const loadedCategories = await fetchCategoryOptions(value as 'business' | 'medical' | 'status')
+                                            const loadedCategories = await fetchCategoryOptions(value)
                                             
                                             // 编辑时，如果记录中已有分类ID，且该分类在当前数据集类型的分类列表中，自动加载该分类下的数据集
                                             if (currentCategoryId && editingRecord) {
                                                 // 检查分类是否在当前数据集类型的分类列表中
                                                 const categoryExists = (loadedCategories || []).some(cat => cat.id === currentCategoryId)
                                                 if (categoryExists) {
-                                                    // 分类匹配，自动加载数据集
-                                                    await fetchDatasetOptions(
-                                                        value as 'business' | 'medical' | 'status', 
-                                                        1, 
-                                                        currentCategoryId,
-                                                        ''
-                                                    )
+                                                    // 根据选中的ID找到对应的数据集类型，获取typeCode
+                                                    const selectedType = datasetTypeOptions.find(item => item.id === value)
+                                                    if (selectedType) {
+                                                        const typeCode = selectedType.typeCode.toLowerCase() as 'business' | 'medical' | 'status'
+                                                        // 分类匹配，自动加载数据集
+                                                        await fetchDatasetOptions(
+                                                            typeCode, 
+                                                            1, 
+                                                            currentCategoryId,
+                                                            ''
+                                                        )
+                                                    }
                                                 } else {
                                                     // 分类不匹配，清空分类ID
                                                     form.setFieldsValue({ categoryId: undefined })
@@ -1714,8 +1698,8 @@ const StandardDictionaryMapping: React.FC = () => {
                                     }}
                                 >
                                     {datasetTypeOptions.map(option => (
-                                        <Option key={option.value} value={option.value}>
-                                            {option.label}
+                                        <Option key={option.id} value={option.id}>
+                                            {option.typeName}
                                         </Option>
                                     ))}
                                 </Select>
@@ -1727,7 +1711,7 @@ const StandardDictionaryMapping: React.FC = () => {
                                 label='分类'
                             >
                                 <Select 
-                                    placeholder={datasetType ? '请选择分类' : '请先选择数据集类型'}
+                                    placeholder={datasetTypeId ? '请选择分类' : '请先选择数据集类型'}
                                     loading={categoryLoading}
                                     showSearch
                                     filterOption={(input, option) => {
@@ -1738,7 +1722,7 @@ const StandardDictionaryMapping: React.FC = () => {
                                         return label.toLowerCase().includes(input.toLowerCase())
                                     }}
                                     notFoundContent={categoryLoading ? <Spin size="small" /> : '暂无数据'}
-                                    disabled={!datasetType}
+                                    disabled={!datasetTypeId}
                                     allowClear
                                     onChange={(value) => {
                                         // 清空数据集选项（但不清空映射数据，因为映射数据可能已经保存）
@@ -1747,13 +1731,18 @@ const StandardDictionaryMapping: React.FC = () => {
                                         setDatasetSearchKeyword('')
                                         // 注意：不清空映射数据，保留用户已添加的映射关系
                                         
-                                        if (value && datasetType) {
-                                            // 选择分类后，根据分类查询原始数据集
-                                            // 重置搜索关键词和分页
-                                            setDatasetSearchKeyword('')
-                                            setDatasetOptions([])
-                                            setDatasetPagination({ current: 1, pageSize: 20, total: 0, hasMore: true })
-                                            fetchDatasetOptions(datasetType as 'business' | 'medical' | 'status', 1, value, '')
+                                        if (value && datasetTypeId) {
+                                            // 根据选中的ID找到对应的数据集类型，获取typeCode
+                                            const selectedType = datasetTypeOptions.find(item => item.id === datasetTypeId)
+                                            if (selectedType) {
+                                                const typeCode = selectedType.typeCode.toLowerCase() as 'business' | 'medical' | 'status'
+                                                // 选择分类后，根据分类查询原始数据集
+                                                // 重置搜索关键词和分页
+                                                setDatasetSearchKeyword('')
+                                                setDatasetOptions([])
+                                                setDatasetPagination({ current: 1, pageSize: 20, total: 0, hasMore: true })
+                                                fetchDatasetOptions(typeCode, 1, value, '')
+                                            }
                                         }
                                     }}
                                 >
@@ -1919,12 +1908,17 @@ const StandardDictionaryMapping: React.FC = () => {
                                             }}
                                             onDatasetLoadMore={() => {
                                                 if (datasetPagination.hasMore && !datasetLoading) {
-                                                    fetchDatasetOptions(
-                                                        datasetType as 'business' | 'medical' | 'status', 
-                                                        datasetPagination.current + 1,
-                                                        categoryIdValue,
-                                                        debouncedDatasetSearchKeyword
-                                                    )
+                                                    // 根据选中的ID找到对应的数据集类型，获取typeCode
+                                                    const selectedType = datasetTypeOptions.find(item => item.id === datasetTypeId)
+                                                    if (selectedType) {
+                                                        const typeCode = selectedType.typeCode.toLowerCase() as 'business' | 'medical' | 'status'
+                                                        fetchDatasetOptions(
+                                                            typeCode, 
+                                                            datasetPagination.current + 1,
+                                                            categoryIdValue,
+                                                            debouncedDatasetSearchKeyword
+                                                        )
+                                                    }
                                                 }
                                             }}
                                         />
