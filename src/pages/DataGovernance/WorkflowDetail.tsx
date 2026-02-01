@@ -161,6 +161,19 @@ const WorkflowDetail: React.FC = () => {
         total: 0,
     })
 
+    // 标准对照结果状态
+    const [standardMappingResultData, setStandardMappingResultData] = useState<Array<Record<string, unknown>>>([])
+    const [standardMappingResultLoading, setStandardMappingResultLoading] = useState(false)
+    const [standardMappingResultPagination, setStandardMappingResultPagination] = useState<{
+        current: number
+        pageSize: number
+        total: number
+    }>({
+        current: 1,
+        pageSize: 20,
+        total: 0,
+    })
+
     // 导出清洗结果加载状态
     const [exportCleaningLoading, setExportCleaningLoading] = useState(false)
 
@@ -175,6 +188,9 @@ const WorkflowDetail: React.FC = () => {
 
     // 导出EMOI结果加载状态
     const [exportEmoiLoading, setExportEmoiLoading] = useState(false)
+
+    // 导出标准对照结果加载状态
+    const [exportStandardMappingLoading, setExportStandardMappingLoading] = useState(false)
 
     // EMPI结果状态
     const [empiResultData, setEmpiResultData] = useState<Array<Record<string, unknown>>>([])
@@ -420,6 +436,16 @@ const WorkflowDetail: React.FC = () => {
             })
             // 加载第一页数据
             await fetchDeduplicateResult(taskId, 1, 20)
+        } else if (stepIndex === 3 && step.nodeType === WorkflowNodeType.STANDARD_MAPPING && taskId) {
+            // 如果是标准对照步骤（第四个步骤），获取标准对照结果
+            // 重置分页
+            setStandardMappingResultPagination({
+                current: 1,
+                pageSize: 20,
+                total: 0,
+            })
+            // 加载第一页数据
+            await fetchStandardMappingResult(taskId, 1, 20)
         } else if (stepIndex === 4 && step.nodeType === WorkflowNodeType.EMPI_DEFINITION_DISTRIBUTION && taskId) {
             // 如果是EMPI发放步骤（第五个步骤），获取EMPI结果
             // 重置分页
@@ -494,6 +520,12 @@ const WorkflowDetail: React.FC = () => {
             })
             setSensitiveResultData([])
             setSensitiveResultPagination({
+                current: 1,
+                pageSize: 20,
+                total: 0,
+            })
+            setStandardMappingResultData([])
+            setStandardMappingResultPagination({
                 current: 1,
                 pageSize: 20,
                 total: 0,
@@ -677,6 +709,33 @@ const WorkflowDetail: React.FC = () => {
         }
     }
 
+    // 获取标准对照结果
+    const fetchStandardMappingResult = async (batchId: string, pageNum: number, pageSize: number) => {
+        setStandardMappingResultLoading(true)
+        try {
+            const response = await WorkflowService.getStandardMappingResult(batchId, pageNum, pageSize)
+            // 接口返回标准 ApiResponse 格式：{ code, msg, data: { records, total, size, current, pages } }
+            if (response.code === 200 && response.data) {
+                setStandardMappingResultData(response.data.records || [])
+                setStandardMappingResultPagination({
+                    current: response.data.current || pageNum,
+                    pageSize: response.data.size || pageSize,
+                    total: response.data.total || 0,
+                })
+            } else {
+                const errorMsg = (response as { msg?: string }).msg || '获取标准对照步骤结果失败'
+                uiMessage.handleSystemError(errorMsg)
+                setStandardMappingResultData([])
+            }
+        } catch (error) {
+            logger.error('获取标准对照步骤结果失败', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.handleSystemError('获取标准对照步骤结果失败')
+            setStandardMappingResultData([])
+        } finally {
+            setStandardMappingResultLoading(false)
+        }
+    }
+
     // 处理丢孤儿结果分页变化
     const handleOrphanResultPageChange = (page: number, pageSize: number) => {
         if (taskId && selectedStepResult?.stepIndex === 7) {
@@ -702,6 +761,13 @@ const WorkflowDetail: React.FC = () => {
     const handleEmoiResultPageChange = (page: number, pageSize: number) => {
         if (taskId && selectedStepResult?.stepIndex === 5) {
             fetchEmoiResult(taskId, page, pageSize)
+        }
+    }
+
+    // 处理标准对照结果分页变化
+    const handleStandardMappingResultPageChange = (page: number, pageSize: number) => {
+        if (taskId && selectedStepResult?.stepIndex === 3) {
+            fetchStandardMappingResult(taskId, page, pageSize)
         }
     }
 
@@ -810,6 +876,27 @@ const WorkflowDetail: React.FC = () => {
         }
     }
 
+    // 导出标准对照结果
+    const handleExportStandardMappingResult = async () => {
+        if (!taskId) {
+            uiMessage.handleSystemError('任务ID不存在，无法导出')
+            return
+        }
+
+        setExportStandardMappingLoading(true)
+        try {
+            logger.info('开始导出标准对照结果', { taskId })
+            await WorkflowService.exportStandardMappingResult(taskId)
+            uiMessage.success('导出成功')
+            logger.info('标准对照结果导出成功', { taskId })
+        } catch (error) {
+            logger.error('导出标准对照结果失败', error instanceof Error ? error : new Error(String(error)))
+            uiMessage.handleSystemError('导出失败，请稍后重试')
+        } finally {
+            setExportStandardMappingLoading(false)
+        }
+    }
+
     // 关闭结果弹窗
     const handleCloseResultModal = () => {
         setResultModalVisible(false)
@@ -846,6 +933,12 @@ const WorkflowDetail: React.FC = () => {
         })
         setSensitiveResultData([])
         setSensitiveResultPagination({
+            current: 1,
+            pageSize: 20,
+            total: 0,
+        })
+        setStandardMappingResultData([])
+        setStandardMappingResultPagination({
             current: 1,
             pageSize: 20,
             total: 0,
@@ -1148,6 +1241,7 @@ const WorkflowDetail: React.FC = () => {
                                         {step.step_status === 2 && 
                                          (step.node_type === WorkflowNodeType.DATA_CLEANSING ||
                                           step.node_type === WorkflowNodeType.DATA_DEDUPLICATION ||
+                                          step.node_type === WorkflowNodeType.STANDARD_MAPPING ||
                                           step.node_type === WorkflowNodeType.EMPI_DEFINITION_DISTRIBUTION ||
                                           step.node_type === WorkflowNodeType.EMOI_DEFINITION_DISTRIBUTION ||
                                           step.node_type === WorkflowNodeType.DATA_ORPHAN ||
@@ -1183,6 +1277,19 @@ const WorkflowDetail: React.FC = () => {
                                                         icon={<DownloadOutlined />}
                                                         onClick={handleExportDeduplicateResult}
                                                         loading={exportDeduplicateLoading}
+                                                        style={{ padding: 0, height: 'auto' }}
+                                                    >
+                                                        导出执行结果
+                                                    </Button>
+                                                )}
+                                                {/* 标准对照步骤显示导出按钮 */}
+                                                {step.node_type === WorkflowNodeType.STANDARD_MAPPING && (
+                                                    <Button
+                                                        type='link'
+                                                        size='small'
+                                                        icon={<DownloadOutlined />}
+                                                        onClick={handleExportStandardMappingResult}
+                                                        loading={exportStandardMappingLoading}
                                                         style={{ padding: 0, height: 'auto' }}
                                                     >
                                                         导出执行结果
@@ -1260,7 +1367,7 @@ const WorkflowDetail: React.FC = () => {
                         关闭
                     </Button>,
                 ]}
-                width={selectedStepResult?.stepIndex === 0 || selectedStepResult?.stepIndex === 1 || selectedStepResult?.stepIndex === 4 || selectedStepResult?.stepIndex === 5 || selectedStepResult?.stepIndex === 7 || selectedStepResult?.stepIndex === 8 ? 1200 : 600}
+                width={selectedStepResult?.stepIndex === 0 || selectedStepResult?.stepIndex === 1 || selectedStepResult?.stepIndex === 3 || selectedStepResult?.stepIndex === 4 || selectedStepResult?.stepIndex === 5 || selectedStepResult?.stepIndex === 7 || selectedStepResult?.stepIndex === 8 ? 1200 : 600}
             >
                 {selectedStepResult && (
                     <div>
@@ -1387,6 +1494,71 @@ const WorkflowDetail: React.FC = () => {
                                             {deduplicateResultLoading
                                                 ? '加载中...'
                                                 : '暂无去重步骤结果'}
+                                        </div>
+                                    )}
+                                </Spin>
+                            </div>
+                        ) : selectedStepResult.stepIndex === 3 &&
+                          EXECUTION_STEPS[selectedStepResult.stepIndex]?.nodeType ===
+                              WorkflowNodeType.STANDARD_MAPPING ? (
+                            <div>
+                                <Text strong style={{ display: 'block', marginBottom: 16 }}>
+                                    标准对照步骤结果：
+                                </Text>
+                                <Spin spinning={standardMappingResultLoading}>
+                                    {standardMappingResultData.length > 0 ? (
+                                        <JsonToTable
+                                            data={standardMappingResultData}
+                                            columnMapping={{
+                                                id: 'ID',
+                                                batchId: '批次ID',
+                                                batch_id: '批次ID',
+                                                dataSourceId: '数据源ID',
+                                                data_source_id: '数据源ID',
+                                                ruleId: '规则ID',
+                                                rule_id: '规则ID',
+                                                tableName: '表名',
+                                                table_name: '表名',
+                                                columnName: '列名',
+                                                column_name: '列名',
+                                                standardName: '标准名称',
+                                                standard_name: '标准名称',
+                                                mappingCount: '值映射数量',
+                                                mapping_count: '值映射数量',
+                                                dataCount: '匹配数据量',
+                                                data_count: '匹配数据量',
+                                                totalDataCount: '总数据量',
+                                                total_data_count: '总数据量',
+                                                message: '描述',
+                                                createTime: '创建时间',
+                                                create_time: '创建时间',
+                                            }}
+                                            tableProps={{
+                                                scroll: { y: 400 },
+                                                pagination: {
+                                                    current: standardMappingResultPagination.current,
+                                                    pageSize: standardMappingResultPagination.pageSize,
+                                                    total: standardMappingResultPagination.total,
+                                                    showSizeChanger: true,
+                                                    showQuickJumper: true,
+                                                    showTotal: (total, range) =>
+                                                        `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`,
+                                                    onChange: handleStandardMappingResultPageChange,
+                                                    onShowSizeChange: handleStandardMappingResultPageChange,
+                                                },
+                                            }}
+                                        />
+                                    ) : (
+                                        <div
+                                            style={{
+                                                padding: 40,
+                                                textAlign: 'center',
+                                                color: '#999',
+                                            }}
+                                        >
+                                            {standardMappingResultLoading
+                                                ? '加载中...'
+                                                : '暂无标准对照步骤结果'}
                                         </div>
                                     )}
                                 </Spin>

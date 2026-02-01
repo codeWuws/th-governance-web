@@ -16,6 +16,8 @@ import type {
 } from '@/types'
 import { api } from '@/utils/request'
 import { logger } from '@/utils/logger'
+import { getRuntimeConfig } from '@/utils/configLoader'
+import { getEnv } from '@/utils/env'
 
 /**
  * 工作流服务类
@@ -338,6 +340,42 @@ export class WorkflowService {
     }
 
     /**
+     * 获取标准对照步骤结果
+     * @description 根据批次ID获取标准对照步骤的详细结果（分页）
+     * @param batchId 批次ID
+     * @param pageNum 当前页码，从1开始
+     * @param pageSize 每页大小
+     * @returns Promise<ApiResponse<{ records: Array<Record<string, unknown>>, total: number, size: number, current: number, pages: number }>>
+     */
+    static async getStandardMappingResult(
+        batchId: number | string,
+        pageNum = 1,
+        pageSize = 20
+    ): Promise<
+        ApiResponse<{
+            records: Array<Record<string, unknown>>
+            total: number
+            size: number
+            current: number
+            pages: number
+        }>
+    > {
+        return await api.post<
+            ApiResponse<{
+                records: Array<Record<string, unknown>>
+                total: number
+                size: number
+                current: number
+                pages: number
+            }>
+        >('/data/governance/task/logs/standard-mapping/page', {
+            batchId: Number(batchId),
+            pageNum,
+            pageSize,
+        })
+    }
+
+    /**
      * 数据录入（数据同步）
      * @description 根据任务ID进行数据录入同步
      * @param taskId 任务ID
@@ -362,8 +400,9 @@ export class WorkflowService {
         }
         
         try {
-            const { getEnv } = await import('@/utils/env')
-            const baseURL = getEnv('VITE_APP_API_BASE_URL', '/api')
+            // 优先从运行时配置获取，如果未加载则从环境变量获取
+            const runtimeConfig = getRuntimeConfig()
+            const baseURL = runtimeConfig.apiBaseUrl || getEnv('VITE_APP_API_BASE_URL', '/api')
             const url = `${baseURL}/data/governance/task/logs/cleaning/export`
             
             // 获取认证token
@@ -387,9 +426,9 @@ export class WorkflowService {
                 throw new Error(`导出失败: ${response.statusText}`)
             }
 
-            // 从响应头中获取文件名
+            // 从响应头中获取文件名（接口直接返回文件，使用接口返回的文件名）
             const contentDisposition = response.headers.get('Content-Disposition')
-            let filename = `数据清洗结果_${batchId}.xlsx`
+            let filename = 'download' // 默认文件名，如果接口没有返回则使用此默认值
             
             if (contentDisposition) {
                 const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
@@ -440,8 +479,9 @@ export class WorkflowService {
         }
         
         try {
-            const { getEnv } = await import('@/utils/env')
-            const baseURL = getEnv('VITE_APP_API_BASE_URL', '/api')
+            // 优先从运行时配置获取，如果未加载则从环境变量获取
+            const runtimeConfig = getRuntimeConfig()
+            const baseURL = runtimeConfig.apiBaseUrl || getEnv('VITE_APP_API_BASE_URL', '/api')
             const url = `${baseURL}/data/governance/task/logs/deduplicate/export`
             
             // 获取认证token
@@ -465,9 +505,9 @@ export class WorkflowService {
                 throw new Error(`导出失败: ${response.statusText}`)
             }
 
-            // 从响应头中获取文件名
+            // 从响应头中获取文件名（接口直接返回文件，使用接口返回的文件名）
             const contentDisposition = response.headers.get('Content-Disposition')
-            let filename = `数据去重结果_${batchId}.xlsx`
+            let filename = 'download' // 默认文件名，如果接口没有返回则使用此默认值
             
             if (contentDisposition) {
                 const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
@@ -518,8 +558,9 @@ export class WorkflowService {
         }
         
         try {
-            const { getEnv } = await import('@/utils/env')
-            const baseURL = getEnv('VITE_APP_API_BASE_URL', '/api')
+            // 优先从运行时配置获取，如果未加载则从环境变量获取
+            const runtimeConfig = getRuntimeConfig()
+            const baseURL = runtimeConfig.apiBaseUrl || getEnv('VITE_APP_API_BASE_URL', '/api')
             const url = `${baseURL}/data/governance/task/logs/orphan/export`
             
             // 获取认证token
@@ -543,9 +584,9 @@ export class WorkflowService {
                 throw new Error(`导出失败: ${response.statusText}`)
             }
 
-            // 从响应头中获取文件名
+            // 从响应头中获取文件名（接口直接返回文件，使用接口返回的文件名）
             const contentDisposition = response.headers.get('Content-Disposition')
-            let filename = `丢孤儿结果_${batchId}.xlsx`
+            let filename = 'download' // 默认文件名，如果接口没有返回则使用此默认值
             
             if (contentDisposition) {
                 const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
@@ -596,8 +637,9 @@ export class WorkflowService {
         }
         
         try {
-            const { getEnv } = await import('@/utils/env')
-            const baseURL = getEnv('VITE_APP_API_BASE_URL', '/api')
+            // 优先从运行时配置获取，如果未加载则从环境变量获取
+            const runtimeConfig = getRuntimeConfig()
+            const baseURL = runtimeConfig.apiBaseUrl || getEnv('VITE_APP_API_BASE_URL', '/api')
             const url = `${baseURL}/data/governance/task/logs/sensitive/export`
             
             // 获取认证token
@@ -621,9 +663,9 @@ export class WorkflowService {
                 throw new Error(`导出失败: ${response.statusText}`)
             }
 
-            // 从响应头中获取文件名
+            // 从响应头中获取文件名（接口直接返回文件，使用接口返回的文件名）
             const contentDisposition = response.headers.get('Content-Disposition')
-            let filename = `数据脱敏结果_${batchId}.xlsx`
+            let filename = 'download' // 默认文件名，如果接口没有返回则使用此默认值
             
             if (contentDisposition) {
                 const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
@@ -674,8 +716,9 @@ export class WorkflowService {
         }
         
         try {
-            const { getEnv } = await import('@/utils/env')
-            const baseURL = getEnv('VITE_APP_API_BASE_URL', '/api')
+            // 优先从运行时配置获取，如果未加载则从环境变量获取
+            const runtimeConfig = getRuntimeConfig()
+            const baseURL = runtimeConfig.apiBaseUrl || getEnv('VITE_APP_API_BASE_URL', '/api')
             const url = `${baseURL}/data/governance/task/logs/emoi/export`
             
             // 获取认证token
@@ -699,9 +742,9 @@ export class WorkflowService {
                 throw new Error(`导出失败: ${response.statusText}`)
             }
 
-            // 从响应头中获取文件名
+            // 从响应头中获取文件名（接口直接返回文件，使用接口返回的文件名）
             const contentDisposition = response.headers.get('Content-Disposition')
-            let filename = `EMOI结果_${batchId}.xlsx`
+            let filename = 'download' // 默认文件名，如果接口没有返回则使用此默认值
             
             if (contentDisposition) {
                 const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
@@ -739,6 +782,85 @@ export class WorkflowService {
             )
         }
     }
+
+    /**
+     * 导出标准对照结果
+     * @description 根据批次ID导出标准对照结果为文件
+     * @param batchId 批次ID
+     * @returns Promise<void>
+     */
+    static async exportStandardMappingResult(batchId: number | string): Promise<void> {
+        if (!batchId) {
+            throw new Error('批次ID不能为空')
+        }
+        
+        try {
+            // 优先从运行时配置获取，如果未加载则从环境变量获取
+            const runtimeConfig = getRuntimeConfig()
+            const baseURL = runtimeConfig.apiBaseUrl || getEnv('VITE_APP_API_BASE_URL', '/api')
+            const url = `${baseURL}/data/governance/task/logs/standard-mapping/export`
+            
+            // 获取认证token
+            const token = localStorage.getItem('access_token')
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+            }
+            if (token) {
+                headers.Authorization = `Bearer ${token}`
+            }
+
+            // 使用fetch发起POST请求下载文件
+            const response = await fetch(url, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ batchId: Number(batchId) }),
+                credentials: 'include',
+            })
+
+            if (!response.ok) {
+                throw new Error(`导出失败: ${response.statusText}`)
+            }
+
+            // 从响应头中获取文件名（接口直接返回文件，使用接口返回的文件名）
+            const contentDisposition = response.headers.get('Content-Disposition')
+            let filename = 'download' // 默认文件名，如果接口没有返回则使用此默认值
+            
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+                if (filenameMatch && filenameMatch[1]) {
+                    filename = filenameMatch[1].replace(/['"]/g, '')
+                    // 处理 filename*=UTF-8''xxx 格式
+                    if (filename.includes('UTF-8')) {
+                        const utf8Match = filename.match(/UTF-8''(.+)/)
+                        if (utf8Match && utf8Match[1]) {
+                            filename = decodeURIComponent(utf8Match[1])
+                        }
+                    }
+                }
+            }
+
+            // 创建blob并下载
+            const blob = await response.blob()
+            const downloadUrl = window.URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = downloadUrl
+            link.download = filename
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            window.URL.revokeObjectURL(downloadUrl)
+            
+            logger.info('标准对照结果导出成功', { batchId, filename })
+        } catch (error) {
+            logger.error(
+                '导出标准对照结果失败:',
+                error instanceof Error ? error : new Error(String(error))
+            )
+            throw new Error(
+                `导出标准对照结果失败: ${error instanceof Error ? error.message : '未知错误'}`
+            )
+        }
+    }
 }
 
 /**
@@ -757,12 +879,14 @@ export const workflowService = {
     getSensitiveResult: WorkflowService.getSensitiveResult,
     getEmpiResult: WorkflowService.getEmpiResult,
     getEmoiResult: WorkflowService.getEmoiResult,
+    getStandardMappingResult: WorkflowService.getStandardMappingResult,
     syncTaskData: WorkflowService.syncTaskData,
     exportCleaningResult: WorkflowService.exportCleaningResult,
     exportDeduplicateResult: WorkflowService.exportDeduplicateResult,
     exportOrphanResult: WorkflowService.exportOrphanResult,
     exportSensitiveResult: WorkflowService.exportSensitiveResult,
     exportEmoiResult: WorkflowService.exportEmoiResult,
+    exportStandardMappingResult: WorkflowService.exportStandardMappingResult,
 }
 
 export default workflowService

@@ -214,8 +214,8 @@ const WorkflowConfig: React.FC = () => {
             const { workflowName, dataSource, targetSource } = values
 
             // 将字符串ID转换为数字
-            const sourceDbId = Number(dataSource)
-            const targetDbId = Number(targetSource)
+            const sourceDbId = dataSource
+            const targetDbId = targetSource
 
             // 验证ID转换是否成功
             if (isNaN(sourceDbId) || isNaN(targetDbId)) {
