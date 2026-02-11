@@ -1,85 +1,294 @@
-.loginContainer {
+.wrap {
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 20px;
-}
-
-.loginContent {
-    width: 100%;
-    max-width: 420px;
-}
-
-.loginCard {
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    padding: 24px;
+    background: #e8eef4;
+    position: relative;
     overflow: hidden;
 }
 
-.logoSection {
-    text-align: center;
-    margin-bottom: 32px;
-    padding-top: 8px;
+.bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
 }
 
-.logo {
-    font-size: 28px;
+// 底层渐变，提高可见度
+.gradient {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(165deg, rgba(204, 251, 241, 0.65) 0%, transparent 50%),
+        linear-gradient(250deg, rgba(224, 242, 254, 0.6) 0%, transparent 50%),
+        linear-gradient(0deg, rgba(236, 242, 250, 0.5) 0%, transparent 35%);
+    pointer-events: none;
+}
+
+// 网格线，加深以便看清
+.grid {
+    position: absolute;
+    inset: -50%;
+    background-image:
+        linear-gradient(rgba(0, 0, 0, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+    background-size: 48px 48px;
+    animation: gridMove 28s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes gridMove {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(48px, 48px); }
+}
+
+// 中心光晕，更明显
+.glow {
+    position: absolute;
+    left: 50%;
+    top: -10%;
+    width: 800px;
+    height: 550px;
+    margin-left: -400px;
+    background: radial-gradient(ellipse 75% 50%, rgba(13, 148, 136, 0.2) 0%, rgba(8, 145, 178, 0.1) 40%, transparent 70%);
+    pointer-events: none;
+}
+
+// 装饰图形：大圆/椭圆，增加画面层次
+.shapes {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.shape1 {
+    position: absolute;
+    left: -10%;
+    top: 10%;
+    width: 380px;
+    height: 380px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(13, 148, 136, 0.18) 0%, transparent 65%);
+}
+
+.shape2 {
+    position: absolute;
+    right: -8%;
+    top: 20%;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(8, 145, 178, 0.2) 0%, transparent 65%);
+}
+
+.shape3 {
+    position: absolute;
+    right: 8%;
+    bottom: 8%;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(13, 148, 136, 0.15) 0%, transparent 65%);
+}
+
+.shape4 {
+    position: absolute;
+    left: 10%;
+    bottom: 15%;
+    width: 260px;
+    height: 260px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(8, 145, 178, 0.15) 0%, transparent 65%);
+}
+
+.shape5 {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 450px;
+    height: 450px;
+    margin: -225px 0 0 -225px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(13, 148, 136, 0.1) 0%, transparent 55%);
+}
+
+// 飘雪
+.snow {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.snowflake {
+    position: absolute;
+    top: -24px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(13, 148, 136, 0.2);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 1px 2px rgba(0, 0, 0, 0.08);
+    animation: snowFall linear infinite;
+}
+
+.snowflake:nth-child(3n) {
+    width: 5px;
+    height: 5px;
+}
+
+.snowflake:nth-child(5n) {
+    width: 10px;
+    height: 10px;
+}
+
+.snowflake:nth-child(7n) {
+    width: 5px;
+    height: 5px;
+}
+
+@keyframes snowFall {
+    0% {
+        transform: translateY(-10px) translateX(0);
+    }
+    25% {
+        transform: translateY(25vh) translateX(8px);
+    }
+    50% {
+        transform: translateY(50vh) translateX(-5px);
+    }
+    75% {
+        transform: translateY(75vh) translateX(6px);
+    }
+    100% {
+        transform: translateY(100vh) translateX(-3px);
+    }
+}
+
+.line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent 0%, rgba(13, 148, 136, 0.45) 20%, rgba(8, 145, 178, 0.55) 50%, rgba(13, 148, 136, 0.45) 80%, transparent 100%);
+}
+
+.panel {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 400px;
+    padding: 40px 36px;
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(13, 148, 136, 0.08);
+}
+
+.head {
+    text-align: center;
+    margin-bottom: 36px;
+}
+
+.title {
+    margin: 0 0 8px 0;
+    font-size: 22px;
     font-weight: 600;
-    color: #1890ff;
-    margin-bottom: 8px;
-    letter-spacing: 1px;
+    letter-spacing: 0.06em;
+    color: rgba(0, 0, 0, 0.88);
 }
 
 .subtitle {
-    font-size: 14px;
-    color: #8c8c8c;
-}
-
-.loginForm {
-    margin-top: 8px;
-}
-
-.loginButton {
-    height: 44px;
-    font-size: 16px;
-    font-weight: 500;
-    border-radius: 6px;
-    margin-top: 8px;
-}
-
-.testAccounts {
-    margin-top: 24px;
-    padding-top: 20px;
-    border-top: 1px solid #f0f0f0;
-}
-
-.testAccountsTitle {
-    display: block;
-    font-size: 12px;
-    margin-bottom: 12px;
-    color: #8c8c8c;
-}
-
-.accountList {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.accountList :global(.ant-btn-link) {
-    padding: 0;
-    height: auto;
+    margin: 0;
     font-size: 13px;
-    text-align: left;
-    color: #1890ff;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    color: rgba(0, 0, 0, 0.45);
 }
 
-.accountList :global(.ant-btn-link:hover) {
-    color: #40a9ff;
+.form {
+    :global(.ant-form-item) {
+        margin-bottom: 20px;
+    }
+    :global(.ant-form-item-explain-error) {
+        font-size: 12px;
+    }
 }
 
+.inputIcon {
+    color: rgba(0, 0, 0, 0.35);
+    margin-right: 8px;
+}
 
+// 登录面板内输入框使用默认浅色风格，仅统一聚焦色
+.panel :global(.ant-input-affix-wrapper-focused),
+.panel :global(.ant-input:focus) {
+    border-color: #0d9488 !important;
+    box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.12) !important;
+}
 
+.submitItem {
+    margin-bottom: 0;
+    margin-top: 28px;
+}
 
+.submitBtn {
+    height: 46px;
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #0d9488 0%, #0891b2 100%) !important;
+    border: none !important;
+    color: #fff !important;
+    transition: opacity 0.2s, transform 0.2s;
+    &:hover:not(:disabled) {
+        opacity: 0.92;
+        transform: translateY(-1px);
+    }
+}
+
+.testBlock {
+    margin-top: 28px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    text-align: center;
+}
+
+.testLabel {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: rgba(0, 0, 0, 0.4);
+    margin-bottom: 10px;
+}
+
+.testLinks {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+}
+
+.testLink {
+    padding: 0;
+    border: none;
+    background: none;
+    font-size: 13px;
+    color: #0d9488;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: color 0.2s;
+    &:hover {
+        color: #0f766e;
+    }
+}
+
+.testDivider {
+    color: rgba(0, 0, 0, 0.25);
+    font-size: 12px;
+    user-select: none;
+}

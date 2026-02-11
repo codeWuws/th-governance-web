@@ -1,0 +1,109 @@
+.wrap {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8fafc;
+    overflow: hidden;
+}
+
+.bg {
+    position: absolute;
+    inset: 0;
+    &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(ellipse 80% 50% at 50% 50%, rgba(0, 180, 216, 0.04) 0%, transparent 60%);
+        pointer-events: none;
+    }
+}
+
+.grid {
+    position: absolute;
+    inset: -50%;
+    background-image:
+        linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    animation: gridMove 20s linear infinite;
+}
+
+@keyframes gridMove {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(48px, 48px); }
+}
+
+.glow {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 320px;
+    height: 320px;
+    margin: -160px 0 0 -160px;
+    background: radial-gradient(circle, rgba(0, 180, 216, 0.06) 0%, transparent 70%);
+    animation: pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.1); }
+}
+
+.content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+}
+
+.ring {
+    position: relative;
+    width: 72px;
+    height: 72px;
+}
+
+.ringInner,
+.ringOuter {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid transparent;
+}
+
+.ringInner {
+    border-top-color: #0d9488;
+    border-right-color: rgba(13, 148, 136, 0.25);
+    animation: spin 1s linear infinite;
+}
+
+.ringOuter {
+    inset: -6px;
+    border-bottom-color: #0891b2;
+    border-left-color: rgba(8, 145, 178, 0.2);
+    animation: spin 1.2s linear infinite reverse;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.text {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: rgba(0, 0, 0, 0.72);
+}
+
+.sub {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.2em;
+    color: rgba(0, 0, 0, 0.4);
+}

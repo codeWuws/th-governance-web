@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { refreshUserInfo, selectIsAuthenticated, selectUserLoading } from '@/store/slices/userSlice'
+import AuthLoading from '@/components/AuthLoading'
 
 interface ProtectedRouteProps {
     children: React.ReactElement
@@ -57,9 +58,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
         }
     }, [isAuthenticated])
 
-    // 如果正在检查或加载中，不渲染任何内容（避免闪烁）
+    // 如果正在检查或加载中，展示统一的全屏认证加载页
     if (!hasChecked || loading) {
-        return null
+        return <AuthLoading />
     }
 
     // 如果未登录，重定向到登录页，并保存当前路径以便登录后跳转
