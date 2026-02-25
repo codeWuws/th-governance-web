@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { refreshUserInfo, selectIsAuthenticated, selectUserLoading } from '@/store/slices/userSlice'
+import { fetchMenus } from '@/store/slices/menuSlice'
 import AuthLoading from '@/components/AuthLoading'
 
 interface ProtectedRouteProps {
@@ -57,6 +58,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
             setHasChecked(true)
         }
     }, [isAuthenticated])
+
+    // 认证通过后拉取当前用户菜单权限（登录后、刷新系统后）
+    useEffect(() => {
+        if (hasChecked && isAuthenticated) {
+            dispatch(fetchMenus())
+        }
+    }, [hasChecked, isAuthenticated, dispatch])
 
     // 如果正在检查或加载中，展示统一的全屏认证加载页
     if (!hasChecked || loading) {

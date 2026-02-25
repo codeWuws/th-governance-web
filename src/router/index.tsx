@@ -35,7 +35,6 @@ import VisualizationView from '../pages/DataRetrieval/VisualizationView'
 import SystemSettings from '../pages/SystemSettings'
 import UserSettings from '../pages/SystemSettings/UserSettings'
 import RoleSettings from '../pages/SystemSettings/RoleSettings'
-import PermissionSettings from '../pages/SystemSettings/PermissionSettings'
 
 export const router = createBrowserRouter(
     [
@@ -204,10 +203,6 @@ export const router = createBrowserRouter(
                     {
                         path: 'roles',
                         element: <RoleSettings />,
-                    },
-                    {
-                        path: 'permissions',
-                        element: <PermissionSettings />,
                     },
                 ],
             },

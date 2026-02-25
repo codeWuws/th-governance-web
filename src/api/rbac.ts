@@ -3,7 +3,7 @@
  * 提供用户、角色、权限的CRUD操作和关联管理
  */
 
-import { request } from '@/utils/request'
+import { request, api, type RequestConfig } from '@/utils/request'
 import {
     RBACUser,
     Role,
@@ -20,6 +20,7 @@ import {
     RolePageRequest,
     RolePageResponse,
     PermissionTreeResponse,
+    PermissionMenu,
 } from '@/types/rbac'
 import { PageResponse, ApiResponse } from '@/types/common'
 
@@ -80,9 +81,8 @@ export const userApi = {
      * 分页查询用户列表（新接口）
      */
     getUserPage: (params: UserPageRequest) => {
-        return request.post<ApiResponse<UserPageResponse>>('/system/user/page', params, {
-            returnDataOnly: false, // 返回完整响应对象 {code, msg, data}
-        })
+        const config: RequestConfig = { returnDataOnly: false }
+        return request.post<ApiResponse<UserPageResponse>>('/system/user/page', params, config)
     },
 
     /**
@@ -221,9 +221,8 @@ export const roleApi = {
      * 分页查询角色列表（新接口）
      */
     getRolePage: (params: RolePageRequest) => {
-        return request.post<ApiResponse<RolePageResponse>>('/system/role/page', params, {
-            returnDataOnly: false, // 返回完整响应对象 {code, msg, data}
-        })
+        const config: RequestConfig = { returnDataOnly: false }
+        return request.post<ApiResponse<RolePageResponse>>('/system/role/page', params, config)
     },
 
     /**
@@ -262,6 +261,17 @@ export const permissionApi = {
      */
     getPermissionTree: () => {
         return request.post<ApiResponse<PermissionTreeResponse>>('/system/permission/tree', {})
+    },
+
+    /**
+     * 根据当前用户获取可访问的菜单列表（用于动态渲染侧边栏与路由）
+     */
+    getMenus: () => {
+        const config: RequestConfig = {
+            returnDataOnly: true,
+            skipErrorHandler: true, // 菜单失败时仅清空菜单，不弹全局错误
+        }
+        return api.get<PermissionMenu[]>('/system/permission/menus', config)
     },
 }
 

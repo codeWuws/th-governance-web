@@ -37,6 +37,7 @@ import {
     TeamOutlined,
     LockOutlined,
     UnlockOutlined,
+    KeyOutlined,
 } from '@ant-design/icons'
 import { Role, RoleQueryParams, RoleFormData, RoleAddEditRequest, RolePageRequest, RolePageRecord } from '@/types/rbac'
 import { mockApi } from '@/mock/rbac'
@@ -44,6 +45,8 @@ import { roleApi } from '@/api/rbac'
 import RoleForm from './components/RoleForm'
 
 import { formatDate } from '@/utils/date'
+import { showDialog } from '@/utils/showDialog'
+import RolePermissionDialog from '@/components/RolePermissionDialog'
 
 const { Search } = Input
 const { Option } = Select
@@ -282,6 +285,17 @@ const RoleSettings: React.FC = () => {
     }
 
     /**
+     * 打开修改角色权限弹窗
+     */
+    const handleEditPermission = (role: Role) => {
+        showDialog(RolePermissionDialog, {
+            title: '修改角色权限',
+            role,
+            onSuccess: () => loadRoles(),
+        })
+    }
+
+    /**
      * 处理状态切换
      */
     const handleStatusToggle = async (role: Role) => {
@@ -475,6 +489,13 @@ const RoleSettings: React.FC = () => {
                             type='text'
                             icon={<EditOutlined />}
                             onClick={() => handleEdit(record)}
+                        />
+                    </Tooltip>
+                    <Tooltip title='修改角色权限'>
+                        <Button
+                            type='text'
+                            icon={<KeyOutlined />}
+                            onClick={() => handleEditPermission(record)}
                         />
                     </Tooltip>
 

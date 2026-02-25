@@ -1778,6 +1778,192 @@ const systemRoleMockProvider = {
 }
 
 /**
+ * 用户菜单权限（/system/permission/menus）模拟数据
+ * 用于登录后、刷新后动态渲染侧边栏
+ */
+const permissionMenusMockProvider = {
+    getMockData: async (config: AxiosRequestConfig): Promise<AxiosResponse> => {
+        const url = config.url || ''
+        if (
+            url.includes('/system/permission/menus') &&
+            config.method?.toUpperCase() === 'GET'
+        ) {
+            const menuData = [
+                {
+                    id: '1000',
+                    parentId: '0',
+                    title: '数据治理',
+                    key: 'data-governance',
+                    orderNum: 1,
+                    permissionType: 'M',
+                    path: '/data-governance',
+                    component: null,
+                    icon: 'DatabaseOutlined',
+                    visible: '0',
+                    children: [
+                        {
+                            id: '1001',
+                            parentId: '1000',
+                            title: '仪表盘',
+                            key: 'dashboard',
+                            orderNum: 1,
+                            permissionType: 'C',
+                            path: '/dashboard',
+                            component: '/dashboard',
+                            icon: 'DashboardOutlined',
+                            visible: '0',
+                            children: [
+                                {
+                                    id: '100101',
+                                    parentId: '1001',
+                                    title: '查看统计数据',
+                                    key: 'dashboard:statistics:list',
+                                    orderNum: 1,
+                                    permissionType: 'F',
+                                    path: '/data/governance/dashboard/statistics',
+                                    component: null,
+                                    icon: null,
+                                    visible: '0',
+                                    children: [],
+                                },
+                                {
+                                    id: '100102',
+                                    parentId: '1001',
+                                    title: '查看执行历史',
+                                    key: 'dashboard:log:list',
+                                    orderNum: 2,
+                                    permissionType: 'F',
+                                    path: '/data/governance/task/log/page',
+                                    component: null,
+                                    icon: null,
+                                    visible: '0',
+                                    children: [],
+                                },
+                            ],
+                        },
+                        {
+                            id: '1002',
+                            parentId: '1000',
+                            title: '数据源管理',
+                            key: 'database-connection',
+                            orderNum: 2,
+                            permissionType: 'C',
+                            path: '/database-connection',
+                            component: '/database-connection',
+                            icon: 'DatabaseOutlined',
+                            visible: '0',
+                            children: [
+                                {
+                                    id: '100201',
+                                    parentId: '1002',
+                                    title: '查询',
+                                    key: 'db-connection:list',
+                                    orderNum: 1,
+                                    permissionType: 'F',
+                                    path: '/data/governance/db-connection/page',
+                                    component: null,
+                                    icon: null,
+                                    visible: '0',
+                                    children: [],
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
+                    id: '2000',
+                    parentId: '0',
+                    title: '系统设置',
+                    key: 'system-settings',
+                    orderNum: 2,
+                    permissionType: 'M',
+                    path: '/system-settings',
+                    component: null,
+                    icon: 'SettingOutlined',
+                    visible: '0',
+                    children: [
+                        {
+                            id: '2001',
+                            parentId: '2000',
+                            title: '用户管理',
+                            key: 'users',
+                            orderNum: 1,
+                            permissionType: 'C',
+                            path: '/system-settings/users',
+                            component: '/system-settings/users',
+                            icon: 'UserOutlined',
+                            visible: '0',
+                            children: [],
+                        },
+                        {
+                            id: '2002',
+                            parentId: '2000',
+                            title: '角色管理',
+                            key: 'roles',
+                            orderNum: 2,
+                            permissionType: 'C',
+                            path: '/system-settings/roles',
+                            component: '/system-settings/roles',
+                            icon: 'TeamOutlined',
+                            visible: '0',
+                            children: [],
+                        },
+                    ],
+                },
+            ]
+            return createMockResponse({
+                code: 200,
+                msg: '操作成功',
+                data: menuData,
+            })
+        }
+        throw new Error(`未实现的模拟数据: ${url}`)
+    },
+}
+
+/**
+ * 角色权限（permission-tree / authorize）模拟数据
+ */
+const systemRolePermissionMockProvider = {
+    getMockData: async (config: AxiosRequestConfig): Promise<AxiosResponse> => {
+        const url = config.url || ''
+        const method = config.method?.toUpperCase() || ''
+        const { mockApi } = await import('@/mock/rbac')
+
+        // 获取角色权限树
+        if (url.includes('/system/role-permission/permission-tree') && method === 'POST') {
+            const data = config.data as any
+            const id = data?.id != null ? data.id : undefined
+            const response = await mockApi.role.getRolePermissionTree(id)
+            const inner = (response as any).data
+            return {
+                data: inner?.data ? inner : { code: 200, msg: '操作成功', data: inner },
+                status: 200,
+                statusText: 'OK',
+                headers: {},
+                config: config as any,
+            } as AxiosResponse
+        }
+
+        // 保存角色权限（授权）
+        if (url.includes('/system/role-permission/authorize') && method === 'PUT') {
+            const data = config.data as any
+            const response = await mockApi.role.authorizeRolePermissions(data)
+            const inner = (response as any).data
+            return {
+                data: inner?.data != null ? inner : { code: 200, msg: '操作成功', data: null },
+                status: 200,
+                statusText: 'OK',
+                headers: {},
+                config: config as any,
+            } as AxiosResponse
+        }
+
+        throw new Error(`未实现的模拟数据: ${url}`)
+    },
+}
+
+/**
  * 注册所有模拟数据提供者
  */
 export const registerAllMockProviders = (): void => {
@@ -1809,7 +1995,11 @@ export const registerAllMockProviders = (): void => {
     
     // 注册系统角色管理模块
     registerMockData('/system/role', systemRoleMockProvider)
-    
+    // 注册角色权限树与授权接口
+    registerMockData('/system/role-permission', systemRolePermissionMockProvider)
+    // 注册用户菜单权限（动态侧边栏）
+    registerMockData('/system/permission', permissionMenusMockProvider)
+
     // 可以继续注册其他模块的模拟数据提供者
 }
 

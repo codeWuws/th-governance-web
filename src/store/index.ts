@@ -1,6 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import counterReducer from './slices/counterSlice'
 import userReducer from './slices/userSlice'
+import menuReducer from './slices/menuSlice'
 import dataGovernanceReducer from './slices/dataGovernanceSlice'
 import workflowExecutionReducer from './slices/workflowExecutionSlice'
 import systemSettingsReducer from './slices/systemSettingsSlice'
@@ -18,6 +19,7 @@ export const store = configureStore({
     reducer: {
         counter: counterReducer,
         user: userReducer,
+        menu: menuReducer,
         dataGovernance: dataGovernanceReducer,
         workflowExecution: workflowExecutionReducer,
         systemSettings: systemSettingsReducer,

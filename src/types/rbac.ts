@@ -269,3 +269,25 @@ export interface PermissionTreeResponse {
     nodes: PermissionTreeNode[]
     checkedIds: string[]
 }
+
+/**
+ * 权限类型：M-目录/菜单 C-菜单/页面 F-按钮/权限
+ */
+export type PermissionType = 'M' | 'C' | 'F'
+
+/**
+ * 用户菜单权限节点（/system/permission/menus 接口返回）
+ */
+export interface PermissionMenu {
+    id: string
+    parentId: string
+    title: string
+    key: string
+    orderNum: number
+    permissionType: PermissionType
+    path: string | null
+    component: string | null
+    icon: string | null
+    visible: string
+    children: PermissionMenu[]
+}

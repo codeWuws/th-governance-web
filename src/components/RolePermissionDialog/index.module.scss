@@ -1,0 +1,76 @@
+.wrap {
+    min-height: 360px;
+}
+
+.tip {
+    margin-bottom: 12px;
+    color: rgba(0, 0, 0, 0.65);
+    font-size: 13px;
+
+    strong {
+        color: rgba(0, 0, 0, 0.88);
+    }
+}
+
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 320px;
+}
+
+.treeWrap {
+    max-height: 480px;
+    overflow: auto;
+    padding: 8px 0;
+}
+
+// 权限树简约样式：弱化连线与缩进，统一行高
+.permissionTree {
+    font-size: 13px;
+
+    :global {
+        .ant-tree-list-holder-inner {
+            padding-left: 0;
+        }
+
+        .ant-tree-treenode {
+            padding: 4px 0;
+            align-items: center;
+        }
+
+        .ant-tree-node-content-wrapper {
+            border-radius: 4px;
+        }
+
+        .ant-tree-node-content-wrapper:hover {
+            background: rgba(0, 0, 0, 0.04);
+        }
+
+        .ant-tree-checkbox {
+            margin-right: 8px;
+        }
+
+        .ant-tree-title {
+            color: rgba(0, 0, 0, 0.85);
+        }
+
+        .ant-tree-indent-unit {
+            width: 16px;
+        }
+
+        .ant-tree-switcher {
+            width: 16px;
+            line-height: 24px;
+            color: rgba(0, 0, 0, 0.25);
+        }
+
+        .ant-tree-indent::before {
+            border-right: none;
+        }
+    }
+}
+
+.empty {
+    margin: 48px 0;
+}

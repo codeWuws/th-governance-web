@@ -1,32 +1,15 @@
-import {
-    BarChartOutlined,
-    CheckCircleOutlined,
-    ClockCircleOutlined,
-    DashboardOutlined,
-    DatabaseOutlined,
-    FileTextOutlined,
-    HeartOutlined,
-    LinkOutlined,
-    MenuFoldOutlined,
-    MenuUnfoldOutlined,
-    SafetyCertificateOutlined,
-    SettingOutlined,
-    MergeCellsOutlined,
-    KeyOutlined,
-    ToolOutlined,
-    StarOutlined,
-    ApiOutlined,
-    TagOutlined,
-    SearchOutlined,
-    LineChartOutlined,
-    EyeOutlined,
-    UserOutlined,
-    TeamOutlined,
-    SafetyOutlined,
-} from '@ant-design/icons'
+import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons'
 import { Button, Layout, Menu, MenuProps } from 'antd'
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useAppSelector } from '@/store/hooks'
+import { selectMenus } from '@/store/slices/menuSlice'
+import {
+    permissionMenusToItems,
+    getOpenKeysFromMenus,
+    getSelectedKeyFromMenus,
+    ROUTER_BASENAME,
+} from './menuUtils'
 
 const { Sider } = Layout
 
@@ -35,259 +18,38 @@ interface SidebarProps {
     onToggle: () => void
 }
 
-type MenuItem = Required<MenuProps>['items'][number]
-
-export const menuItems: MenuItem[] = [
-    {
-        key: 'data-governance',
-        icon: <DatabaseOutlined />,
-        label: '数据治理',
-        children: [
-            {
-                key: '/dashboard',
-                icon: <DashboardOutlined />,
-                label: '仪表盘',
-            },
-            {
-                key: '/database-connection',
-                icon: <DatabaseOutlined />,
-                label: '数据源管理',
-            },
-            {
-                key: '/data-governance/workflow-config',
-                icon: <SettingOutlined />,
-                label: '工作流步骤',
-            },
-            {
-                key: '/data-governance/execution-history',
-                icon: <ClockCircleOutlined />,
-                label: '执行历史',
-            },
-        ],
-    },
-    {
-        key: 'data-quality-control',
-        icon: <SafetyCertificateOutlined />,
-        label: '数据质控',
-        children: [
-            {
-                key: '/data-quality-control/flow-management',
-                icon: <SafetyCertificateOutlined />,
-                label: '质控流程管理',
-            },
-            {
-                key: '/data-quality-control/execution-history',
-                icon: <ClockCircleOutlined />,
-                label: '质控执行历史',
-            },
-            {
-                key: '/data-quality-control/integrated',
-                icon: <SafetyCertificateOutlined />,
-                label: '综合质控管理',
-            },
-        ],
-    },
-    {
-        key: 'data-management',
-        icon: <DatabaseOutlined />,
-        label: '数据管理',
-        children: [
-            {
-                key: '/data-management/data-asset',
-                icon: <FileTextOutlined />,
-                label: '数据资产管理',
-            },
-            {
-                key: 'data-standards',
-                icon: <CheckCircleOutlined />,
-                label: '标准数据集管理',
-                children: [
-                    {
-                        key: '/data-management/category-standards',
-                        icon: <CheckCircleOutlined />,
-                        label: '类别标准管理',
-                    },
-                    {
-                        key: '/data-management/business-datasets',
-                        icon: <FileTextOutlined />,
-                        label: '业务数据集管理',
-                    },
-                    {
-                        key: '/data-management/medical-dictionaries',
-                        icon: <HeartOutlined />,
-                        label: '医疗字典数据集',
-                    },
-                    {
-                        key: '/data-management/state-dictionaries',
-                        icon: <TagOutlined />,
-                        label: '状态字典管理',
-                    },
-                ],
-            },
-            {
-                key: '/data-management/standard-dictionary-mapping',
-                icon: <LinkOutlined />,
-                label: '标准字典关系对照',
-            },
-            {
-                key: 'master-index',
-                icon: <KeyOutlined />,
-                label: '主索引管理',
-                children: [
-                    {
-                        key: '/data-management/index-rules',
-                        icon: <KeyOutlined />,
-                        label: '主索引生成规则',
-                    },
-                    {
-                        key: '/data-management/index-configuration',
-                        icon: <SettingOutlined />,
-                        label: '主索引配置',
-                    },
-                    {
-                        key: '/data-management/index-processing',
-                        icon: <ToolOutlined />,
-                        label: '患者索引处理',
-                    },
-                ],
-            },
-        ],
-    },
-    // {
-    //     key: 'data-parsing',
-    //     icon: <ApiOutlined />,
-    //     label: '数据解析',
-    //     children: [
-    //         {
-    //             key: '/data-parsing',
-    //             icon: <ApiOutlined />,
-    //             label: '数据解析首页',
-    //         },
-    //         {
-    //             key: '/data-parsing/annotation',
-    //             icon: <TagOutlined />,
-    //             label: '数据标注',
-    //         },
-    //         {
-    //             key: '/data-parsing/medical-record',
-    //             icon: <FileTextOutlined />,
-    //             label: '电子病历解析',
-    //         },
-    //     ],
-    // },
-    // // 数据检索模块
-    // {
-    //     key: 'data-retrieval',
-    //     icon: <SearchOutlined />,
-    //     label: '数据检索',
-    //     children: [
-    //         {
-    //             key: '/data-retrieval/fulltext',
-    //             icon: <SearchOutlined />,
-    //             label: '全文检索',
-    //         },
-    //         {
-    //             key: '/data-retrieval/advanced',
-    //             icon: <FileTextOutlined />,
-    //             label: '高级检索',
-    //         },
-    //         {
-    //             key: '/data-retrieval/condition-tree',
-    //             icon: <LinkOutlined />,
-    //             label: '条件树检索',
-    //         },
-    //         {
-    //             key: '/data-retrieval/analysis',
-    //             icon: <LineChartOutlined />,
-    //             label: '检索分析',
-    //         },
-    //         {
-    //             key: '/data-retrieval/visualization',
-    //             icon: <EyeOutlined />,
-    //             label: '可视化查看',
-    //         },
-    //     ],
-    // },
-    // 系统设置模块
-    {
-        key: 'system-settings',
-        icon: <SettingOutlined />,
-        label: '系统设置',
-        children: [
-            {
-                key: '/system-settings/users',
-                icon: <UserOutlined />,
-                label: '用户管理',
-            },
-            {
-                key: '/system-settings/roles',
-                icon: <TeamOutlined />,
-                label: '角色管理',
-            },
-            {
-                key: '/system-settings/permissions',
-                icon: <SafetyOutlined />,
-                label: '权限管理',
-            },
-        ],
-    },
-
-    // {
-    //     key: '/style-demo',
-    //     icon: <BgColorsOutlined />,
-    //     label: '样式演示',
-    // },
-]
-
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
     const navigate = useNavigate()
     const location = useLocation()
+    const menus = useAppSelector(selectMenus)
 
-    // 获取当前选中的菜单项
-    const getSelectedKeys = () => {
-        return [location.pathname]
-    }
+    const menuItems = useMemo(
+        () => permissionMenusToItems(menus, ROUTER_BASENAME),
+        [menus]
+    )
 
-    // 获取当前展开的菜单项
-    const getOpenKeys = () => {
-        const pathSegments = location.pathname.split('/').filter(Boolean)
-        if (pathSegments.length > 0) {
-            // 如果是数据质控相关路径，展开数据质控菜单
-            if (location.pathname.startsWith('/data-quality-control')) {
-                return ['data-quality-control']
-            }
-            // 如果是数据治理相关路径，展开数据治理菜单
-            if (
-                location.pathname.startsWith('/dashboard') ||
-                location.pathname.startsWith('/database-connection') ||
-                location.pathname.startsWith('/data-governance')
-            ) {
-                return ['data-governance']
-            }
-            // 如果是系统设置相关路径，展开系统设置菜单
-            if (location.pathname.startsWith('/system-settings')) {
-                return ['system-settings']
-            }
-            // 如果是数据管理相关路径，展开数据管理菜单
-            if (location.pathname.startsWith('/data-management')) {
-                return ['data-management']
-            }
-            // 如果是数据解析相关路径，展开数据解析菜单
-            if (location.pathname.startsWith('/data-parsing')) {
-                return ['data-parsing']
-            }
-        }
-        return []
-    }
+    const selectedKeys = useMemo(() => {
+        const key = getSelectedKeyFromMenus(menus, location.pathname, ROUTER_BASENAME)
+        return key ? [key] : []
+    }, [menus, location.pathname])
 
-    const [openKeys, setOpenKeys] = useState<string[]>(getOpenKeys())
+    const defaultOpenKeys = useMemo(
+        () => getOpenKeysFromMenus(menus, location.pathname),
+        [menus, location.pathname]
+    )
+    const [openKeys, setOpenKeys] = useState<string[]>(defaultOpenKeys)
 
-    // 处理菜单点击事件
+    useEffect(() => {
+        setOpenKeys(prev => {
+            const next = getOpenKeysFromMenus(menus, location.pathname)
+            return next.length ? next : prev
+        })
+    }, [menus, location.pathname])
+
     const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
-        navigate(key)
+        navigate(key.startsWith(ROUTER_BASENAME) ? key.slice(ROUTER_BASENAME.length) || '/' : key)
     }
 
-    // 处理子菜单展开/收起
     const handleOpenChange = (keys: string[]) => {
         setOpenKeys(keys)
     }
@@ -389,7 +151,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
             </div>
             <Menu
                 mode='inline'
-                selectedKeys={getSelectedKeys()}
+                selectedKeys={selectedKeys}
                 openKeys={openKeys}
                 onOpenChange={handleOpenChange}
                 onClick={handleMenuClick}

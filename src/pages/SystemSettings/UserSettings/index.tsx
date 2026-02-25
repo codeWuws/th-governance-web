@@ -58,6 +58,13 @@ import { formatDate } from '@/utils/date'
 const { Search } = Input
 const { Option } = Select
 
+/** 将接口返回的 status（'0'/'1' 或 0/1）规范为 UserStatus */
+function normalizeUserStatus(status: string | number | undefined): UserStatus {
+    if (status === '0' || status === 0) return UserStatus.ACTIVE
+    if (status === '1' || status === 1) return UserStatus.DISABLED
+    return UserStatus.DISABLED
+}
+
 /**
  * 用户状态标签映射
  */
@@ -158,7 +165,7 @@ const UserSettings: React.FC = () => {
                     phone: record.phoneNumber,
                     realName: record.nickName, // 昵称映射到realName
                     avatar: record.avatar || undefined,
-                    status: record.status === '0' ? UserStatus.ACTIVE : UserStatus.DISABLED,
+                    status: normalizeUserStatus(record.status),
                     sex: record.sex, // 保留性别字段
                     roles: record.roles.map((roleName, index) => ({
                         id: String(index),
@@ -238,7 +245,7 @@ const UserSettings: React.FC = () => {
                         name: record.roleName,
                         code: record.roleKey,
                         sortOrder: record.roleSort,
-                        status: record.status === '0' ? 'active' : 'disabled',
+                        status: normalizeUserStatus(record.status) === UserStatus.ACTIVE ? 'active' : 'disabled',
                         userCount: parseInt(record.userCount) || 0,
                         description: record.remark || undefined,
                         createdAt: record.createTime || new Date().toISOString(),
@@ -395,13 +402,13 @@ const UserSettings: React.FC = () => {
                     phone: userDetail.phoneNumber,
                     realName: userDetail.nickName,
                     avatar: userDetail.avatar || undefined,
-                    status: userDetail.status === '0' ? UserStatus.ACTIVE : UserStatus.DISABLED,
+                    status: normalizeUserStatus(userDetail.status),
                     sex: userDetail.sex, // 保留性别字段
                     roles: (userDetail.roleVos || []).map((role: any) => ({
                         id: role.id,
                         name: role.roleName,
                         code: role.roleKey,
-                        status: role.status === '0' ? RoleStatus.ACTIVE : RoleStatus.DISABLED,
+                        status: role.status === '0' || role.status === 0 ? RoleStatus.ACTIVE : RoleStatus.DISABLED,
                         sortOrder: role.roleSort || 0,
                         description: role.remark,
                         createdAt: role.createTime || new Date().toISOString(),
@@ -473,13 +480,13 @@ const UserSettings: React.FC = () => {
                     phone: userDetail.phoneNumber,
                     realName: userDetail.nickName,
                     avatar: userDetail.avatar || undefined,
-                    status: userDetail.status === '0' ? UserStatus.ACTIVE : UserStatus.DISABLED,
+                    status: normalizeUserStatus(userDetail.status),
                     sex: userDetail.sex, // 保留性别字段
                     roles: (userDetail.roleVos || []).map((role: any) => ({
                         id: role.id,
                         name: role.roleName,
                         code: role.roleKey,
-                        status: role.status === '0' ? RoleStatus.ACTIVE : RoleStatus.DISABLED,
+                        status: role.status === '0' || role.status === 0 ? RoleStatus.ACTIVE : RoleStatus.DISABLED,
                         sortOrder: role.roleSort || 0,
                         description: role.remark,
                         createdAt: role.createTime || new Date().toISOString(),
@@ -555,7 +562,7 @@ const UserSettings: React.FC = () => {
             }
             
             // 计算新状态（0-正常，1-停用）
-            const currentStatus = userDetail.status === '0' ? '0' : '1'
+            const currentStatus = (userDetail.status === '0' || userDetail.status === 0) ? '0' : '1'
             const newStatus = currentStatus === '0' ? '1' : '0'
             
             // 构建编辑请求数据
@@ -840,15 +847,12 @@ const UserSettings: React.FC = () => {
             dataIndex: 'status',
             key: 'status',
             width: 100,
-            render: (status: UserStatus | string, record: any) => {
-                // 支持两种格式：UserStatus枚举或字符串'0'/'1'
-                let statusValue: UserStatus
-                if (typeof status === 'string') {
-                    statusValue = status === '0' ? UserStatus.ACTIVE : UserStatus.DISABLED
-                } else {
-                    statusValue = status
-                }
-                const statusInfo = userStatusMap[statusValue]
+            render: (status: UserStatus | string | number, record: any) => {
+                // 支持 UserStatus 枚举、字符串 '0'/'1'、数字 0/1
+                const statusValue: UserStatus =
+                    status === UserStatus.ACTIVE || status === UserStatus.DISABLED || status === UserStatus.LOCKED
+                        ? status
+                        : normalizeUserStatus(status)
                 const statusText = statusValue === UserStatus.ACTIVE ? '正常' : '停用'
                 const color = statusValue === UserStatus.ACTIVE ? 'success' : 'error'
                 return <Badge status={color as any} text={statusText} />

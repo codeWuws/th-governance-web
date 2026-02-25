@@ -1,0 +1,747 @@
+[
+  {
+    "permissionType": "M",
+    "permissionKey": "data-governance",
+    "permissionName": "数据治理",
+    "icon": "DatabaseOutlined",
+    "orderNum": 1,
+    "children": [
+      {
+        "permissionType": "C",
+        "permissionKey": "dashboard",
+        "permissionName": "仪表盘",
+        "component": "/dashboard",
+        "icon": "DashboardOutlined",
+        "orderNum": 1,
+        "children": [
+          {
+            "permissionType": "F",
+            "permissionKey": "dashboard:statistics:query",
+            "permissionName": "查看统计数据",
+            "path": "/data/governance/dashboard/statistics",
+            "orderNum": 1
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "dashboard:log:query",
+            "permissionName": "查看执行历史",
+            "path": "/data/governance/task/log/page",
+            "orderNum": 2
+          }
+        ]
+      },
+      {
+        "permissionType": "C",
+        "permissionKey": "database-connection",
+        "permissionName": "数据源管理",
+        "component": "/database-connection",
+        "icon": "DatabaseOutlined",
+        "orderNum": 2,
+        "children": [
+          {
+            "permissionType": "F",
+            "permissionKey": "db-connection:query",
+            "permissionName": "查询",
+            "path": "/data/governance/db-connection/page",
+            "orderNum": 1
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "db-connection:add",
+            "permissionName": "新增",
+            "path": "/data/governance/db-connection/add",
+            "orderNum": 2
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "db-connection:edit",
+            "permissionName": "修改",
+            "path": "/data/governance/db-connection/update",
+            "orderNum": 3
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "db-connection:delete",
+            "permissionName": "删除",
+            "path": "/data/governance/db-connection",
+            "orderNum": 4
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "db-connection:test",
+            "permissionName": "测试连接",
+            "path": "/data/governance/db-connection/mock-test",
+            "orderNum": 5
+          }
+        ]
+      },
+      {
+        "permissionType": "C",
+        "permissionKey": "workflow-config",
+        "permissionName": "工作流步骤",
+        "component": "/data-governance/workflow-config",
+        "icon": "SettingOutlined",
+        "orderNum": 3,
+        "children": [
+          {
+            "permissionType": "F",
+            "permissionKey": "workflow:config:query",
+            "permissionName": "查询",
+            "path": "/data/governance/task/config/list",
+            "orderNum": 1
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "workflow:config:edit",
+            "permissionName": "修改",
+            "path": "/data/governance/task/config/update",
+            "orderNum": 2
+          }
+        ]
+      },
+      {
+        "permissionType": "C",
+        "permissionKey": "execution-history",
+        "permissionName": "执行历史",
+        "component": "/data-governance/execution-history",
+        "icon": "ClockCircleOutlined",
+        "orderNum": 4,
+        "children": [
+          {
+            "permissionType": "F",
+            "permissionKey": "execution:log:query",
+            "permissionName": "查询",
+            "path": "/data/governance/task/log/page",
+            "orderNum": 1
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "execution:detail:query",
+            "permissionName": "查看详情",
+            "path": "/data/governance/log",
+            "orderNum": 2
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "execution:task:start",
+            "permissionName": "启动工作流",
+            "path": "/data/governance/task/process/start",
+            "orderNum": 3
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "execution:task:continue",
+            "permissionName": "继续执行",
+            "path": "/data/governance/task/process/continue",
+            "orderNum": 4
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "execution:data:sync",
+            "permissionName": "数据同步",
+            "path": "/data/governance/task/data/sync",
+            "orderNum": 5
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "permissionType": "M",
+    "permissionKey": "data-quality-control",
+    "permissionName": "数据质控",
+    "icon": "SafetyCertificateOutlined",
+    "orderNum": 2,
+    "children": [
+      {
+        "permissionType": "C",
+        "permissionKey": "flow-management",
+        "permissionName": "质控流程管理",
+        "component": "/data-quality-control/flow-management",
+        "icon": "SafetyCertificateOutlined",
+        "orderNum": 1,
+        "children": [
+          {
+            "permissionType": "F",
+            "permissionKey": "qc:task:config:query",
+            "permissionName": "查询配置",
+            "path": "/data/qc/task/config/list",
+            "orderNum": 1
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "qc:reliability:save",
+            "permissionName": "保存可靠性质控",
+            "path": "/data/qc/reliabilityQc",
+            "orderNum": 2
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "qc:table:query",
+            "permissionName": "查询表信息",
+            "path": "/data/qc/getTableInfo",
+            "orderNum": 3
+          }
+        ]
+      },
+      {
+        "permissionType": "C",
+        "permissionKey": "qc-execution-history",
+        "permissionName": "质控执行历史",
+        "component": "/data-quality-control/execution-history",
+        "icon": "ClockCircleOutlined",
+        "orderNum": 2,
+        "children": [
+          {
+            "permissionType": "F",
+            "permissionKey": "qc:task:query",
+            "permissionName": "查询",
+            "path": "/data/qc/task/page",
+            "orderNum": 1
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "qc:task:detail:query",
+            "permissionName": "查看日志详情",
+            "path": "/data/qc/task/log",
+            "orderNum": 2
+          }
+        ]
+      },
+      {
+        "permissionType": "C",
+        "permissionKey": "integrated-qc",
+        "permissionName": "综合质控管理",
+        "component": "/data-quality-control/integrated",
+        "icon": "SafetyCertificateOutlined",
+        "orderNum": 3,
+        "children": [
+          {
+            "permissionType": "F",
+            "permissionKey": "qc:completeness:query",
+            "permissionName": "完整性质控查询",
+            "path": "/data/governance/task/logs/qc/rate/page",
+            "orderNum": 1
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "qc:accuracy:query",
+            "permissionName": "准确性质控查询",
+            "path": "/data/governance/task/logs/qc/accuracy/page",
+            "orderNum": 2
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "qc:consistency:query",
+            "permissionName": "一致性质控查询",
+            "path": "/data/governance/task/logs/qc/relation/page",
+            "orderNum": 3
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "permissionType": "M",
+    "permissionKey": "data-management",
+    "permissionName": "数据管理",
+    "icon": "DatabaseOutlined",
+    "orderNum": 3,
+    "children": [
+      {
+        "permissionType": "C",
+        "permissionKey": "data-asset",
+        "permissionName": "数据资产管理",
+        "component": "/data-management/data-asset",
+        "icon": "FileTextOutlined",
+        "orderNum": 1,
+        "children": [
+          {
+            "permissionType": "F",
+            "permissionKey": "asset:tree:query",
+            "permissionName": "查询资产树",
+            "path": "/data/asset/tree",
+            "orderNum": 1
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "asset:table:query",
+            "permissionName": "查询表列表",
+            "path": "/data/asset/table/list",
+            "orderNum": 2
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "asset:add",
+            "permissionName": "新增资产",
+            "path": "/data/asset/add/asset",
+            "orderNum": 3
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "asset:category:add",
+            "permissionName": "新增资产类别",
+            "path": "/data/asset/add/category",
+            "orderNum": 4
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "asset:edit",
+            "permissionName": "修改",
+            "path": "/data/asset/update",
+            "orderNum": 5
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "asset:delete",
+            "permissionName": "删除",
+            "path": "/data/asset/delete",
+            "orderNum": 6
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "asset:columns:query",
+            "permissionName": "查询字段详情",
+            "path": "/data/asset/columns/details",
+            "orderNum": 7
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "asset:options:query",
+            "permissionName": "查询数据库选项",
+            "path": "/data/asset/options",
+            "orderNum": 8
+          }
+        ]
+      },
+      {
+        "permissionType": "M",
+        "permissionKey": "data-standards",
+        "permissionName": "标准数据集管理",
+        "icon": "CheckCircleOutlined",
+        "orderNum": 2,
+        "children": [
+          {
+            "permissionType": "C",
+            "permissionKey": "category-standards",
+            "permissionName": "类别标准管理",
+            "component": "/data-management/category-standards",
+            "icon": "CheckCircleOutlined",
+            "orderNum": 1,
+            "children": [
+              {
+                "permissionType": "F",
+                "permissionKey": "category:query",
+                "permissionName": "查询",
+                "path": "/data/standard/category/page",
+                "orderNum": 1
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "category:add",
+                "permissionName": "新增",
+                "path": "/data/standard/category/add",
+                "orderNum": 2
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "category:edit",
+                "permissionName": "修改",
+                "path": "/data/standard/category/update",
+                "orderNum": 3
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "category:delete",
+                "permissionName": "删除",
+                "path": "/data/standard/category",
+                "orderNum": 4
+              }
+            ]
+          },
+          {
+            "permissionType": "C",
+            "permissionKey": "business-datasets",
+            "permissionName": "业务数据集管理",
+            "component": "/data-management/business-datasets",
+            "icon": "FileTextOutlined",
+            "orderNum": 2,
+            "children": [
+              {
+                "permissionType": "F",
+                "permissionKey": "business-dataset:query",
+                "permissionName": "查询",
+                "path": "/data/standard/business-dataset/page",
+                "orderNum": 1
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "business-dataset:add",
+                "permissionName": "新增",
+                "path": "/data/standard/business-dataset/add",
+                "orderNum": 2
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "business-dataset:edit",
+                "permissionName": "修改",
+                "path": "/data/standard/business-dataset/update",
+                "orderNum": 3
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "business-dataset:delete",
+                "permissionName": "删除",
+                "path": "/data/standard/business-dataset",
+                "orderNum": 4
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "business-dataset:mapping",
+                "permissionName": "自动映射",
+                "path": "/data/standard/business-dataset/automaticMapping",
+                "orderNum": 5
+              }
+            ]
+          },
+          {
+            "permissionType": "C",
+            "permissionKey": "medical-dictionaries",
+            "permissionName": "医疗字典数据集",
+            "component": "/data-management/medical-dictionaries",
+            "icon": "HeartOutlined",
+            "orderNum": 3,
+            "children": [
+              {
+                "permissionType": "F",
+                "permissionKey": "medical-dict:query",
+                "permissionName": "查询",
+                "path": "/data/standard/medical-dict/page",
+                "orderNum": 1
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "medical-dict:add",
+                "permissionName": "新增",
+                "path": "/data/standard/medical-dict/add",
+                "orderNum": 2
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "medical-dict:edit",
+                "permissionName": "修改",
+                "path": "/data/standard/medical-dict/update",
+                "orderNum": 3
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "medical-dict:delete",
+                "permissionName": "删除",
+                "path": "/data/standard/medical-dict",
+                "orderNum": 4
+              }
+            ]
+          },
+          {
+            "permissionType": "C",
+            "permissionKey": "state-dictionaries",
+            "permissionName": "状态字典管理",
+            "component": "/data-management/state-dictionaries",
+            "icon": "TagOutlined",
+            "orderNum": 4,
+            "children": [
+              {
+                "permissionType": "F",
+                "permissionKey": "status-dict:query",
+                "permissionName": "查询",
+                "path": "/data/standard/status-dict/page",
+                "orderNum": 1
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "status-dict:add",
+                "permissionName": "新增",
+                "path": "/data/standard/status-dict/add",
+                "orderNum": 2
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "status-dict:edit",
+                "permissionName": "修改",
+                "path": "/data/standard/status-dict/update",
+                "orderNum": 3
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "status-dict:delete",
+                "permissionName": "删除",
+                "path": "/data/standard/status-dict",
+                "orderNum": 4
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "status-dict:export",
+                "permissionName": "导出",
+                "path": "/data/standard/status-dict/export",
+                "orderNum": 5
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "permissionType": "C",
+        "permissionKey": "standard-dictionary-mapping",
+        "permissionName": "标准字典关系对照",
+        "component": "/data-management/standard-dictionary-mapping",
+        "icon": "LinkOutlined",
+        "orderNum": 3,
+        "children": [
+          {
+            "permissionType": "F",
+            "permissionKey": "standard-dict:query",
+            "permissionName": "查询",
+            "path": "/data/standard/page",
+            "orderNum": 1
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "standard-dict:detail:query",
+            "permissionName": "查看详情",
+            "path": "/data/standard",
+            "orderNum": 2
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "standard-dict:add",
+            "permissionName": "新增",
+            "path": "/data/standard/add",
+            "orderNum": 3
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "standard-dict:edit",
+            "permissionName": "修改",
+            "path": "/data/standard/update",
+            "orderNum": 4
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "standard-dict:delete",
+            "permissionName": "删除",
+            "path": "/data/standard",
+            "orderNum": 5
+          }
+        ]
+      },
+      {
+        "permissionType": "M",
+        "permissionKey": "master-index",
+        "permissionName": "主索引管理",
+        "icon": "KeyOutlined",
+        "orderNum": 4,
+        "children": [
+          {
+            "permissionType": "C",
+            "permissionKey": "index-rules",
+            "permissionName": "主索引生成规则",
+            "component": "/data-management/index-rules",
+            "icon": "KeyOutlined",
+            "orderNum": 1,
+            "children": [
+              {
+                "permissionType": "F",
+                "permissionKey": "index-rule:query",
+                "permissionName": "查询",
+                "path": "/data/primary-index-rule/page",
+                "orderNum": 1
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "index-rule:add",
+                "permissionName": "新增",
+                "path": "/data/primary-index-rule/add",
+                "orderNum": 2
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "index-rule:edit",
+                "permissionName": "修改",
+                "path": "/data/primary-index-rule/update",
+                "orderNum": 3
+              }
+            ]
+          },
+          {
+            "permissionType": "C",
+            "permissionKey": "index-configuration",
+            "permissionName": "主索引配置",
+            "component": "/data-management/index-configuration",
+            "icon": "SettingOutlined",
+            "orderNum": 2,
+            "children": [
+              {
+                "permissionType": "F",
+                "permissionKey": "master-index-config:query",
+                "permissionName": "查询",
+                "path": "/index/master-index-config/page",
+                "orderNum": 1
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "master-index-config:add",
+                "permissionName": "新增",
+                "path": "/index/master-index-config/add",
+                "orderNum": 2
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "master-index-config:edit",
+                "permissionName": "修改",
+                "path": "/index/master-index-config/update",
+                "orderNum": 3
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "master-index-config:delete",
+                "permissionName": "删除",
+                "path": "/index/master-index-config",
+                "orderNum": 4
+              }
+            ]
+          },
+          {
+            "permissionType": "C",
+            "permissionKey": "index-processing",
+            "permissionName": "患者索引处理",
+            "component": "/data-management/index-processing",
+            "icon": "ToolOutlined",
+            "orderNum": 3,
+            "children": [
+              {
+                "permissionType": "F",
+                "permissionKey": "empi:list:query",
+                "permissionName": "查询患者索引列表",
+                "path": "/data/primary-index/patient/empi/list",
+                "orderNum": 1
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "empi:merge",
+                "permissionName": "合并患者索引",
+                "path": "/data/primary-index/patient/empi/merge",
+                "orderNum": 2
+              },
+              {
+                "permissionType": "F",
+                "permissionKey": "empi:record:query",
+                "permissionName": "查询合并历史",
+                "path": "/data/primary-index/patient/empi/distribution/record/list",
+                "orderNum": 3
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "permissionType": "M",
+    "permissionKey": "system-settings",
+    "permissionName": "系统设置",
+    "icon": "SettingOutlined",
+    "orderNum": 4,
+    "children": [
+      {
+        "permissionType": "C",
+        "permissionKey": "users",
+        "permissionName": "用户管理",
+        "component": "/system-settings/users",
+        "icon": "UserOutlined",
+        "orderNum": 1,
+        "children": [
+          {
+            "permissionType": "F",
+            "permissionKey": "system:user:query",
+            "permissionName": "查询",
+            "path": "/system/user/page",
+            "orderNum": 1
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "system:user:detail:query",
+            "permissionName": "查看详情",
+            "path": "/system/user/getUserById",
+            "orderNum": 2
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "system:user:add",
+            "permissionName": "新增",
+            "path": "/system/user/add",
+            "orderNum": 3
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "system:user:edit",
+            "permissionName": "修改",
+            "path": "/system/user/edit",
+            "orderNum": 4
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "system:user:delete",
+            "permissionName": "删除",
+            "path": "/system/user/delete",
+            "orderNum": 5
+          }
+        ]
+      },
+      {
+        "permissionType": "C",
+        "permissionKey": "roles",
+        "permissionName": "角色管理",
+        "component": "/system-settings/roles",
+        "icon": "TeamOutlined",
+        "orderNum": 2,
+        "children": [
+          {
+            "permissionType": "F",
+            "permissionKey": "system:role:query",
+            "permissionName": "查询",
+            "path": "/system/role/page",
+            "orderNum": 1
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "system:role:add",
+            "permissionName": "新增",
+            "path": "/system/role/add",
+            "orderNum": 2
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "system:role:edit",
+            "permissionName": "修改",
+            "path": "/system/role/edit",
+            "orderNum": 3
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "system:role:delete",
+            "permissionName": "删除",
+            "path": "/system/role/delete",
+            "orderNum": 4
+          },
+          {
+            "permissionType": "F",
+            "permissionKey": "system:role:authorize",
+            "permissionName": "授权",
+            "path": "/system/role-permission/authorize",
+            "orderNum": 5
+          }
+        ]
+      }
+    ]
+  }
+]

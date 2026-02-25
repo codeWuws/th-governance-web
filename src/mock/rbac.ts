@@ -4,28 +4,58 @@
  */
 
 import { User, Role, UserStatus, RoleStatus } from '@/types/rbac'
-import { menuItems } from '@/components/Layout/Sidebar'
+import type { PermissionTreeNode } from '@/types/rbac'
+import rbacPermissions from '@/config/rbacPermissions.json'
 
-// 收集菜单叶子节点 key 作为权限项
-const collectLeafKeys = (items: any[]): string[] => {
-    const result: string[] = []
-    const walk = (nodes: any[]) => {
-        nodes.forEach(node => {
-            const children = (node as any).children as any[] | undefined
-            if (children && children.length) {
-                walk(children)
-            } else {
-                if (typeof node.key === 'string' && node.key.startsWith('/')) {
-                    result.push(node.key)
-                }
-            }
-        })
-    }
-    walk(items)
-    return result
+/** 将 rbacPermissions.json 结构转为 PermissionTreeNode 树 */
+function buildPermissionTreeFromConfig(
+    items: Array<{ permissionKey?: string; permissionName?: string; orderNum?: number; children?: any[] }>,
+    parentId: string = ''
+): PermissionTreeNode[] {
+    if (!items || !items.length) return []
+    return items.map(item => {
+        const key = item.permissionKey || ''
+        const node: PermissionTreeNode = {
+            id: key,
+            parentId,
+            title: item.permissionName || key,
+            key,
+            orderNum: item.orderNum ?? 0,
+            children: [],
+        }
+        if (item.children && item.children.length) {
+            node.children = buildPermissionTreeFromConfig(item.children, key)
+        }
+        return node
+    })
 }
 
-const ALL_MENU_KEYS = collectLeafKeys(menuItems as any)
+/** 全局权限树节点（基于 config 生成，用于 mock） */
+const MOCK_PERMISSION_TREE_NODES: PermissionTreeNode[] = buildPermissionTreeFromConfig(
+    rbacPermissions as Array<{ permissionKey?: string; permissionName?: string; orderNum?: number; children?: any[] }>
+)
+
+/** 模拟用：所有可分配的路由权限 key 列表（与 /system/permission/menus 侧栏路由一致，用于 mock 角色权限） */
+const ALL_MENU_KEYS = [
+    '/dashboard',
+    '/database-connection',
+    '/data-governance/workflow-config',
+    '/data-governance/execution-history',
+    '/data-quality-control/flow-management',
+    '/data-quality-control/execution-history',
+    '/data-quality-control/integrated',
+    '/data-management/data-asset',
+    '/data-management/category-standards',
+    '/data-management/business-datasets',
+    '/data-management/medical-dictionaries',
+    '/data-management/state-dictionaries',
+    '/data-management/standard-dictionary-mapping',
+    '/data-management/index-rules',
+    '/data-management/index-configuration',
+    '/data-management/index-processing',
+    '/system-settings/users',
+    '/system-settings/roles',
+]
 
 // 模拟角色数据
 const mockRoles: Role[] = [
@@ -52,7 +82,6 @@ const mockRoles: Role[] = [
         permissions: [
             '/system-settings/users',
             '/system-settings/roles',
-            '/system-settings/permissions',
         ],
     },
     {
@@ -923,6 +952,53 @@ export const mockRoleApi = {
             data: {
                 success: true,
                 message: '删除角色成功',
+            },
+        }
+    },
+
+    // 获取角色权限树（新接口：返回树 + 该角色已选中的 id 列表）
+    getRolePermissionTree: async (params: { id: string | number } | string | number) => {
+        await delay(200)
+        const roleId = typeof params === 'object' && params && 'id' in params
+            ? String(params.id)
+            : String(params)
+        const role = roles.find(r => r.id === roleId)
+        if (!role) {
+            throw new Error('角色不存在')
+        }
+        // checkedIds 与树节点 id/key 一致，mock 中角色 permissions 存 permission key
+        const checkedIds = role.permissions || []
+        return {
+            data: {
+                code: 200,
+                msg: '操作成功',
+                data: {
+                    nodes: MOCK_PERMISSION_TREE_NODES,
+                    checkedIds,
+                },
+            },
+        }
+    },
+
+    // 保存角色权限（授权接口）
+    authorizeRolePermissions: async (params: { roleId: string; permissionIds: (string | number)[] }) => {
+        await delay(300)
+        const { roleId, permissionIds } = params
+        const index = roles.findIndex(r => r.id === roleId)
+        if (index === -1) {
+            throw new Error('角色不存在')
+        }
+        const role = roles[index]!
+        roles[index] = {
+            ...role,
+            permissions: permissionIds.map(id => String(id)),
+            updatedAt: new Date().toISOString(),
+        }
+        return {
+            data: {
+                code: 200,
+                msg: '操作成功',
+                data: null,
             },
         }
     },
