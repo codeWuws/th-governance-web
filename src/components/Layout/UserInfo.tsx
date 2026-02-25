@@ -57,6 +57,24 @@ const UserInfo: React.FC = () => {
         return currentUser.roles.join('、') || '普通用户'
     }
 
+    /** 格式化登录时间 */
+    const formatLoginTime = (ts?: number) => {
+        if (ts == null || !Number.isFinite(ts)) return null
+        return new Date(ts).toLocaleString('zh-CN', {
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+        })
+    }
+
+    /** 是否有本次登录信息可展示 */
+    const hasLoginInfo =
+        currentUser?.browser ||
+        currentUser?.os ||
+        currentUser?.ipaddr ||
+        (currentUser?.loginTime != null && Number.isFinite(currentUser.loginTime))
+
     /**
      * 用户菜单项
      */
@@ -65,28 +83,31 @@ const UserInfo: React.FC = () => {
             key: 'userInfo',
             type: 'group' as const,
             label: (
-                <div style={{ padding: '4px 0' }}>
-                    <div style={{ fontWeight: 500, marginBottom: 4 }}>
+                <div className={styles.dropdownUserBlock}>
+                    <div className={styles.dropdownName}>
                         {currentUser?.nickName || currentUser?.username}
                     </div>
-                    {currentUser?.nickName && (
-                        <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 2 }}>
-                            {currentUser.username}
-                        </div>
+                    {currentUser?.nickName && currentUser.nickName !== currentUser?.username && (
+                        <div className={styles.dropdownMeta}>{currentUser.username}</div>
                     )}
                     {currentUser?.email && (
-                        <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 2 }}>
-                            {currentUser.email}
-                        </div>
+                        <div className={styles.dropdownMeta}>{currentUser.email}</div>
                     )}
                     {currentUser?.phoneNumber && (
-                        <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 2 }}>
-                            {currentUser.phoneNumber}
+                        <div className={styles.dropdownMeta}>{currentUser.phoneNumber}</div>
+                    )}
+                    <div className={styles.dropdownRole}>{getRoleText()}</div>
+                    {hasLoginInfo && (
+                        <div className={styles.dropdownLoginInfo}>
+                            <span className={styles.dropdownLoginLabel}>本次登录</span>
+                            <span className={styles.dropdownLoginValue}>
+                                {[currentUser?.browser, currentUser?.os].filter(Boolean).join(' / ')}
+                                {(currentUser?.browser || currentUser?.os) && currentUser?.ipaddr ? ' · ' : ''}
+                                {currentUser?.ipaddr}
+                                {formatLoginTime(currentUser?.loginTime) ? ` · ${formatLoginTime(currentUser.loginTime)}` : ''}
+                            </span>
                         </div>
                     )}
-                    <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 2 }}>
-                        {getRoleText()}
-                    </div>
                 </div>
             ),
             disabled: true,

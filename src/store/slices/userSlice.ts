@@ -3,17 +3,29 @@ import { AuthService, type UserInfoDetail } from '@/services/authService'
 
 // 用户信息接口
 export interface User {
-    id: number
+    id: number | string
     username: string
     nickName?: string // 昵称
     email: string
     phoneNumber?: string // 手机号
-    avatar?: string
+    avatar?: string | null
     role: 'admin' | 'user' | 'guest'
     roles?: string[] // 角色列表
-    deptId?: number // 部门ID
+    deptId?: number | string // 部门ID
     permissions?: string[] // 权限列表
     createdAt: string
+    /** 本次登录时间戳（毫秒） */
+    loginTime?: number
+    /** 令牌过期时间戳（毫秒） */
+    expireTime?: number
+    /** 登录IP */
+    ipaddr?: string | null
+    /** 登录地点 */
+    loginLocation?: string | null
+    /** 浏览器 */
+    browser?: string | null
+    /** 操作系统 */
+    os?: string | null
 }
 
 // 用户状态接口
@@ -42,7 +54,9 @@ export const refreshUserInfo = createAsyncThunk(
             // 通过 /auth/info 接口获取用户详细信息
             const userInfo = await AuthService.getUserInfo()
             
-            // 将 UserInfoDetail 转换为 User 类型
+            // 将 UserInfoDetail 转换为 User 类型，并写入本次登录信息
+            const loginTime = typeof userInfo.loginTime === 'string' ? Number(userInfo.loginTime) : userInfo.loginTime
+            const expireTime = typeof userInfo.expireTime === 'string' ? Number(userInfo.expireTime) : userInfo.expireTime
             const user: User = {
                 id: userInfo.user.id,
                 username: userInfo.user.username,
@@ -50,11 +64,17 @@ export const refreshUserInfo = createAsyncThunk(
                 email: userInfo.user.email || '',
                 phoneNumber: userInfo.user.phoneNumber || undefined,
                 avatar: userInfo.user.avatar || undefined,
-                role: userInfo.roles.includes('admin') ? 'admin' : 'user',
-                roles: userInfo.roles,
+                role: userInfo.roles?.includes('admin') ? 'admin' : 'user',
+                roles: userInfo.roles ?? [],
                 deptId: userInfo.deptId,
-                permissions: userInfo.permissions,
+                permissions: userInfo.permissions ?? [],
                 createdAt: userInfo.user.createTime || new Date().toISOString(),
+                loginTime: loginTime && !Number.isNaN(loginTime) ? loginTime : undefined,
+                expireTime: expireTime && !Number.isNaN(expireTime) ? expireTime : undefined,
+                ipaddr: userInfo.ipaddr ?? undefined,
+                loginLocation: userInfo.loginLocation ?? undefined,
+                browser: userInfo.browser ?? undefined,
+                os: userInfo.os ?? undefined,
             }
             
             return user
@@ -154,7 +174,9 @@ export const loginUser = createAsyncThunk(
             // 通过 /auth/info 接口获取用户详细信息
             const userInfo = await AuthService.getUserInfo()
             
-            // 将 UserInfoDetail 转换为 User 类型
+            // 将 UserInfoDetail 转换为 User 类型，并写入本次登录信息
+            const loginTime = typeof userInfo.loginTime === 'string' ? Number(userInfo.loginTime) : userInfo.loginTime
+            const expireTime = typeof userInfo.expireTime === 'string' ? Number(userInfo.expireTime) : userInfo.expireTime
             const user: User = {
                 id: userInfo.user.id,
                 username: userInfo.user.username,
@@ -162,11 +184,17 @@ export const loginUser = createAsyncThunk(
                 email: userInfo.user.email || '',
                 phoneNumber: userInfo.user.phoneNumber || undefined,
                 avatar: userInfo.user.avatar || undefined,
-                role: userInfo.roles.includes('admin') ? 'admin' : 'user',
-                roles: userInfo.roles,
+                role: userInfo.roles?.includes('admin') ? 'admin' : 'user',
+                roles: userInfo.roles ?? [],
                 deptId: userInfo.deptId,
-                permissions: userInfo.permissions,
+                permissions: userInfo.permissions ?? [],
                 createdAt: userInfo.user.createTime || new Date().toISOString(),
+                loginTime: loginTime && !Number.isNaN(loginTime) ? loginTime : undefined,
+                expireTime: expireTime && !Number.isNaN(expireTime) ? expireTime : undefined,
+                ipaddr: userInfo.ipaddr ?? undefined,
+                loginLocation: userInfo.loginLocation ?? undefined,
+                browser: userInfo.browser ?? undefined,
+                os: userInfo.os ?? undefined,
             }
             
             return user

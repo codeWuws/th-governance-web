@@ -29,39 +29,43 @@ export interface LoginResponse {
 
 /**
  * 用户详细信息（从 /auth/info 接口返回）
+ * 接口可能返回字符串或数字类型，此处兼容两种格式
  */
 export interface UserInfoDetail {
-    userId: number
-    deptId: number
+    userId: string | number
+    deptId: string | number
     token: string
-    loginTime: number
-    expireTime: number
-    ipaddr: string
-    loginLocation: string
-    browser: string
-    os: string
+    /** 登录时间戳（毫秒），可能为字符串 */
+    loginTime: string | number
+    /** 过期时间戳（毫秒），可能为字符串 */
+    expireTime: string | number
+    ipaddr: string | null
+    loginLocation: string | null
+    browser: string | null
+    os: string | null
     permissions: string[]
     roles: string[]
     user: {
-        id: number
+        id: string | number
         createBy: string
         createTime: string
-        updateBy: string
-        updateTime: string
-        remark: string
+        updateBy: string | null
+        updateTime: string | null
+        remark: string | null
         delFlag: number
         username: string
         nickName: string
         email: string
         phoneNumber: string
         sex: string
-        avatar: string
+        avatar: string | null
         password: string
         status: string
-        deptId: number
-        postId: number
+        deptId: string | number
+        postId: string | number
     }
-    mqttKey: string
+    mqttKey?: string
+    username?: string
 }
 
 /**
