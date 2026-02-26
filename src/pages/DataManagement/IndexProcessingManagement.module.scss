@@ -1,0 +1,39 @@
+@use '@/styles/variables' as *;
+
+// 患者索引处理页：仅保留操作区（合并）样式，筛选区使用全局 filter-bar-wrap
+
+.toolbarSection {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: $spacing-md;
+    padding: $spacing-md $spacing-lg;
+    margin-bottom: $spacing-lg;
+    background: $background-color;
+    border: 1px solid $border-color-split;
+    border-radius: $border-radius-base;
+}
+
+.toolbarLeft {
+    .selectedCount {
+        font-size: $font-size-sm;
+        color: $text-color-secondary;
+
+        strong {
+            color: $primary-color;
+            font-weight: $font-weight-medium;
+        }
+    }
+
+    .toolbarHint {
+        font-size: $font-size-sm;
+        color: $text-color-tertiary;
+    }
+}
+
+.toolbarRight {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+}

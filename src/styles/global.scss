@@ -269,6 +269,64 @@ button {
     }
 }
 
+// 筛选条：与数据管理各页面统一，自适应换行
+.filter-bar-wrap {
+    margin-bottom: $spacing-lg;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: $spacing-md $spacing-lg;
+
+    // Form 内联筛选（layout='inline' + filter-bar-form）
+    .filter-bar-form {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: $spacing-md $spacing-lg;
+        flex: 1;
+        min-width: 0;
+
+        .ant-form-item {
+            margin-bottom: 0;
+            margin-inline-end: 0;
+            flex: 0 1 auto;
+            min-width: 140px;
+        }
+    }
+
+    // 非 Form 的筛选区（直接放 Input/Select）
+    .filter-bar-filters {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: $spacing-md $spacing-lg;
+        flex: 1;
+        min-width: 0;
+
+        .ant-input,
+        .ant-select,
+        .ant-input-affix-wrapper {
+            flex: 0 1 auto;
+        }
+    }
+
+    // 筛选区右侧操作按钮
+    .filter-bar-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: $spacing-sm;
+        flex-shrink: 0;
+    }
+
+    // 超小屏下加大表单项最小宽度，换行后每行更易读
+    @include respond-to(xs) {
+        .filter-bar-form .ant-form-item {
+            min-width: 160px;
+        }
+    }
+}
+
 // 显示/隐藏工具类
 .hidden {
     display: none !important;

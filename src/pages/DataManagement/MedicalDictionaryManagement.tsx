@@ -524,12 +524,14 @@ const MedicalDictionaryManagement: React.FC = () => {
                 style={{ marginBottom: 24 }}
             />
             <Card>
-                {/* 筛选表单 */}
-                <Form
-                    form={filterForm}
-                    layout='inline'
-                    style={{ marginBottom: 16 }}
-                    onValuesChange={(changedValues, allValues) => {
+                {/* 筛选表单：自适应布局，左侧筛选区、右侧按钮区 */}
+                <div className='filter-bar-wrap'>
+                    <Form
+                        form={filterForm}
+                        layout='inline'
+                        // 当字段被清空时，确保传入 null 而不是 undefined
+                        className='filter-bar-form'
+                        onValuesChange={(changedValues, allValues) => {
                         // 当字段被清空时，确保传入 null 而不是 undefined
                         const values = {
                             dictName: allValues.dictName || null,
@@ -621,6 +623,7 @@ const MedicalDictionaryManagement: React.FC = () => {
                         </Space>
                     </Form.Item>
                 </Form>
+                </div>
                 <Table
                     columns={columns}
                     dataSource={data}

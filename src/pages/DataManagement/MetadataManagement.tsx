@@ -371,34 +371,36 @@ const MetadataManagement: React.FC = () => {
                 style={{ marginBottom: 24 }}
             />
             <Card>
-                <Space style={{ marginBottom: 16 }} wrap>
-                    <Search
-                        placeholder='搜索名称、描述或数据源'
-                        allowClear
-                        onSearch={handleSearch}
-                        style={{ width: 250 }}
-                        prefix={<SearchOutlined />}
-                    />
-                    <Select
-                        placeholder='类型筛选'
-                        style={{ width: 120 }}
-                        allowClear
-                        onChange={setTypeFilter}
-                    >
-                        <Option value='database'>数据库</Option>
-                        <Option value='table'>表</Option>
-                        <Option value='field'>字段</Option>
-                    </Select>
-                    <Select
-                        placeholder='状态筛选'
-                        style={{ width: 120 }}
-                        allowClear
-                        onChange={setStatusFilter}
-                    >
-                        <Option value='active'>启用</Option>
-                        <Option value='inactive'>禁用</Option>
-                    </Select>
-                </Space>
+                <div className='filter-bar-wrap'>
+                    <div className='filter-bar-filters'>
+                        <Search
+                            placeholder='搜索名称、描述或数据源'
+                            allowClear
+                            onSearch={handleSearch}
+                            style={{ width: 250 }}
+                            prefix={<SearchOutlined />}
+                        />
+                        <Select
+                            placeholder='类型筛选'
+                            style={{ width: 120 }}
+                            allowClear
+                            onChange={setTypeFilter}
+                        >
+                            <Option value='database'>数据库</Option>
+                            <Option value='table'>表</Option>
+                            <Option value='field'>字段</Option>
+                        </Select>
+                        <Select
+                            placeholder='状态筛选'
+                            style={{ width: 120 }}
+                            allowClear
+                            onChange={setStatusFilter}
+                        >
+                            <Option value='active'>启用</Option>
+                            <Option value='inactive'>禁用</Option>
+                        </Select>
+                    </div>
+                </div>
                 <Table
                     columns={columns}
                     dataSource={filteredData}

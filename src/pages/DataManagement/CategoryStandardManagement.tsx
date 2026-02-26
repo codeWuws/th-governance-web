@@ -409,9 +409,8 @@ const CategoryStandardManagement: React.FC = () => {
             </div>
 
             <Card>
-                <div style={{ marginBottom: 16 }}>
-                    <Space wrap size='middle'>
-                        
+                <div className='filter-bar-wrap'>
+                    <div className='filter-bar-filters'>
                         <Input
                             placeholder='类别名称'
                             allowClear
@@ -462,8 +461,10 @@ const CategoryStandardManagement: React.FC = () => {
                             <Option value={1}>启用</Option>
                             <Option value={0}>停用</Option>
                         </Select>
+                    </div>
+                    <div className='filter-bar-actions'>
                         <Button onClick={handleResetFilters}>重置</Button>
-                    </Space>
+                    </div>
                 </div>
                 <Table
                     columns={columns}

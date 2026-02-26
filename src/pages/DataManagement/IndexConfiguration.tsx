@@ -540,8 +540,9 @@ const IndexConfiguration: React.FC = () => {
                 style={{ marginBottom: 24 }}
             />
             <Card>
-                {/* 筛选表单 */}
-                <Form form={filterForm} layout='inline' style={{ marginBottom: 16 }}>
+                {/* 筛选表单：自适应布局，左侧筛选区、右侧按钮区 */}
+                <div className='filter-bar-wrap'>
+                    <Form form={filterForm} layout='inline' className='filter-bar-form'>
                     <Form.Item name='configName' label='配置名称'>
                         <Input
                             placeholder='请输入配置名称'
@@ -584,6 +585,7 @@ const IndexConfiguration: React.FC = () => {
                         </Space>
                     </Form.Item>
                 </Form>
+                </div>
                 <Table
                     columns={columns}
                     dataSource={data}

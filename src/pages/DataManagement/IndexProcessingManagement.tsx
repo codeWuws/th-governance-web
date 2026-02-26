@@ -3,7 +3,7 @@ import {
     Card,
     Table,
     Button,
-    Space,
+    Form,
     Input,
     Select,
     Tag,
@@ -11,8 +11,7 @@ import {
     Typography,
     message,
     Tooltip,
-    Row,
-    Col,
+    Space,
 } from 'antd'
 import {
     SearchOutlined,
@@ -30,6 +29,7 @@ import type { PatientEmpiRecord } from '../../types'
 import { uiMessage } from '../../utils/uiMessage'
 import { logger } from '../../utils/logger'
 import { showDialog } from '../../utils/showDialog'
+import styles from './IndexProcessingManagement.module.scss'
 
 const { Title, Text } = Typography
 const { Option } = Select
@@ -292,79 +292,79 @@ const MergeHistoryDialog: React.FC = () => {
 
     return (
         <div>
-            {/* 搜索区域 */}
+            {/* 搜索区域：左侧筛选区、右侧按钮区 */}
             <Card size='small' style={{ marginBottom: 16 }}>
-                <Row gutter={16} align='middle'>
-                    <Col flex='auto'>
-                        <Space size='middle' wrap>
-                            <Input
-                                placeholder='患者姓名'
-                                allowClear
-                                value={searchName}
-                                onChange={e => setSearchName(e.target.value)}
-                                onPressEnter={handleSearch}
-                                style={{ width: 150 }}
-                                prefix={<UserOutlined />}
-                            />
-                            <Select
-                                placeholder='性别'
-                                style={{ width: 120 }}
-                                allowClear
-                                value={searchSexCode}
-                                onChange={value => setSearchSexCode(value || '')}
-                            >
-                                <Option value='1'>男</Option>
-                                <Option value='0'>女</Option>
-                            </Select>
-                            <Input
-                                placeholder='身份证号'
-                                allowClear
-                                value={searchIdNumber}
-                                onChange={e => setSearchIdNumber(e.target.value)}
-                                onPressEnter={handleSearch}
-                                style={{ width: 180 }}
-                                prefix={<IdcardOutlined />}
-                            />
-                            <Input
-                                placeholder='医院编号'
-                                allowClear
-                                value={searchHospitalNo}
-                                onChange={e => setSearchHospitalNo(e.target.value)}
-                                onPressEnter={handleSearch}
-                                style={{ width: 150 }}
-                            />
-                            <Input
-                                placeholder='患者主索引'
-                                allowClear
-                                value={searchEmpi}
-                                onChange={e => setSearchEmpi(e.target.value)}
-                                onPressEnter={handleSearch}
-                                style={{ width: 150 }}
-                            />
-                            <Button
-                                onClick={handleClearSearch}
-                                disabled={!searchName && !searchSexCode && !searchIdNumber && !searchHospitalNo && !searchEmpi}
-                            >
-                                清空
-                            </Button>
-                            <Button
-                                type='primary'
-                                icon={<SearchOutlined />}
-                                onClick={handleSearch}
-                                loading={loading}
-                            >
-                                搜索
-                            </Button>
-                            <Button
-                                icon={<ReloadOutlined />}
-                                onClick={fetchHistoryData}
-                                loading={loading}
-                            >
-                                刷新
-                            </Button>
-                        </Space>
-                    </Col>
-                </Row>
+                <div className='filter-bar-wrap'>
+                    <div className='filter-bar-filters'>
+                        <Input
+                            placeholder='患者姓名'
+                            allowClear
+                            value={searchName}
+                            onChange={e => setSearchName(e.target.value)}
+                            onPressEnter={handleSearch}
+                            style={{ width: 150 }}
+                            prefix={<UserOutlined />}
+                        />
+                        <Select
+                            placeholder='性别'
+                            style={{ width: 120 }}
+                            allowClear
+                            value={searchSexCode}
+                            onChange={value => setSearchSexCode(value || '')}
+                        >
+                            <Option value='1'>男</Option>
+                            <Option value='0'>女</Option>
+                        </Select>
+                        <Input
+                            placeholder='身份证号'
+                            allowClear
+                            value={searchIdNumber}
+                            onChange={e => setSearchIdNumber(e.target.value)}
+                            onPressEnter={handleSearch}
+                            style={{ width: 180 }}
+                            prefix={<IdcardOutlined />}
+                        />
+                        <Input
+                            placeholder='医院编号'
+                            allowClear
+                            value={searchHospitalNo}
+                            onChange={e => setSearchHospitalNo(e.target.value)}
+                            onPressEnter={handleSearch}
+                            style={{ width: 150 }}
+                        />
+                        <Input
+                            placeholder='患者主索引'
+                            allowClear
+                            value={searchEmpi}
+                            onChange={e => setSearchEmpi(e.target.value)}
+                            onPressEnter={handleSearch}
+                            style={{ width: 150 }}
+                        />
+                    </div>
+                    <div className='filter-bar-actions'>
+                        <Button
+                            onClick={handleClearSearch}
+                            disabled={!searchName && !searchSexCode && !searchIdNumber && !searchHospitalNo && !searchEmpi}
+                        >
+                            清空
+                        </Button>
+                        <Button
+                            type='primary'
+                            icon={<SearchOutlined />}
+                            onClick={handleSearch}
+                            loading={loading}
+                        >
+                            搜索
+                        </Button>
+                        <Button
+                            icon={<ReloadOutlined />}
+                            onClick={fetchHistoryData}
+                            loading={loading}
+                        >
+                            刷新
+                        </Button>
+                    </div>
+                </div>
             </Card>
 
             {/* 表格 */}
@@ -897,12 +897,14 @@ const IndexProcessingManagement: React.FC = () => {
     const [loading, setLoading] = useState(false)
     const [patientRecords, setPatientRecords] = useState<PatientEmpiRecord[]>([])
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
-    // 五个独立的搜索条件
-    const [searchName, setSearchName] = useState('')
-    const [searchSexCode, setSearchSexCode] = useState<string>('')
-    const [searchIdNumber, setSearchIdNumber] = useState('')
-    const [searchHospitalNo, setSearchHospitalNo] = useState('')
-    const [searchEmpi, setSearchEmpi] = useState('')
+    const [filterForm] = Form.useForm()
+    const filterFormValues = Form.useWatch(undefined, filterForm)
+    const hasFilterValue = useMemo(() => {
+        if (!filterFormValues || typeof filterFormValues !== 'object') return false
+        return Object.values(filterFormValues).some(
+            x => x != null && String(x).trim() !== ''
+        )
+    }, [filterFormValues])
     const [currentPage, setCurrentPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
     const [total, setTotal] = useState(0)
@@ -992,25 +994,20 @@ const IndexProcessingManagement: React.FC = () => {
         fetchData()
     }, [currentPage, pageSize, activeSearchName, activeSearchSexCode, activeSearchIdNumber, activeSearchHospitalNo, activeSearchEmpi])
 
-    // 处理搜索按钮点击
+    // 处理搜索按钮点击：从表单取值并同步到实际查询条件
     const handleSearch = () => {
-        // 将当前输入框的值同步到实际搜索条件
-        setActiveSearchName(searchName)
-        setActiveSearchSexCode(searchSexCode)
-        setActiveSearchIdNumber(searchIdNumber)
-        setActiveSearchHospitalNo(searchHospitalNo)
-        setActiveSearchEmpi(searchEmpi)
-        setCurrentPage(1) // 重置到第一页
+        const v = filterForm.getFieldsValue() || {}
+        setActiveSearchName(typeof v.name === 'string' ? v.name.trim() : '')
+        setActiveSearchSexCode(v.sexCode != null ? String(v.sexCode) : '')
+        setActiveSearchIdNumber(typeof v.idNumber === 'string' ? v.idNumber.trim() : '')
+        setActiveSearchHospitalNo(typeof v.hospitalNo === 'string' ? v.hospitalNo.trim() : '')
+        setActiveSearchEmpi(typeof v.empi === 'string' ? v.empi.trim() : '')
+        setCurrentPage(1)
     }
 
     // 清空所有搜索条件
     const handleClearSearch = () => {
-        setSearchName('')
-        setSearchSexCode('')
-        setSearchIdNumber('')
-        setSearchHospitalNo('')
-        setSearchEmpi('')
-        // 同时清空实际搜索条件并触发搜索
+        filterForm.resetFields()
         setActiveSearchName('')
         setActiveSearchSexCode('')
         setActiveSearchIdNumber('')
@@ -1399,110 +1396,102 @@ const IndexProcessingManagement: React.FC = () => {
             />
 
             <Card>
-                {/* 搜索和筛选区域 */}
-                <div style={{ marginBottom: 24 }}>
-                    <Row gutter={16} align='middle'>
-                        <Col flex='auto'>
-                            <Space size='middle' wrap>
-                                <Input
-                                    placeholder='患者姓名'
-                                    allowClear
-                                    value={searchName}
-                                    onChange={e => setSearchName(e.target.value)}
-                                    onPressEnter={handleSearch}
-                                    style={{ width: 150 }}
-                                    prefix={<UserOutlined />}
-                                />
-                                <Select
-                                    placeholder='性别'
-                                    style={{ width: 120 }}
-                                    allowClear
-                                    value={searchSexCode}
-                                    onChange={value => setSearchSexCode(value || '')}
-                                >
-                                    <Option value='1'>男</Option>
-                                    <Option value='0'>女</Option>
-                                </Select>
-                                <Input
-                                    placeholder='身份证号'
-                                    allowClear
-                                    value={searchIdNumber}
-                                    onChange={e => setSearchIdNumber(e.target.value)}
-                                    onPressEnter={handleSearch}
-                                    style={{ width: 180 }}
-                                    prefix={<IdcardOutlined />}
-                                />
-                                <Input
-                                    placeholder='医院编号'
-                                    allowClear
-                                    value={searchHospitalNo}
-                                    onChange={e => setSearchHospitalNo(e.target.value)}
-                                    onPressEnter={handleSearch}
-                                    style={{ width: 150 }}
-                                />
-                                <Input
-                                    placeholder='患者主索引'
-                                    allowClear
-                                    value={searchEmpi}
-                                    onChange={e => setSearchEmpi(e.target.value)}
-                                    onPressEnter={handleSearch}
-                                    style={{ width: 150 }}
-                                />
-                                <Button
-                                    onClick={handleClearSearch}
-                                    disabled={!searchName && !searchSexCode && !searchIdNumber && !searchHospitalNo && !searchEmpi}
-                                >
+                {/* 筛选区：与数据管理其他页面统一的 Form 内联布局，自适应换行 */}
+                <div className='filter-bar-wrap'>
+                    <Form form={filterForm} layout='inline' className='filter-bar-form' onFinish={handleSearch}>
+                        <Form.Item name='name' label='姓名'>
+                            <Input
+                                placeholder='患者姓名'
+                                allowClear
+                                style={{ width: 160 }}
+                                onPressEnter={handleSearch}
+                                prefix={<UserOutlined style={{ color: 'rgba(0,0,0,0.25)' }} />}
+                            />
+                        </Form.Item>
+                        <Form.Item name='sexCode' label='性别'>
+                            <Select
+                                placeholder='请选择'
+                                allowClear
+                                style={{ width: 100 }}
+                            >
+                                <Option value='1'>男</Option>
+                                <Option value='0'>女</Option>
+                            </Select>
+                        </Form.Item>
+                        <Form.Item name='idNumber' label='身份证号'>
+                            <Input
+                                placeholder='身份证号'
+                                allowClear
+                                style={{ width: 180 }}
+                                onPressEnter={handleSearch}
+                                prefix={<IdcardOutlined style={{ color: 'rgba(0,0,0,0.25)' }} />}
+                            />
+                        </Form.Item>
+                        <Form.Item name='hospitalNo' label='医院编号'>
+                            <Input
+                                placeholder='医院编号'
+                                allowClear
+                                style={{ width: 140 }}
+                                onPressEnter={handleSearch}
+                            />
+                        </Form.Item>
+                        <Form.Item name='empi' label='主索引'>
+                            <Input
+                                placeholder='患者主索引'
+                                allowClear
+                                style={{ width: 140 }}
+                                onPressEnter={handleSearch}
+                            />
+                        </Form.Item>
+                        <Form.Item>
+                            <Space>
+                                <Button onClick={handleClearSearch} disabled={!hasFilterValue}>
                                     清空
                                 </Button>
-                                <Button
-                                    type='primary'
-                                    icon={<SearchOutlined />}
-                                    onClick={handleSearch}
-                                    loading={loading}
-                                >
+                                <Button type='primary' htmlType='submit' icon={<SearchOutlined />} loading={loading}>
                                     搜索
                                 </Button>
-                                <Button
-                                    icon={<ReloadOutlined />}
-                                    onClick={fetchData}
-                                    loading={loading}
-                                >
+                                <Button icon={<ReloadOutlined />} onClick={fetchData} loading={loading}>
                                     刷新
                                 </Button>
                             </Space>
-                        </Col>
-                        <Col>
-                            <Space>
-                                {selectedRowKeys.length > 0 && (
-                                    <Text type='secondary'>
-                                        已选择 {selectedRowKeys.length} 个患者
-                                    </Text>
-                                )}
-                                <Button
-                                    icon={<HistoryOutlined />}
-                                    onClick={() => {
-                                        showDialog({
-                                            title: '合并历史',
-                                            width: 1200,
-                                            okText: '关闭',
-                                            footer: null,
-                                            children: <MergeHistoryDialog />,
-                                        })
-                                    }}
-                                >
-                                    合并历史
-                                </Button>
-                                <Button
-                                    type='primary'
-                                    icon={<MergeCellsOutlined />}
-                                    onClick={handleMerge}
-                                    disabled={selectedRowKeys.length < 2}
-                                >
-                                    合并选中患者
-                                </Button>
-                            </Space>
-                        </Col>
-                    </Row>
+                        </Form.Item>
+                    </Form>
+                </div>
+
+                {/* 操作区：合并相关操作，与筛选区视觉分离 */}
+                <div className={styles.toolbarSection}>
+                    <div className={styles.toolbarLeft}>
+                        {selectedRowKeys.length > 0 ? (
+                            <span className={styles.selectedCount}>已选 <strong>{selectedRowKeys.length}</strong> 条，至少选择 2 条可合并</span>
+                        ) : (
+                            <span className={styles.toolbarHint}>勾选列表中至少 2 条患者记录后进行合并</span>
+                        )}
+                    </div>
+                    <div className={styles.toolbarRight}>
+                        <Button
+                            icon={<HistoryOutlined />}
+                            onClick={() => {
+                                showDialog({
+                                    title: '合并历史',
+                                    width: 1200,
+                                    okText: '关闭',
+                                    footer: null,
+                                    children: <MergeHistoryDialog />,
+                                })
+                            }}
+                        >
+                            合并历史
+                        </Button>
+                        <Button
+                            type='primary'
+                            icon={<MergeCellsOutlined />}
+                            onClick={handleMerge}
+                            disabled={selectedRowKeys.length < 2}
+                        >
+                            合并选中患者
+                        </Button>
+                    </div>
                 </div>
 
                 {/* 患者表格 */}

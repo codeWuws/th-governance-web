@@ -606,19 +606,21 @@ const BusinessDatasetManagement: React.FC = () => {
             />
 
             <Card>
-
-                {/* 筛选表单 */}
-                <Form
-                    form={filterForm}
-                    layout='inline'
-                    style={{ marginBottom: 16 }}
-                    onValuesChange={(changedValues, allValues) => {
+                {/* 筛选表单：自适应布局，左侧筛选区、右侧按钮区 */}
+                <div className='filter-bar-wrap'>
+                    <Form
+                        form={filterForm}
+                        // 当字段被清空时，确保传入 null 而不是 undefined
+                        layout='inline'
+                        className='filter-bar-form'
+                        onValuesChange={(changedValues, allValues) => {
                         // 当字段被清空时，确保传入 null 而不是 undefined
                         const values = {
                             dataSetName: allValues.dataSetName || null,
                             dataSetCode: allValues.dataSetCode || null,
                             categoryId: allValues.categoryId ?? null,
                             status: allValues.status ?? null,
+                        
                         }
                         setDataSetName(values.dataSetName || '')
                         setDataSetCode(values.dataSetCode || '')
@@ -683,6 +685,7 @@ const BusinessDatasetManagement: React.FC = () => {
                         </Button>
                     </Form.Item>
                 </Form>
+                </div>
 
                 <Table
                     columns={columns}
